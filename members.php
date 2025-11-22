@@ -111,7 +111,7 @@
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('orgSelect');
-                    select.innerHTML = '<option value="">Select organization...</option>';
+                    select.innerHTML = '';
                     data.forEach(org => {
                         const option = document.createElement('option');
                         option.value = org.id;
