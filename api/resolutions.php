@@ -72,10 +72,38 @@ switch ($method) {
             exit;
         }
         
+        $agendaItemId = null;
+        
+        // If no agenda_item_id provided, create one automatically
+        if (empty($data['agenda_item_id'])) {
+            // Get max position for agenda items
+            $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as new_position FROM agenda_items WHERE meeting_id = ?");
+            $stmt->execute([$meetingId]);
+            $result = $stmt->fetch();
+            $position = $result['new_position'];
+            
+            // Create agenda item for the resolution
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $meetingId,
+                $title,
+                $description,
+                'Vote', // Resolutions are typically vote items
+                !empty($data['motion_moved_by']) ? (int)$data['motion_moved_by'] : null,
+                null, // duration
+                $position,
+                'Pending'
+            ]);
+            
+            $agendaItemId = $db->lastInsertId();
+        } else {
+            $agendaItemId = (int)$data['agenda_item_id'];
+        }
+        
         $stmt = $db->prepare("INSERT INTO resolutions (meeting_id, agenda_item_id, resolution_number, title, description, motion_moved_by, motion_seconded_by, vote_type, votes_for, votes_against, votes_abstain, status, effective_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $meetingId,
-            !empty($data['agenda_item_id']) ? (int)$data['agenda_item_id'] : null,
+            $agendaItemId,
             $data['resolution_number'] ?? null,
             $title,
             $description,

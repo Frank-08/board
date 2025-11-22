@@ -461,15 +461,21 @@
                         return;
                     }
                     list.innerHTML = items.map(item => `
-                        <div class="agenda-item">
+                        <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}">
                             <div class="item-header">
                                 <h4>${item.position ? item.position + 1 + '. ' : ''}${item.title}</h4>
                                 <div class="item-actions">
+                                    ${item.resolution_id ? `<a href="#resolutions" onclick="showTab('resolutions'); event.preventDefault();" class="btn btn-sm" style="text-decoration: none; display: inline-block;">View Resolution</a>` : ''}
                                     <button onclick="editAgendaItem(${item.id})" class="btn btn-sm">Edit</button>
                                     <button onclick="deleteAgendaItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
                                 </div>
                             </div>
                             ${item.description ? `<p>${item.description}</p>` : ''}
+                            ${item.resolution_id ? `<div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #28a745;">
+                                <strong>📋 Linked Resolution:</strong> ${item.resolution_title || 'Resolution'} 
+                                ${item.resolution_number ? `(#${item.resolution_number})` : ''}
+                                ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase()}" style="margin-left: 8px;">${item.resolution_status}</span>` : ''}
+                            </div>` : ''}
                             <div class="agenda-meta">
                                 <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
                                 ${item.presenter_first_name ? `<span>Presenter: ${item.presenter_first_name} ${item.presenter_last_name}</span>` : ''}

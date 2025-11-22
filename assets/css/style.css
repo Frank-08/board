@@ -502,6 +502,10 @@ main {
     border-left: 4px solid #667eea;
 }
 
+.agenda-item-with-resolution {
+    border-left: 4px solid #28a745;
+}
+
 .item-header {
     display: flex;
     justify-content: space-between;
