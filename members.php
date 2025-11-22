@@ -28,10 +28,10 @@
             </div>
 
             <div class="organization-selector">
-                <!-- <label for="orgSelect">Committee:</label>
+                <label for="orgSelect">Committee:</label>
                 <select id="orgSelect" onchange="loadMembers()">
                     <option value="">Select Committee...</option>
-                </select> -->
+                </select>
             </div>
 
             <div id="members-list" class="members-grid"></div>
@@ -111,7 +111,7 @@
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('orgSelect');
-                    select.innerHTML = '';
+                    select.innerHTML = '<option value="">Select organization...</option>';
                     data.forEach(org => {
                         const option = document.createElement('option');
                         option.value = org.id;
