@@ -1,0 +1,369 @@
+<?php
+/**
+ * Agenda Export to PDF/Print
+ */
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/config.php';
+
+$meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : 0;
+
+if (!$meetingId) {
+    die('Meeting ID is required');
+}
+
+$db = getDBConnection();
+
+// Get meeting details
+$stmt = $db->prepare("SELECT m.*, o.name as organization_name, o.address as organization_address, o.phone as organization_phone, o.email as organization_email FROM meetings m JOIN organizations o ON m.organization_id = o.id WHERE m.id = ?");
+$stmt->execute([$meetingId]);
+$meeting = $stmt->fetch();
+
+if (!$meeting) {
+    die('Meeting not found');
+}
+
+// Get agenda items
+$stmt = $db->prepare("
+    SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.role as presenter_role
+    FROM agenda_items ai
+    LEFT JOIN board_members bm ON ai.presenter_id = bm.id
+    WHERE ai.meeting_id = ?
+    ORDER BY ai.position ASC
+");
+$stmt->execute([$meetingId]);
+$agendaItems = $stmt->fetchAll();
+
+// Get attendees
+$stmt = $db->prepare("
+    SELECT ma.*, bm.first_name, bm.last_name, bm.role, bm.title
+    FROM meeting_attendees ma
+    JOIN board_members bm ON ma.member_id = bm.id
+    WHERE ma.meeting_id = ?
+    ORDER BY 
+        FIELD(bm.role, 'Chair', 'Vice Chair', 'Secretary', 'Treasurer', 'Executive Director', 'Member'),
+        bm.last_name ASC
+");
+$stmt->execute([$meetingId]);
+$attendees = $stmt->fetchAll();
+
+// Format date
+function formatDate($dateString) {
+    if (!$dateString) return '';
+    $date = new DateTime($dateString);
+    return $date->format('F j, Y');
+}
+
+function formatTime($dateString) {
+    if (!$dateString) return '';
+    $date = new DateTime($dateString);
+    return $date->format('g:i A');
+}
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Agenda - <?php echo htmlspecialchars($meeting['title']); ?></title>
+    <style>
+        @media print {
+            body {
+                margin: 0;
+                padding: 20px;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+        
+        .header .organization {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .meeting-info {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .meeting-info h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 24px;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            width: 150px;
+            color: #555;
+        }
+        
+        .info-value {
+            flex: 1;
+        }
+        
+        .attendees-section {
+            margin-bottom: 30px;
+        }
+        
+        .attendees-section h3 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .attendee-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .attendee-item {
+            padding: 8px;
+            background-color: #f9f9f9;
+            border-left: 3px solid #667eea;
+        }
+        
+        .agenda-section h3 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .agenda-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+        
+        .agenda-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .agenda-item-number {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 18px;
+            margin-right: 10px;
+        }
+        
+        .agenda-item-title {
+            flex: 1;
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .agenda-item-type {
+            background-color: #667eea;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .agenda-item-details {
+            margin-top: 10px;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        .agenda-item-details p {
+            margin: 5px 0;
+        }
+        
+        .print-buttons {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 0 10px;
+            background-color: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background-color: #5568d3;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print print-buttons">
+        <button onclick="window.print()" class="btn">Print / Save as PDF</button>
+        <a href="javascript:history.back()" class="btn btn-secondary">Back</a>
+    </div>
+
+    <div class="header">
+        <div class="organization"><?php echo htmlspecialchars($meeting['organization_name']); ?></div>
+        <h1>Meeting Agenda</h1>
+    </div>
+
+    <div class="meeting-info">
+        <h2><?php echo htmlspecialchars($meeting['title']); ?></h2>
+        <div class="info-row">
+            <div class="info-label">Meeting Type:</div>
+            <div class="info-value"><?php echo htmlspecialchars($meeting['meeting_type']); ?></div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Date:</div>
+            <div class="info-value"><?php echo formatDate($meeting['scheduled_date']); ?></div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Time:</div>
+            <div class="info-value"><?php echo formatTime($meeting['scheduled_date']); ?></div>
+        </div>
+        <?php if ($meeting['location']): ?>
+        <div class="info-row">
+            <div class="info-label">Location:</div>
+            <div class="info-value"><?php echo htmlspecialchars($meeting['location']); ?></div>
+        </div>
+        <?php endif; ?>
+        <?php if ($meeting['virtual_link']): ?>
+        <div class="info-row">
+            <div class="info-label">Virtual Link:</div>
+            <div class="info-value"><?php echo htmlspecialchars($meeting['virtual_link']); ?></div>
+        </div>
+        <?php endif; ?>
+        <?php if ($meeting['organization_address']): ?>
+        <div class="info-row">
+            <div class="info-label">Organization Address:</div>
+            <div class="info-value"><?php echo htmlspecialchars($meeting['organization_address']); ?></div>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if (count($attendees) > 0): ?>
+    <div class="attendees-section">
+        <h3>Expected Attendees</h3>
+        <div class="attendee-list">
+            <?php foreach ($attendees as $attendee): ?>
+            <div class="attendee-item">
+                <strong><?php echo htmlspecialchars($attendee['first_name'] . ' ' . $attendee['last_name']); ?></strong>
+                <?php if ($attendee['role']): ?>
+                <br><span style="color: #666; font-size: 14px;"><?php echo htmlspecialchars($attendee['role']); ?></span>
+                <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <div class="agenda-section">
+        <h3>Agenda Items</h3>
+        
+        <?php if (count($agendaItems) > 0): ?>
+            <?php foreach ($agendaItems as $index => $item): ?>
+            <div class="agenda-item">
+                <div class="agenda-item-header">
+                    <div style="display: flex; align-items: flex-start;">
+                        <span class="agenda-item-number"><?php echo $index + 1; ?>.</span>
+                        <span class="agenda-item-title"><?php echo htmlspecialchars($item['title']); ?></span>
+                    </div>
+                    <?php if ($item['item_type']): ?>
+                    <span class="agenda-item-type"><?php echo htmlspecialchars($item['item_type']); ?></span>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="agenda-item-details">
+                    <?php if ($item['description']): ?>
+                    <p><strong>Description:</strong> <?php echo nl2br(htmlspecialchars($item['description'])); ?></p>
+                    <?php endif; ?>
+                    
+                    <?php if ($item['presenter_first_name']): ?>
+                    <p><strong>Presenter:</strong> <?php echo htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); ?>
+                        <?php if ($item['presenter_role']): ?>
+                        (<?php echo htmlspecialchars($item['presenter_role']); ?>)
+                        <?php endif; ?>
+                    </p>
+                    <?php endif; ?>
+                    
+                    <?php if ($item['duration_minutes']): ?>
+                    <p><strong>Duration:</strong> <?php echo htmlspecialchars($item['duration_minutes']); ?> minutes</p>
+                    <?php endif; ?>
+                    
+                    <?php if ($item['status'] && $item['status'] != 'Pending'): ?>
+                    <p><strong>Status:</strong> <?php echo htmlspecialchars($item['status']); ?></p>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <p>No agenda items have been added yet.</p>
+        <?php endif; ?>
+    </div>
+
+    <div class="footer">
+        <p>Generated on <?php echo date('F j, Y \a\t g:i A'); ?></p>
+        <p><?php echo htmlspecialchars($meeting['organization_name']); ?> - Governance Board Management System</p>
+    </div>
+</body>
+</html>
+

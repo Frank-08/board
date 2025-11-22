@@ -402,8 +402,15 @@
                             <button class="tab-btn" onclick="showTab('resolutions')">Resolutions</button>
                         </div>
                         <div id="tab-agenda" class="tab-content active">
-                            <h3>Agenda Items</h3>
-                            <button onclick="addAgendaItem()" class="btn btn-sm btn-primary">+ Add Item</button>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h3 style="margin: 0;">Agenda Items</h3>
+                                <div>
+                                    <a href="export/agenda.php?meeting_id=${meeting.id}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration: none; display: inline-block;">
+                                        📄 Export to PDF
+                                    </a>
+                                    <button onclick="addAgendaItem()" class="btn btn-sm btn-primary">+ Add Item</button>
+                                </div>
+                            </div>
                             <div id="agenda-items-list"></div>
                         </div>
                         <div id="tab-attendees" class="tab-content">
