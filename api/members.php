@@ -69,29 +69,44 @@ switch ($method) {
             exit;
         }
         
-        $stmt = $db->prepare("INSERT INTO board_members (organization_id, first_name, last_name, email, phone, title, role, start_date, end_date, status, bio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $orgId,
-            $firstName,
-            $lastName,
-            $data['email'] ?? null,
-            $data['phone'] ?? null,
-            $data['title'] ?? null,
-            $data['role'] ?? 'Member',
-            $data['start_date'] ?? null,
-            $data['end_date'] ?? null,
-            $data['status'] ?? 'Active',
-            $data['bio'] ?? null
-        ]);
-        
-        $memberId = $db->lastInsertId();
-        $stmt = $db->prepare("SELECT * FROM board_members WHERE id = ?");
-        $stmt->execute([$memberId]);
-        echo json_encode($stmt->fetch());
+        try {
+            $stmt = $db->prepare("INSERT INTO board_members (organization_id, first_name, last_name, email, phone, title, role, start_date, end_date, status, bio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $orgId,
+                $firstName,
+                $lastName,
+                $data['email'] ?? null,
+                $data['phone'] ?? null,
+                $data['title'] ?? null,
+                $data['role'] ?? 'Member',
+                $data['start_date'] ?? null,
+                $data['end_date'] ?? null,
+                $data['status'] ?? 'Active',
+                $data['bio'] ?? null
+            ]);
+            
+            $memberId = $db->lastInsertId();
+            $stmt = $db->prepare("SELECT * FROM board_members WHERE id = ?");
+            $stmt->execute([$memberId]);
+            echo json_encode($stmt->fetch());
+        } catch (PDOException $e) {
+            error_log("Error creating member: " . $e->getMessage());
+            http_response_code(400);
+            if (strpos($e->getMessage(), 'Data truncated') !== false || strpos($e->getMessage(), 'enum') !== false) {
+                echo json_encode(['error' => 'Invalid role value. Please update your database schema or contact administrator.']);
+            } else {
+                echo json_encode(['error' => 'Error creating member: ' . $e->getMessage()]);
+            }
+        }
         break;
         
     case 'PUT':
         $data = json_decode(file_get_contents('php://input'), true);
+        if (!$data) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid JSON data']);
+            exit;
+        }
         $id = (int)($data['id'] ?? 0);
         
         if (!$id) {
@@ -100,24 +115,34 @@ switch ($method) {
             exit;
         }
         
-        $stmt = $db->prepare("UPDATE board_members SET first_name = ?, last_name = ?, email = ?, phone = ?, title = ?, role = ?, start_date = ?, end_date = ?, status = ?, bio = ? WHERE id = ?");
-        $stmt->execute([
-            $data['first_name'] ?? '',
-            $data['last_name'] ?? '',
-            $data['email'] ?? null,
-            $data['phone'] ?? null,
-            $data['title'] ?? null,
-            $data['role'] ?? 'Member',
-            $data['start_date'] ?? null,
-            $data['end_date'] ?? null,
-            $data['status'] ?? 'Active',
-            $data['bio'] ?? null,
-            $id
-        ]);
-        
-        $stmt = $db->prepare("SELECT * FROM board_members WHERE id = ?");
-        $stmt->execute([$id]);
-        echo json_encode($stmt->fetch());
+        try {
+            $stmt = $db->prepare("UPDATE board_members SET first_name = ?, last_name = ?, email = ?, phone = ?, title = ?, role = ?, start_date = ?, end_date = ?, status = ?, bio = ? WHERE id = ?");
+            $stmt->execute([
+                $data['first_name'] ?? '',
+                $data['last_name'] ?? '',
+                $data['email'] ?? null,
+                $data['phone'] ?? null,
+                $data['title'] ?? null,
+                $data['role'] ?? 'Member',
+                $data['start_date'] ?? null,
+                $data['end_date'] ?? null,
+                $data['status'] ?? 'Active',
+                $data['bio'] ?? null,
+                $id
+            ]);
+            
+            $stmt = $db->prepare("SELECT * FROM board_members WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode($stmt->fetch());
+        } catch (PDOException $e) {
+            error_log("Error updating member: " . $e->getMessage());
+            http_response_code(400);
+            if (strpos($e->getMessage(), 'Data truncated') !== false || strpos($e->getMessage(), 'enum') !== false) {
+                echo json_encode(['error' => 'Invalid role value "' . ($data['role'] ?? '') . '". The database may need to be updated. Please run: php database/fix_role_enum.php']);
+            } else {
+                echo json_encode(['error' => 'Error updating member: ' . $e->getMessage()]);
+            }
+        }
         break;
         
     case 'DELETE':

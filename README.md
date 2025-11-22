@@ -232,6 +232,28 @@ Similar endpoints exist for members, meetings, agenda items, attendees, minutes,
 - Enable error logging in `.htaccess` or `php.ini`
 - Check Apache error logs: `/var/log/apache2/error.log`
 
+### Cannot Set Role as "Deputy Chair"
+
+If you're unable to set a member's role to "Deputy Chair" or "Ex-officio", your database schema may need updating. Run one of these:
+
+**Option 1: PHP Script (Recommended)**
+```bash
+php database/fix_role_enum.php
+```
+
+**Option 2: SQL Migration**
+```bash
+mysql -u root -p governance_board < database/migration_add_deputy_chair.sql
+```
+
+**Option 3: Manual SQL**
+```sql
+USE governance_board;
+ALTER TABLE board_members 
+MODIFY COLUMN role ENUM('Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Member', 'Ex-officio') 
+DEFAULT 'Member';
+```
+
 ### 404 Errors
 
 - Verify `.htaccess` is present and enabled
