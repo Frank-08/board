@@ -44,6 +44,212 @@
         </main>
     </div>
 
+    <!-- Agenda Item Modal -->
+    <div id="agendaItemModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close" onclick="closeAgendaItemModal()">&times;</span>
+            <h2 id="modalAgendaTitle">New Agenda Item</h2>
+            <form id="agendaItemForm" onsubmit="saveAgendaItem(event)">
+                <input type="hidden" id="agendaItemId">
+                <div class="form-group">
+                    <label for="agendaItemTitle">Title *</label>
+                    <input type="text" id="agendaItemTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="agendaItemDescription">Description</label>
+                    <textarea id="agendaItemDescription" rows="4"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="agendaItemType">Item Type *</label>
+                        <select id="agendaItemType" required>
+                            <option value="Discussion">Discussion</option>
+                            <option value="Action Item">Action Item</option>
+                            <option value="Vote">Vote</option>
+                            <option value="Information">Information</option>
+                            <option value="Presentation">Presentation</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="agendaItemDuration">Duration (minutes)</label>
+                        <input type="number" id="agendaItemDuration" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="agendaItemStatus">Status</label>
+                        <select id="agendaItemStatus">
+                            <option value="Pending">Pending</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Deferred">Deferred</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="agendaItemPresenter">Presenter</label>
+                    <select id="agendaItemPresenter">
+                        <option value="">Select presenter...</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Agenda Item</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Attendee Modal -->
+    <div id="attendeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAttendeeModal()">&times;</span>
+            <h2 id="modalAttendeeTitle">Add Attendee</h2>
+            <form id="attendeeForm" onsubmit="saveAttendee(event)">
+                <input type="hidden" id="attendeeId">
+                <div class="form-group">
+                    <label for="attendeeMember">Board Member *</label>
+                    <select id="attendeeMember" required>
+                        <option value="">Select member...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="attendeeStatus">Attendance Status *</label>
+                    <select id="attendeeStatus" required>
+                        <option value="Present">Present</option>
+                        <option value="Absent">Absent</option>
+                        <option value="Excused">Excused</option>
+                        <option value="Late">Late</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="attendeeArrivalTime">Arrival Time</label>
+                    <input type="datetime-local" id="attendeeArrivalTime">
+                </div>
+                <div class="form-group">
+                    <label for="attendeeNotes">Notes</label>
+                    <textarea id="attendeeNotes" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Attendee</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resolution Modal -->
+    <div id="resolutionModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close" onclick="closeResolutionModal()">&times;</span>
+            <h2 id="modalResolutionTitle">New Resolution</h2>
+            <form id="resolutionForm" onsubmit="saveResolution(event)">
+                <input type="hidden" id="resolutionId">
+                <div class="form-group">
+                    <label for="resolutionTitle">Title *</label>
+                    <input type="text" id="resolutionTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="resolutionDescription">Description *</label>
+                    <textarea id="resolutionDescription" rows="5" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="resolutionNumber">Resolution Number</label>
+                        <input type="text" id="resolutionNumber">
+                    </div>
+                    <div class="form-group">
+                        <label for="resolutionStatus">Status</label>
+                        <select id="resolutionStatus">
+                            <option value="Proposed">Proposed</option>
+                            <option value="Passed">Passed</option>
+                            <option value="Failed">Failed</option>
+                            <option value="Tabled">Tabled</option>
+                            <option value="Withdrawn">Withdrawn</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="resolutionMovedBy">Moved By</label>
+                        <select id="resolutionMovedBy">
+                            <option value="">Select member...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="resolutionSecondedBy">Seconded By</label>
+                        <select id="resolutionSecondedBy">
+                            <option value="">Select member...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="resolutionVoteType">Vote Type</label>
+                        <select id="resolutionVoteType">
+                            <option value="">Select vote type...</option>
+                            <option value="Unanimous">Unanimous</option>
+                            <option value="Majority">Majority</option>
+                            <option value="Split">Split</option>
+                            <option value="Tabled">Tabled</option>
+                            <option value="Withdrawn">Withdrawn</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="resolutionVotesFor">Votes For</label>
+                        <input type="number" id="resolutionVotesFor" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="resolutionVotesAgainst">Votes Against</label>
+                        <input type="number" id="resolutionVotesAgainst" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="resolutionVotesAbstain">Votes Abstain</label>
+                        <input type="number" id="resolutionVotesAbstain" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="resolutionEffectiveDate">Effective Date</label>
+                    <input type="date" id="resolutionEffectiveDate">
+                </div>
+                <button type="submit" class="btn btn-primary">Save Resolution</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Minutes Modal -->
+    <div id="minutesModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close" onclick="closeMinutesModal()">&times;</span>
+            <h2 id="modalMinutesTitle">Create Minutes</h2>
+            <form id="minutesForm" onsubmit="saveMinutes(event)">
+                <input type="hidden" id="minutesId">
+                <div class="form-group">
+                    <label for="minutesStatus">Status</label>
+                    <select id="minutesStatus">
+                        <option value="Draft">Draft</option>
+                        <option value="Review">Review</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Published">Published</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="minutesPreparedBy">Prepared By</label>
+                    <select id="minutesPreparedBy">
+                        <option value="">Select member...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="minutesContent">Minutes Content *</label>
+                    <textarea id="minutesContent" rows="15" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="minutesActionItems">Action Items</label>
+                    <textarea id="minutesActionItems" rows="5"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="minutesNextMeetingDate">Next Meeting Date</label>
+                        <input type="datetime-local" id="minutesNextMeetingDate">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Minutes</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Meeting Modal -->
     <div id="meetingModal" class="modal">
         <div class="modal-content modal-large">
@@ -207,6 +413,8 @@
                         </div>
                         <div id="tab-minutes" class="tab-content">
                             <h3>Meeting Minutes</h3>
+                            <button onclick="createMinutes()" class="btn btn-sm btn-primary" id="createMinutesBtn" style="display:none;">Create Minutes</button>
+                            <button onclick="editMinutes()" class="btn btn-sm btn-primary" id="editMinutesBtn" style="display:none;">Edit Minutes</button>
                             <div id="minutes-content"></div>
                         </div>
                         <div id="tab-resolutions" class="tab-content">
@@ -247,12 +455,19 @@
                     }
                     list.innerHTML = items.map(item => `
                         <div class="agenda-item">
-                            <h4>${item.title}</h4>
+                            <div class="item-header">
+                                <h4>${item.position ? item.position + 1 + '. ' : ''}${item.title}</h4>
+                                <div class="item-actions">
+                                    <button onclick="editAgendaItem(${item.id})" class="btn btn-sm">Edit</button>
+                                    <button onclick="deleteAgendaItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
+                                </div>
+                            </div>
                             ${item.description ? `<p>${item.description}</p>` : ''}
                             <div class="agenda-meta">
-                                <span class="badge badge-${item.item_type.toLowerCase()}">${item.item_type}</span>
+                                <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
                                 ${item.presenter_first_name ? `<span>Presenter: ${item.presenter_first_name} ${item.presenter_last_name}</span>` : ''}
                                 ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
+                                ${item.status ? `<span class="badge badge-${item.status.toLowerCase()}">${item.status}</span>` : ''}
                             </div>
                         </div>
                     `).join('');
@@ -270,8 +485,15 @@
                     }
                     list.innerHTML = attendees.map(att => `
                         <div class="attendee-item">
-                            <strong>${att.first_name} ${att.last_name}</strong> (${att.role})
-                            <span class="badge badge-${att.attendance_status.toLowerCase()}">${att.attendance_status}</span>
+                            <div>
+                                <strong>${att.first_name} ${att.last_name}</strong> (${att.role})
+                                ${att.attendance_status ? `<span class="badge badge-${att.attendance_status.toLowerCase()}">${att.attendance_status}</span>` : ''}
+                                ${att.arrival_time ? `<span style="font-size: 12px; color: #666;">Arrived: ${formatDateTime(att.arrival_time)}</span>` : ''}
+                            </div>
+                            <div class="item-actions">
+                                <button onclick="editAttendee(${att.id})" class="btn btn-sm">Edit</button>
+                                <button onclick="deleteAttendee(${att.id})" class="btn btn-sm btn-danger">Delete</button>
+                            </div>
                         </div>
                     `).join('');
                 });
@@ -282,15 +504,33 @@
                 .then(response => response.json())
                 .then(minutes => {
                     const content = document.getElementById('minutes-content');
+                    const createBtn = document.getElementById('createMinutesBtn');
+                    const editBtn = document.getElementById('editMinutesBtn');
+                    
                     if (!minutes || minutes === null) {
-                        content.innerHTML = '<button onclick="createMinutes()" class="btn btn-primary">Create Minutes</button>';
+                        content.innerHTML = '';
+                        if (createBtn) createBtn.style.display = 'inline-block';
+                        if (editBtn) editBtn.style.display = 'none';
                         return;
                     }
+                    
+                    if (createBtn) createBtn.style.display = 'none';
+                    if (editBtn) editBtn.style.display = 'inline-block';
                     content.innerHTML = `
                         <div class="minutes-display">
-                            <p><strong>Status:</strong> <span class="badge badge-${minutes.status.toLowerCase()}">${minutes.status}</span></p>
+                            <div class="minutes-header">
+                                <p><strong>Status:</strong> <span class="badge badge-${minutes.status.toLowerCase()}">${minutes.status}</span></p>
+                                <div>
+                                    ${minutes.status !== 'Approved' ? `<button onclick="editMinutes()" class="btn btn-sm">Edit</button>` : ''}
+                                    ${minutes.status === 'Draft' || minutes.status === 'Review' ? `<button onclick="approveMinutes()" class="btn btn-sm btn-primary">Approve</button>` : ''}
+                                </div>
+                            </div>
+                            ${minutes.prepared_first_name ? `<p><strong>Prepared by:</strong> ${minutes.prepared_first_name} ${minutes.prepared_last_name}</p>` : ''}
+                            ${minutes.approved_first_name ? `<p><strong>Approved by:</strong> ${minutes.approved_first_name} ${minutes.approved_last_name}</p>` : ''}
+                            ${minutes.approved_at ? `<p><strong>Approved on:</strong> ${formatDateTime(minutes.approved_at)}</p>` : ''}
                             <div class="minutes-text">${minutes.content.replace(/\n/g, '<br>')}</div>
-                            ${minutes.action_items ? `<h4>Action Items</h4><div>${minutes.action_items.replace(/\n/g, '<br>')}</div>` : ''}
+                            ${minutes.action_items ? `<h4>Action Items</h4><div class="minutes-text">${minutes.action_items.replace(/\n/g, '<br>')}</div>` : ''}
+                            ${minutes.next_meeting_date ? `<p><strong>Next Meeting:</strong> ${formatDateTime(minutes.next_meeting_date)}</p>` : ''}
                         </div>
                     `;
                 });
@@ -307,8 +547,18 @@
                     }
                     list.innerHTML = resolutions.map(res => `
                         <div class="resolution-item">
-                            <h4>${res.title}</h4>
+                            <div class="item-header">
+                                <h4>${res.title}</h4>
+                                <div class="item-actions">
+                                    <button onclick="editResolution(${res.id})" class="btn btn-sm">Edit</button>
+                                    <button onclick="deleteResolution(${res.id})" class="btn btn-sm btn-danger">Delete</button>
+                                </div>
+                            </div>
                             <p>${res.description}</p>
+                            ${res.resolution_number ? `<p><strong>Resolution #:</strong> ${res.resolution_number}</p>` : ''}
+                            ${res.moved_first_name ? `<p><strong>Moved by:</strong> ${res.moved_first_name} ${res.moved_last_name}</p>` : ''}
+                            ${res.seconded_first_name ? `<p><strong>Seconded by:</strong> ${res.seconded_first_name} ${res.seconded_last_name}</p>` : ''}
+                            ${res.vote_type ? `<p><strong>Vote:</strong> ${res.votes_for} for, ${res.votes_against} against, ${res.votes_abstain} abstain (${res.vote_type})</p>` : ''}
                             <p><strong>Status:</strong> <span class="badge badge-${res.status.toLowerCase()}">${res.status}</span></p>
                         </div>
                     `).join('');
@@ -428,27 +678,505 @@
             });
         }
 
+        // Agenda Item Management
         function addAgendaItem() {
-            alert('Agenda item management coming soon');
+            if (!currentMeetingId) return;
+            showAgendaItemModal();
         }
 
+        function editAgendaItem(id) {
+            fetch(`api/agenda.php?id=${id}`)
+                .then(response => response.json())
+                .then(item => showAgendaItemModal(item));
+        }
+
+        function showAgendaItemModal(item = null) {
+            loadBoardMembers().then(members => {
+                const modal = document.getElementById('agendaItemModal');
+                const form = document.getElementById('agendaItemForm');
+                
+                if (item) {
+                    document.getElementById('agendaItemId').value = item.id;
+                    document.getElementById('agendaItemTitle').value = item.title;
+                    document.getElementById('agendaItemDescription').value = item.description || '';
+                    document.getElementById('agendaItemType').value = item.item_type;
+                    document.getElementById('agendaItemDuration').value = item.duration_minutes || '';
+                    document.getElementById('agendaItemStatus').value = item.status || 'Pending';
+                    document.getElementById('agendaItemPresenter').value = item.presenter_id || '';
+                    document.getElementById('modalAgendaTitle').textContent = 'Edit Agenda Item';
+                } else {
+                    form.reset();
+                    document.getElementById('agendaItemId').value = '';
+                    document.getElementById('modalAgendaTitle').textContent = 'New Agenda Item';
+                }
+                
+                // Populate presenter dropdown
+                const presenterSelect = document.getElementById('agendaItemPresenter');
+                presenterSelect.innerHTML = '<option value="">Select presenter...</option>';
+                members.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = member.id;
+                    option.textContent = `${member.first_name} ${member.last_name} (${member.role})`;
+                    presenterSelect.appendChild(option);
+                });
+                
+                if (item && item.presenter_id) {
+                    presenterSelect.value = item.presenter_id;
+                }
+                
+                modal.style.display = 'block';
+            });
+        }
+
+        function closeAgendaItemModal() {
+            document.getElementById('agendaItemModal').style.display = 'none';
+            document.getElementById('agendaItemForm').reset();
+        }
+
+        function saveAgendaItem(event) {
+            event.preventDefault();
+            const itemId = document.getElementById('agendaItemId').value;
+            const data = {
+                meeting_id: currentMeetingId,
+                title: document.getElementById('agendaItemTitle').value,
+                description: document.getElementById('agendaItemDescription').value,
+                item_type: document.getElementById('agendaItemType').value,
+                duration_minutes: document.getElementById('agendaItemDuration').value || null,
+                status: document.getElementById('agendaItemStatus').value,
+                presenter_id: document.getElementById('agendaItemPresenter').value || null
+            };
+
+            const method = itemId ? 'PUT' : 'POST';
+            if (itemId) data.id = itemId;
+
+            fetch('api/agenda.php', {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                closeAgendaItemModal();
+                loadMeetingAgenda(currentMeetingId);
+            })
+            .catch(error => {
+                console.error('Error saving agenda item:', error);
+                alert('Error saving agenda item');
+            });
+        }
+
+        function deleteAgendaItem(id) {
+            if (!confirm('Are you sure you want to delete this agenda item?')) return;
+            
+            fetch('api/agenda.php', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadMeetingAgenda(currentMeetingId);
+            })
+            .catch(error => {
+                console.error('Error deleting agenda item:', error);
+                alert('Error deleting agenda item');
+            });
+        }
+
+        // Attendee Management
         function addAttendee() {
-            alert('Attendee management coming soon');
+            if (!currentMeetingId) return;
+            showAttendeeModal();
         }
 
-        function createMinutes() {
-            alert('Minutes creation coming soon');
+        function editAttendee(id) {
+            // Get the attendee from the current list or fetch individually
+            fetch(`api/attendees.php?meeting_id=${currentMeetingId}`)
+                .then(response => response.json())
+                .then(attendees => {
+                    const attendee = attendees.find(a => a.id == id);
+                    if (attendee) {
+                        // Ensure member_id is set correctly
+                        showAttendeeModal(attendee);
+                    }
+                });
         }
 
+        function showAttendeeModal(attendee = null) {
+            loadBoardMembers().then(members => {
+                const modal = document.getElementById('attendeeModal');
+                const form = document.getElementById('attendeeForm');
+                
+                if (attendee) {
+                    document.getElementById('attendeeId').value = attendee.id;
+                    document.getElementById('attendeeMember').value = attendee.member_id;
+                    document.getElementById('attendeeStatus').value = attendee.attendance_status;
+                    document.getElementById('attendeeArrivalTime').value = attendee.arrival_time ? formatDateTimeInput(attendee.arrival_time) : '';
+                    document.getElementById('attendeeNotes').value = attendee.notes || '';
+                    document.getElementById('modalAttendeeTitle').textContent = 'Edit Attendee';
+                } else {
+                    form.reset();
+                    document.getElementById('attendeeId').value = '';
+                    document.getElementById('modalAttendeeTitle').textContent = 'Add Attendee';
+                }
+                
+                // Populate member dropdown
+                const memberSelect = document.getElementById('attendeeMember');
+                memberSelect.innerHTML = '<option value="">Select member...</option>';
+                members.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = member.id;
+                    option.textContent = `${member.first_name} ${member.last_name} (${member.role})`;
+                    memberSelect.appendChild(option);
+                });
+                
+                if (attendee && attendee.member_id) {
+                    memberSelect.value = attendee.member_id;
+                }
+                
+                modal.style.display = 'block';
+            });
+        }
+
+        function closeAttendeeModal() {
+            document.getElementById('attendeeModal').style.display = 'none';
+            document.getElementById('attendeeForm').reset();
+        }
+
+        function saveAttendee(event) {
+            event.preventDefault();
+            const attendeeId = document.getElementById('attendeeId').value;
+            const arrivalTime = document.getElementById('attendeeArrivalTime').value;
+            
+            const data = {
+                meeting_id: currentMeetingId,
+                member_id: document.getElementById('attendeeMember').value,
+                attendance_status: document.getElementById('attendeeStatus').value,
+                arrival_time: arrivalTime ? arrivalTime.replace('T', ' ') + ':00' : null,
+                notes: document.getElementById('attendeeNotes').value || null
+            };
+
+            const method = attendeeId ? 'PUT' : 'POST';
+            if (attendeeId) {
+                data.id = attendeeId;
+            }
+
+            fetch('api/attendees.php', {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                closeAttendeeModal();
+                loadMeetingAttendees(currentMeetingId);
+            })
+            .catch(error => {
+                console.error('Error saving attendee:', error);
+                alert('Error saving attendee');
+            });
+        }
+
+        function deleteAttendee(id) {
+            if (!confirm('Are you sure you want to remove this attendee?')) return;
+            
+            fetch('api/attendees.php', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadMeetingAttendees(currentMeetingId);
+            })
+            .catch(error => {
+                console.error('Error deleting attendee:', error);
+                alert('Error deleting attendee');
+            });
+        }
+
+        // Resolution Management
         function addResolution() {
-            alert('Resolution creation coming soon');
+            if (!currentMeetingId) return;
+            showResolutionModal();
+        }
+
+        function editResolution(id) {
+            fetch(`api/resolutions.php?id=${id}`)
+                .then(response => response.json())
+                .then(resolution => showResolutionModal(resolution));
+        }
+
+        function showResolutionModal(resolution = null) {
+            loadBoardMembers().then(members => {
+                const modal = document.getElementById('resolutionModal');
+                const form = document.getElementById('resolutionForm');
+                
+                if (resolution) {
+                    document.getElementById('resolutionId').value = resolution.id;
+                    document.getElementById('resolutionTitle').value = resolution.title;
+                    document.getElementById('resolutionDescription').value = resolution.description;
+                    document.getElementById('resolutionNumber').value = resolution.resolution_number || '';
+                    document.getElementById('resolutionMovedBy').value = resolution.motion_moved_by || '';
+                    document.getElementById('resolutionSecondedBy').value = resolution.motion_seconded_by || '';
+                    document.getElementById('resolutionVoteType').value = resolution.vote_type || '';
+                    document.getElementById('resolutionVotesFor').value = resolution.votes_for || 0;
+                    document.getElementById('resolutionVotesAgainst').value = resolution.votes_against || 0;
+                    document.getElementById('resolutionVotesAbstain').value = resolution.votes_abstain || 0;
+                    document.getElementById('resolutionStatus').value = resolution.status;
+                    document.getElementById('resolutionEffectiveDate').value = resolution.effective_date || '';
+                    document.getElementById('modalResolutionTitle').textContent = 'Edit Resolution';
+                } else {
+                    form.reset();
+                    document.getElementById('resolutionId').value = '';
+                    document.getElementById('modalResolutionTitle').textContent = 'New Resolution';
+                }
+                
+                // Populate member dropdowns
+                const movedBySelect = document.getElementById('resolutionMovedBy');
+                const secondedBySelect = document.getElementById('resolutionSecondedBy');
+                
+                movedBySelect.innerHTML = '<option value="">Select member...</option>';
+                secondedBySelect.innerHTML = '<option value="">Select member...</option>';
+                
+                members.forEach(member => {
+                    const option1 = document.createElement('option');
+                    option1.value = member.id;
+                    option1.textContent = `${member.first_name} ${member.last_name} (${member.role})`;
+                    movedBySelect.appendChild(option1.cloneNode(true));
+                    secondedBySelect.appendChild(option1);
+                });
+                
+                if (resolution) {
+                    if (resolution.motion_moved_by) movedBySelect.value = resolution.motion_moved_by;
+                    if (resolution.motion_seconded_by) secondedBySelect.value = resolution.motion_seconded_by;
+                }
+                
+                modal.style.display = 'block';
+            });
+        }
+
+        function closeResolutionModal() {
+            document.getElementById('resolutionModal').style.display = 'none';
+            document.getElementById('resolutionForm').reset();
+        }
+
+        function saveResolution(event) {
+            event.preventDefault();
+            const resolutionId = document.getElementById('resolutionId').value;
+            const data = {
+                meeting_id: currentMeetingId,
+                title: document.getElementById('resolutionTitle').value,
+                description: document.getElementById('resolutionDescription').value,
+                resolution_number: document.getElementById('resolutionNumber').value || null,
+                motion_moved_by: document.getElementById('resolutionMovedBy').value || null,
+                motion_seconded_by: document.getElementById('resolutionSecondedBy').value || null,
+                vote_type: document.getElementById('resolutionVoteType').value || null,
+                votes_for: parseInt(document.getElementById('resolutionVotesFor').value) || 0,
+                votes_against: parseInt(document.getElementById('resolutionVotesAgainst').value) || 0,
+                votes_abstain: parseInt(document.getElementById('resolutionVotesAbstain').value) || 0,
+                status: document.getElementById('resolutionStatus').value,
+                effective_date: document.getElementById('resolutionEffectiveDate').value || null
+            };
+
+            const method = resolutionId ? 'PUT' : 'POST';
+            if (resolutionId) data.id = resolutionId;
+
+            fetch('api/resolutions.php', {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                closeResolutionModal();
+                loadMeetingResolutions(currentMeetingId);
+            })
+            .catch(error => {
+                console.error('Error saving resolution:', error);
+                alert('Error saving resolution');
+            });
+        }
+
+        function deleteResolution(id) {
+            if (!confirm('Are you sure you want to delete this resolution?')) return;
+            
+            fetch('api/resolutions.php', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadMeetingResolutions(currentMeetingId);
+            })
+            .catch(error => {
+                console.error('Error deleting resolution:', error);
+                alert('Error deleting resolution');
+            });
+        }
+
+        // Minutes Management
+        function createMinutes() {
+            if (!currentMeetingId) return;
+            showMinutesModal();
+        }
+
+        function editMinutes() {
+            fetch(`api/minutes.php?meeting_id=${currentMeetingId}`)
+                .then(response => response.json())
+                .then(minutes => {
+                    if (minutes && minutes !== null) {
+                        showMinutesModal(minutes);
+                    } else {
+                        showMinutesModal();
+                    }
+                });
+        }
+
+        function showMinutesModal(minutes = null) {
+            loadBoardMembers().then(members => {
+                const modal = document.getElementById('minutesModal');
+                const form = document.getElementById('minutesForm');
+                
+                if (minutes) {
+                    document.getElementById('minutesId').value = minutes.id;
+                    document.getElementById('minutesContent').value = minutes.content;
+                    document.getElementById('minutesActionItems').value = minutes.action_items || '';
+                    document.getElementById('minutesNextMeetingDate').value = minutes.next_meeting_date ? formatDateTimeInput(minutes.next_meeting_date) : '';
+                    document.getElementById('minutesStatus').value = minutes.status;
+                    document.getElementById('minutesPreparedBy').value = minutes.prepared_by || '';
+                    document.getElementById('modalMinutesTitle').textContent = 'Edit Minutes';
+                } else {
+                    form.reset();
+                    document.getElementById('minutesId').value = '';
+                    document.getElementById('modalMinutesTitle').textContent = 'Create Minutes';
+                }
+                
+                // Populate prepared by dropdown
+                const preparedBySelect = document.getElementById('minutesPreparedBy');
+                preparedBySelect.innerHTML = '<option value="">Select member...</option>';
+                members.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = member.id;
+                    option.textContent = `${member.first_name} ${member.last_name} (${member.role})`;
+                    preparedBySelect.appendChild(option);
+                });
+                
+                if (minutes && minutes.prepared_by) {
+                    preparedBySelect.value = minutes.prepared_by;
+                }
+                
+                modal.style.display = 'block';
+            });
+        }
+
+        function closeMinutesModal() {
+            document.getElementById('minutesModal').style.display = 'none';
+            document.getElementById('minutesForm').reset();
+        }
+
+        function saveMinutes(event) {
+            event.preventDefault();
+            const minutesId = document.getElementById('minutesId').value;
+            const nextMeetingDate = document.getElementById('minutesNextMeetingDate').value;
+            
+            const data = {
+                meeting_id: currentMeetingId,
+                content: document.getElementById('minutesContent').value,
+                action_items: document.getElementById('minutesActionItems').value || null,
+                next_meeting_date: nextMeetingDate ? nextMeetingDate.replace('T', ' ') + ':00' : null,
+                status: document.getElementById('minutesStatus').value,
+                prepared_by: document.getElementById('minutesPreparedBy').value || null
+            };
+
+            const method = minutesId ? 'PUT' : 'POST';
+            if (minutesId) data.id = minutesId;
+
+            fetch('api/minutes.php', {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                closeMinutesModal();
+                loadMeetingMinutes(currentMeetingId);
+            })
+            .catch(error => {
+                console.error('Error saving minutes:', error);
+                alert('Error saving minutes');
+            });
+        }
+
+        function approveMinutes() {
+            if (!confirm('Are you sure you want to approve these minutes?')) return;
+            
+            fetch(`api/minutes.php?meeting_id=${currentMeetingId}`)
+                .then(response => response.json())
+                .then(minutes => {
+                    if (!minutes || minutes === null) {
+                        alert('Minutes not found');
+                        return;
+                    }
+                    
+                    loadBoardMembers().then(members => {
+                        const approverId = prompt('Enter the ID of the approving member, or select from:\n' + 
+                            members.map(m => `${m.id}: ${m.first_name} ${m.last_name}`).join('\n'));
+                        if (!approverId) return;
+                        
+                        fetch('api/minutes.php', {
+                            method: 'PUT',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                id: minutes.id,
+                                approve: true,
+                                approved_by: approverId,
+                                status: 'Approved'
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            loadMeetingMinutes(currentMeetingId);
+                        })
+                        .catch(error => {
+                            console.error('Error approving minutes:', error);
+                            alert('Error approving minutes');
+                        });
+                    });
+                });
+        }
+
+        // Utility function to load board members
+        function loadBoardMembers() {
+            if (!currentOrgId) return Promise.resolve([]);
+            return fetch(`api/members.php?organization_id=${currentOrgId}`)
+                .then(response => response.json());
+        }
+
+        function formatDateTimeInput(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
         }
 
         window.onclick = function(event) {
-            const modal = document.getElementById('meetingModal');
-            if (event.target == modal) {
-                closeMeetingModal();
-            }
+            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'minutesModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target == modal) {
+                    if (modalId === 'meetingModal') closeMeetingModal();
+                    else if (modalId === 'agendaItemModal') closeAgendaItemModal();
+                    else if (modalId === 'attendeeModal') closeAttendeeModal();
+                    else if (modalId === 'resolutionModal') closeResolutionModal();
+                    else if (modalId === 'minutesModal') closeMinutesModal();
+                }
+            });
         }
     </script>
 </body>

@@ -89,6 +89,29 @@ switch ($method) {
         $updates = [];
         $params = [];
         
+        // Handle member_id separately as it needs uniqueness check
+        if (isset($data['member_id'])) {
+            $newMemberId = (int)$data['member_id'];
+            
+            // Get current attendee to check meeting_id
+            $stmt = $db->prepare("SELECT meeting_id, member_id FROM meeting_attendees WHERE id = ?");
+            $stmt->execute([$id]);
+            $current = $stmt->fetch();
+            
+            if ($current && $current['member_id'] != $newMemberId) {
+                // Check if new member_id already exists for this meeting
+                $stmt = $db->prepare("SELECT id FROM meeting_attendees WHERE meeting_id = ? AND member_id = ? AND id != ?");
+                $stmt->execute([$current['meeting_id'], $newMemberId, $id]);
+                if ($stmt->fetch()) {
+                    http_response_code(409);
+                    echo json_encode(['error' => 'This member is already an attendee for this meeting']);
+                    exit;
+                }
+                $updates[] = "member_id = ?";
+                $params[] = $newMemberId;
+            }
+        }
+        
         $fields = ['attendance_status', 'arrival_time', 'notes'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {

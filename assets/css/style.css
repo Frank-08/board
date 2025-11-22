@@ -502,9 +502,22 @@ main {
     border-left: 4px solid #667eea;
 }
 
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.item-actions {
+    display: flex;
+    gap: 8px;
+}
+
 .agenda-item h4 {
     margin-bottom: 10px;
     color: #333;
+    flex: 1;
 }
 
 .agenda-meta {
@@ -524,6 +537,16 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 15px;
+}
+
+.attendee-item > div:first-child {
+    flex: 1;
+}
+
+.attendee-item > div:first-child span {
+    display: inline-block;
+    margin-left: 10px;
 }
 
 /* Resolution Items */
@@ -538,6 +561,14 @@ main {
 .resolution-item h4 {
     margin-bottom: 10px;
     color: #333;
+    flex: 1;
+}
+
+.resolution-item .item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
 }
 
 /* Minutes Display */
@@ -547,10 +578,25 @@ main {
     border-radius: 8px;
 }
 
+.minutes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #eee;
+}
+
 .minutes-text {
     margin-top: 15px;
     line-height: 1.8;
     white-space: pre-wrap;
+}
+
+.minutes-display h4 {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color: #333;
 }
 
 /* Responsive */
