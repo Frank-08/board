@@ -211,7 +211,7 @@
                 address: document.getElementById('orgAddress').value
             };
 
-            fetch('api/organizations.php', {
+            fetch('api/committees.php', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
