@@ -28,9 +28,9 @@
             </div>
 
             <div class="organization-selector">
-                <label for="orgSelect">Organization:</label>
+                <label for="orgSelect">Committee:</label>
                 <select id="orgSelect" onchange="loadMembers()">
-                    <option value="">Select organization...</option>
+                    <option value="">Select Committee...</option>
                 </select>
             </div>
 
@@ -142,7 +142,7 @@
                         <div class="member-card">
                             <div class="member-header">
                                 <h3>${member.first_name} ${member.last_name}</h3>
-                                <span class="badge badge-${member.status.toLowerCase()}">${member.status}</span>
+                                // <span class="badge badge-${member.status.toLowerCase()}">${member.status}</span>
                             </div>
                             <p class="member-role">${member.role}</p>
                             ${member.title ? `<p class="member-title">${member.title}</p>` : ''}
