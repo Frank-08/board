@@ -78,12 +78,12 @@ function confirmAction(message) {
 // Load organizations into select element
 async function loadOrganizationsIntoSelect(selectId) {
     try {
-        const organizations = await apiCall('organizations.php');
+        const organizations = await apiCall('committees.php');
         const select = document.getElementById(selectId);
         
         if (!select) return;
         
-        select.innerHTML = '<option value="">Select organization...</option>';
+        select.innerHTML = '<option value="">Select Committee...</option>';
         organizations.forEach(org => {
             const option = document.createElement('option');
             option.value = org.id;
@@ -93,7 +93,7 @@ async function loadOrganizationsIntoSelect(selectId) {
         
         return organizations;
     } catch (error) {
-        console.error('Error loading organizations:', error);
+        console.error('Error loading Committee:', error);
         return [];
     }
 }
