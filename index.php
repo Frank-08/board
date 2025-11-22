@@ -116,7 +116,7 @@
         });
 
         function loadOrganizations() {
-            fetch('api/organizations.php')
+            fetch('api/committees.php')
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('orgSelect');
@@ -222,8 +222,8 @@
                 loadOrganizations();
             })
             .catch(error => {
-                console.error('Error creating organization:', error);
-                alert('Error creating organization');
+                console.error('Error creating committee:', error);
+                alert('Error creating committee');
             });
         }
 
