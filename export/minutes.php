@@ -293,6 +293,13 @@ function formatDateTime($dateString) {
         .status-review { background: #17a2b8; color: #fff; }
         .status-approved { background: #28a745; color: #fff; }
         .status-published { background: #6c757d; color: #fff; }
+        
+        /* Resolution status badges */
+        .status-proposed { background: #17a2b8; color: #fff; }
+        .status-passed { background: #28a745; color: #fff; }
+        .status-failed { background: #dc3545; color: #fff; }
+        .status-tabled { background: #ffc107; color: #000; }
+        .status-withdrawn { background: #6c757d; color: #fff; }
     </style>
 </head>
 <body>
@@ -348,6 +355,11 @@ function formatDateTime($dateString) {
                 <?php echo htmlspecialchars($item['title']); ?>
                 <?php if ($item['resolution_number']): ?>
                 <span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #<?php echo htmlspecialchars($item['resolution_number']); ?>)</span>
+                <?php endif; ?>
+                <?php if ($item['resolution_status']): ?>
+                <span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $item['resolution_status'])); ?>" style="margin-left: 8px; padding: 4px 10px; border-radius: 3px; font-size: 12px; font-weight: bold;">
+                    <?php echo htmlspecialchars($item['resolution_status']); ?>
+                </span>
                 <?php endif; ?>
             </h4>
             <?php if ($item['description']): ?>

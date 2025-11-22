@@ -543,6 +543,7 @@
                                 <h4 style="margin: 0 0 10px 0; color: #333;">
                                     ${item.position !== null ? (item.position + 1) + '. ' : ''}${item.title}
                                     ${item.resolution_number ? `<span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #${item.resolution_number})</span>` : ''}
+                                    ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase().replace(' ', '-')}" style="margin-left: 8px; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;">${item.resolution_status}</span>` : ''}
                                 </h4>
                                 ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
                                 <div style="margin-top: 10px;">
