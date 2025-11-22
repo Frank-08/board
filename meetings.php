@@ -506,40 +506,109 @@
         }
 
         function loadMeetingMinutes(meetingId) {
-            fetch(`api/minutes.php?meeting_id=${meetingId}`)
-                .then(response => response.json())
-                .then(minutes => {
-                    const content = document.getElementById('minutes-content');
-                    const createBtn = document.getElementById('createMinutesBtn');
-                    const editBtn = document.getElementById('editMinutesBtn');
-                    
-                    if (!minutes || minutes === null) {
-                        content.innerHTML = '';
-                        if (createBtn) createBtn.style.display = 'inline-block';
-                        if (editBtn) editBtn.style.display = 'none';
-                        return;
-                    }
-                    
-                    if (createBtn) createBtn.style.display = 'none';
-                    if (editBtn) editBtn.style.display = 'inline-block';
-                    content.innerHTML = `
-                        <div class="minutes-display">
-                            <div class="minutes-header">
-                                <p><strong>Status:</strong> <span class="badge badge-${minutes.status.toLowerCase()}">${minutes.status}</span></p>
-                                <div>
-                                    ${minutes.status !== 'Approved' ? `<button onclick="editMinutes()" class="btn btn-sm">Edit</button>` : ''}
-                                    ${minutes.status === 'Draft' || minutes.status === 'Review' ? `<button onclick="approveMinutes()" class="btn btn-sm btn-primary">Approve</button>` : ''}
+            Promise.all([
+                fetch(`api/minutes.php?meeting_id=${meetingId}`).then(r => r.json()),
+                fetch(`api/agenda.php?meeting_id=${meetingId}`).then(r => r.json())
+            ]).then(([minutes, agendaItems]) => {
+                const content = document.getElementById('minutes-content');
+                const createBtn = document.getElementById('createMinutesBtn');
+                const editBtn = document.getElementById('editMinutesBtn');
+                
+                if (!minutes || minutes === null) {
+                    content.innerHTML = '';
+                    if (createBtn) createBtn.style.display = 'inline-block';
+                    if (editBtn) editBtn.style.display = 'none';
+                    return;
+                }
+                
+                if (createBtn) createBtn.style.display = 'none';
+                if (editBtn) editBtn.style.display = 'inline-block';
+                
+                // Create a map of agenda item comments
+                const commentsMap = {};
+                if (minutes.agenda_comments) {
+                    minutes.agenda_comments.forEach(comment => {
+                        commentsMap[comment.agenda_item_id] = comment.comment;
+                    });
+                }
+                
+                // Build agenda items with comments section
+                let agendaItemsHtml = '';
+                if (agendaItems && agendaItems.length > 0) {
+                    agendaItemsHtml = '<div class="minutes-agenda-section"><h3>Agenda Items Discussion</h3>';
+                    agendaItems.forEach(item => {
+                        const comment = commentsMap[item.id] || '';
+                        agendaItemsHtml += `
+                            <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                                <h4 style="margin: 0 0 10px 0; color: #333;">
+                                    ${item.position !== null ? (item.position + 1) + '. ' : ''}${item.title}
+                                </h4>
+                                ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
+                                <div style="margin-top: 10px;">
+                                    <strong>Discussion/Comments:</strong>
+                                    ${minutes.status !== 'Approved' ? `
+                                        <textarea class="agenda-comment-textarea" 
+                                            data-agenda-item-id="${item.id}" 
+                                            data-minutes-id="${minutes.id}"
+                                            style="width: 100%; min-height: 60px; margin-top: 5px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;"
+                                            onblur="saveAgendaComment(${item.id}, ${minutes.id}, this.value)">${comment}</textarea>
+                                    ` : `
+                                        <div style="margin-top: 5px; padding: 10px; background: #f9f9f9; border-radius: 4px; white-space: pre-wrap;">${comment || '<em style="color: #999;">No comments recorded</em>'}</div>
+                                    `}
                                 </div>
                             </div>
-                            ${minutes.prepared_first_name ? `<p><strong>Prepared by:</strong> ${minutes.prepared_first_name} ${minutes.prepared_last_name}</p>` : ''}
-                            ${minutes.approved_first_name ? `<p><strong>Approved by:</strong> ${minutes.approved_first_name} ${minutes.approved_last_name}</p>` : ''}
-                            ${minutes.approved_at ? `<p><strong>Approved on:</strong> ${formatDateTime(minutes.approved_at)}</p>` : ''}
-                            <div class="minutes-text">${minutes.content.replace(/\n/g, '<br>')}</div>
-                            ${minutes.action_items ? `<h4>Action Items</h4><div class="minutes-text">${minutes.action_items.replace(/\n/g, '<br>')}</div>` : ''}
-                            ${minutes.next_meeting_date ? `<p><strong>Next Meeting:</strong> ${formatDateTime(minutes.next_meeting_date)}</p>` : ''}
+                        `;
+                    });
+                    agendaItemsHtml += '</div>';
+                }
+                
+                content.innerHTML = `
+                    <div class="minutes-display">
+                        <div class="minutes-header">
+                            <p><strong>Status:</strong> <span class="badge badge-${minutes.status.toLowerCase()}">${minutes.status}</span></p>
+                            <div>
+                                ${minutes.status !== 'Approved' ? `<button onclick="editMinutes()" class="btn btn-sm">Edit</button>` : ''}
+                                ${minutes.status === 'Draft' || minutes.status === 'Review' ? `<button onclick="approveMinutes()" class="btn btn-sm btn-primary">Approve</button>` : ''}
+                                <button onclick="window.open('export/minutes.php?meeting_id=${meetingId}', '_blank')" class="btn btn-sm btn-primary">Export to PDF</button>
+                            </div>
                         </div>
-                    `;
-                });
+                        ${minutes.prepared_first_name ? `<p><strong>Prepared by:</strong> ${minutes.prepared_first_name} ${minutes.prepared_last_name}</p>` : ''}
+                        ${minutes.approved_first_name ? `<p><strong>Approved by:</strong> ${minutes.approved_first_name} ${minutes.approved_last_name}</p>` : ''}
+                        ${minutes.approved_at ? `<p><strong>Approved on:</strong> ${formatDateTime(minutes.approved_at)}</p>` : ''}
+                        ${agendaItemsHtml}
+                        <div class="minutes-text">${minutes.content.replace(/\n/g, '<br>')}</div>
+                        ${minutes.action_items ? `<h4>Action Items</h4><div class="minutes-text">${minutes.action_items.replace(/\n/g, '<br>')}</div>` : ''}
+                        ${minutes.next_meeting_date ? `<p><strong>Next Meeting:</strong> ${formatDateTime(minutes.next_meeting_date)}</p>` : ''}
+                    </div>
+                `;
+            }).catch(error => {
+                console.error('Error loading minutes:', error);
+            });
+        }
+        
+        function saveAgendaComment(agendaItemId, minutesId, comment) {
+            if (!comment || comment.trim() === '') {
+                // If empty, delete the comment
+                fetch('api/minutes_comments.php', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: agendaItemId})
+                }).catch(err => console.error('Error deleting comment:', err));
+                return;
+            }
+            
+            fetch('api/minutes_comments.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    minutes_id: minutesId,
+                    agenda_item_id: agendaItemId,
+                    comment: comment.trim()
+                })
+            }).catch(error => {
+                console.error('Error saving agenda comment:', error);
+                alert('Error saving comment');
+            });
         }
 
         function loadMeetingResolutions(meetingId) {

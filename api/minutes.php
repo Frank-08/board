@@ -53,6 +53,20 @@ switch ($method) {
             ");
             $stmt->execute([$meetingId]);
             $minutes = $stmt->fetch();
+            
+            if ($minutes) {
+                // Get agenda item comments
+                $stmt = $db->prepare("
+                    SELECT mac.*, ai.title as agenda_item_title, ai.position
+                    FROM minutes_agenda_comments mac
+                    JOIN agenda_items ai ON mac.agenda_item_id = ai.id
+                    WHERE mac.minutes_id = ?
+                    ORDER BY ai.position ASC
+                ");
+                $stmt->execute([$minutes['id']]);
+                $minutes['agenda_comments'] = $stmt->fetchAll();
+            }
+            
             echo json_encode($minutes ?: null);
         } else {
             http_response_code(400);
@@ -161,7 +175,20 @@ switch ($method) {
             WHERE m.id = ?
         ");
         $stmt->execute([$id]);
-        echo json_encode($stmt->fetch());
+        $minutes = $stmt->fetch();
+        
+        // Get agenda item comments
+        $stmt = $db->prepare("
+            SELECT mac.*, ai.title as agenda_item_title, ai.position
+            FROM minutes_agenda_comments mac
+            JOIN agenda_items ai ON mac.agenda_item_id = ai.id
+            WHERE mac.minutes_id = ?
+            ORDER BY ai.position ASC
+        ");
+        $stmt->execute([$id]);
+        $minutes['agenda_comments'] = $stmt->fetchAll();
+        
+        echo json_encode($minutes);
         break;
         
     case 'DELETE':
