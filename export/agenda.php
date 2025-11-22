@@ -14,7 +14,7 @@ if (!$meetingId) {
 $db = getDBConnection();
 
 // Get meeting details
-$stmt = $db->prepare("SELECT m.*, o.name as organization_name, o.address as organization_address, o.phone as organization_phone, o.email as organization_email FROM meetings m JOIN organizations o ON m.organization_id = o.id WHERE m.id = ?");
+$stmt = $db->prepare("SELECT m.*, c.name as committee_name, c.address as committee_address, c.phone as committee_phone, c.email as committee_email FROM meetings m JOIN committees c ON m.committee_id = c.id WHERE m.id = ?");
 $stmt->execute([$meetingId]);
 $meeting = $stmt->fetch();
 
@@ -266,7 +266,7 @@ function formatTime($dateString) {
     </div>
 
     <div class="header">
-        <div class="organization"><?php echo htmlspecialchars($meeting['organization_name']); ?></div>
+        <div class="organization"><?php echo htmlspecialchars($meeting['committee_name']); ?></div>
         <h1>Meeting Agenda</h1>
     </div>
 
@@ -296,10 +296,10 @@ function formatTime($dateString) {
             <div class="info-value"><?php echo htmlspecialchars($meeting['virtual_link']); ?></div>
         </div>
         <?php endif; ?>
-        <?php if ($meeting['organization_address']): ?>
+        <?php if ($meeting['committee_address']): ?>
         <div class="info-row">
-            <div class="info-label">Organization Address:</div>
-            <div class="info-value"><?php echo htmlspecialchars($meeting['organization_address']); ?></div>
+            <div class="info-label">Committee Address:</div>
+            <div class="info-value"><?php echo htmlspecialchars($meeting['committee_address']); ?></div>
         </div>
         <?php endif; ?>
     </div>
@@ -388,7 +388,7 @@ function formatTime($dateString) {
 
     <div class="footer">
         <p>Generated on <?php echo date('F j, Y \a\t g:i A'); ?></p>
-        <p><?php echo htmlspecialchars($meeting['organization_name']); ?> - Governance Board Management System</p>
+        <p><?php echo htmlspecialchars($meeting['committee_name']); ?> - Governance Board Management System</p>
     </div>
 </body>
 </html>
