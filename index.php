@@ -23,11 +23,11 @@
 
         <main>
             <div class="organization-selector">
-                <label for="orgSelect">Select Organization:</label>
-                <select id="orgSelect" onchange="loadDashboard()">
+                <label for="committeeSelect">Select Committee:</label>
+                <select id="committeeSelect" onchange="loadDashboard()">
                     <option value="">Loading...</option>
                 </select>
-                <button onclick="showOrgModal()">+ New Organization</button>
+                <button onclick="showCommitteeModal()">+ New Committee</button>
             </div>
 
             <div id="dashboard" style="display:none;">
@@ -67,18 +67,18 @@
                 </div>
             </div>
 
-            <div id="no-org" style="display:none;">
-                <p>No organization selected. Please create or select an organization.</p>
+            <div id="no-committee" style="display:none;">
+                <p>No committee selected. Please create or select a committee.</p>
             </div>
         </main>
     </div>
 
-    <!-- Organization Modal -->
-    <div id="orgModal" class="modal">
+    <!-- Committee Modal -->
+    <div id="committeeModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeOrgModal()">&times;</span>
-            <h2>New Organization</h2>
-            <form id="orgForm" onsubmit="createOrganization(event)">
+            <span class="close" onclick="closeCommitteeModal()">&times;</span>
+            <h2>New Committee</h2>
+            <form id="committeeForm" onsubmit="createCommittee(event)">
                 <div class="form-group">
                     <label for="orgName">Name *</label>
                     <input type="text" id="orgName" required>
@@ -103,28 +103,28 @@
                     <label for="orgAddress">Address</label>
                     <textarea id="orgAddress"></textarea>
                 </div>
-                <button type="submit" class="btn btn-primary">Create Organization</button>
+                <button type="submit" class="btn btn-primary">Create Committee</button>
             </form>
         </div>
     </div>
 
     <script src="assets/js/app.js"></script>
     <script>
-        // Load organizations on page load
+        // Load committees on page load
         window.addEventListener('DOMContentLoaded', function() {
-            loadOrganizations();
+            loadCommittees();
         });
 
-        function loadOrganizations() {
-            fetch('api/organizations.php')
+        function loadCommittees() {
+            fetch('api/committees.php')
                 .then(response => response.json())
                 .then(data => {
-                    const select = document.getElementById('orgSelect');
-                    select.innerHTML = '<option value="">Select an organization...</option>';
-                    data.forEach(org => {
+                    const select = document.getElementById('committeeSelect');
+                    select.innerHTML = '<option value="">Select a committee...</option>';
+                    data.forEach(committee => {
                         const option = document.createElement('option');
-                        option.value = org.id;
-                        option.textContent = org.name;
+                        option.value = committee.id;
+                        option.textContent = committee.name;
                         select.appendChild(option);
                     });
                     if (data.length > 0) {
@@ -133,23 +133,23 @@
                     }
                 })
                 .catch(error => {
-                    console.error('Error loading organizations:', error);
+                    console.error('Error loading committees:', error);
                 });
         }
 
         function loadDashboard() {
-            const orgId = document.getElementById('orgSelect').value;
-            if (!orgId) {
+            const committeeId = document.getElementById('committeeSelect').value;
+            if (!committeeId) {
                 document.getElementById('dashboard').style.display = 'none';
-                document.getElementById('no-org').style.display = 'block';
+                document.getElementById('no-committee').style.display = 'block';
                 return;
             }
 
             document.getElementById('dashboard').style.display = 'block';
-            document.getElementById('no-org').style.display = 'none';
+            document.getElementById('no-committee').style.display = 'none';
 
             // Load dashboard stats
-            fetch(`api/dashboard.php?organization_id=${orgId}`)
+            fetch(`api/dashboard.php?committee_id=${committeeId}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('stat-members').textContent = data.active_members || 0;
@@ -191,16 +191,16 @@
                 });
         }
 
-        function showOrgModal() {
-            document.getElementById('orgModal').style.display = 'block';
+        function showCommitteeModal() {
+            document.getElementById('committeeModal').style.display = 'block';
         }
 
-        function closeOrgModal() {
-            document.getElementById('orgModal').style.display = 'none';
-            document.getElementById('orgForm').reset();
+        function closeCommitteeModal() {
+            document.getElementById('committeeModal').style.display = 'none';
+            document.getElementById('committeeForm').reset();
         }
 
-        function createOrganization(event) {
+        function createCommittee(event) {
             event.preventDefault();
             const data = {
                 name: document.getElementById('orgName').value,
@@ -211,19 +211,19 @@
                 address: document.getElementById('orgAddress').value
             };
 
-            fetch('api/organizations.php', {
+            fetch('api/committees.php', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             })
             .then(response => response.json())
             .then(data => {
-                closeOrgModal();
-                loadOrganizations();
+                closeCommitteeModal();
+                loadCommittees();
             })
             .catch(error => {
-                console.error('Error creating organization:', error);
-                alert('Error creating organization');
+                console.error('Error creating committee:', error);
+                alert('Error creating committee');
             });
         }
 
@@ -240,9 +240,9 @@
 
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('orgModal');
+            const modal = document.getElementById('committeeModal');
             if (event.target == modal) {
-                closeOrgModal();
+                closeCommitteeModal();
             }
         }
     </script>

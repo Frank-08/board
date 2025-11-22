@@ -4,8 +4,8 @@ A comprehensive LAMP (Linux, Apache, MySQL, PHP) stack application for managing 
 
 ## Features
 
-- **Organization Management**: Manage multiple organizations
-- **Board Members**: Track board members with roles, status, and contact information
+- **Committee Management**: Manage multiple committees
+- **Board Members**: Track board members with roles per committee, status, and contact information. Members can belong to multiple committees with different roles in each.
 - **Meetings**: Schedule and manage board meetings with types (Regular, Special, Annual, Emergency, Workshop)
 - **Agendas**: Create and manage meeting agendas with items, presenters, and duration
 - **Attendees**: Track meeting attendance and participation
@@ -137,14 +137,15 @@ sudo yum install php-mysql php-pdo
 
 1. Open your browser and navigate to the application URL
 2. You should see the dashboard
-3. A sample organization should already be created with test data
+3. A sample committee should already be created with test data
 
 ## Project Structure
 
 ```
 board/
 ├── api/                    # API endpoints
-│   ├── organizations.php   # Organization CRUD
+│   ├── committees.php   # Committee CRUD
+│   ├── committee_members.php   # Committee membership management
 │   ├── members.php         # Board members CRUD
 │   ├── meetings.php        # Meetings CRUD
 │   ├── agenda.php          # Agenda items CRUD
@@ -176,8 +177,8 @@ board/
 
 ### Getting Started
 
-1. **Select or Create an Organization**: Use the organization selector on the dashboard
-2. **Add Board Members**: Navigate to Board Members and add your board members with their roles
+1. **Select or Create a Committee**: Use the committee selector on the dashboard
+2. **Add Board Members**: Navigate to Board Members and add your board members. You can assign members to multiple committees, each with their own role.
 3. **Schedule Meetings**: Go to Meetings and create your first board meeting
 4. **Create Agenda**: Add agenda items to your meetings
 5. **Track Attendance**: Add attendees and mark their attendance status
@@ -197,11 +198,17 @@ board/
 
 All API endpoints return JSON and support standard HTTP methods:
 
-- `GET /api/organizations.php` - List all organizations
-- `GET /api/organizations.php?id={id}` - Get single organization
-- `POST /api/organizations.php` - Create organization
-- `PUT /api/organizations.php` - Update organization
-- `DELETE /api/organizations.php` - Delete organization
+- `GET /api/committees.php` - List all committees
+- `GET /api/committees.php?id={id}` - Get single committee
+- `POST /api/committees.php` - Create committee
+- `PUT /api/committees.php` - Update committee
+- `DELETE /api/committees.php` - Delete committee
+
+- `GET /api/committee_members.php?member_id={id}` - Get all committees for a member
+- `GET /api/committee_members.php?committee_id={id}` - Get all members for a committee
+- `POST /api/committee_members.php` - Add member to committee
+- `PUT /api/committee_members.php` - Update member's role/status in committee
+- `DELETE /api/committee_members.php` - Remove member from committee
 
 Similar endpoints exist for members, meetings, agenda items, attendees, minutes, and resolutions.
 

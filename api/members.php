@@ -32,71 +32,92 @@ switch ($method) {
             }
             
             echo json_encode($member);
-        } elseif (isset($_GET['organization_id'])) {
-            $orgId = (int)$_GET['organization_id'];
+        } elseif (isset($_GET['committee_id'])) {
+            // Get members for a specific committee
+            $committeeId = (int)$_GET['committee_id'];
             $status = $_GET['status'] ?? null;
             
-            $sql = "SELECT * FROM board_members WHERE organization_id = ?";
-            $params = [$orgId];
+            $sql = "
+                SELECT DISTINCT bm.*, 
+                    GROUP_CONCAT(CONCAT(c.name, ':', cm.role) SEPARATOR '|') as committees
+                FROM board_members bm
+                JOIN committee_members cm ON bm.id = cm.member_id
+                JOIN committees c ON cm.committee_id = c.id
+                WHERE cm.committee_id = ?
+            ";
+            $params = [$committeeId];
             
             if ($status) {
-                $sql .= " AND status = ?";
+                $sql .= " AND cm.status = ?";
                 $params[] = $status;
             }
             
-            $sql .= " ORDER BY 
-                FIELD(role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
-                last_name ASC, first_name ASC";
+            $sql .= " GROUP BY bm.id
+                ORDER BY 
+                    FIELD(cm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
+                    bm.last_name ASC, bm.first_name ASC";
             
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             echo json_encode($stmt->fetchAll());
         } else {
-            http_response_code(400);
-            echo json_encode(['error' => 'id or organization_id is required']);
+            // Get all members
+            $stmt = $db->query("SELECT * FROM board_members ORDER BY last_name ASC, first_name ASC");
+            echo json_encode($stmt->fetchAll());
         }
         break;
         
     case 'POST':
         $data = json_decode(file_get_contents('php://input'), true);
-        $orgId = (int)($data['organization_id'] ?? 0);
         $firstName = $data['first_name'] ?? '';
         $lastName = $data['last_name'] ?? '';
         
-        if (!$orgId || empty($firstName) || empty($lastName)) {
+        if (empty($firstName) || empty($lastName)) {
             http_response_code(400);
-            echo json_encode(['error' => 'organization_id, first_name, and last_name are required']);
+            echo json_encode(['error' => 'first_name and last_name are required']);
             exit;
         }
         
         try {
-            $stmt = $db->prepare("INSERT INTO board_members (organization_id, first_name, last_name, email, phone, title, role, start_date, end_date, status, bio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            // Insert member (no longer has organization_id, role, status - those are in committee_members)
+            $stmt = $db->prepare("INSERT INTO board_members (first_name, last_name, email, phone, title, bio) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([
-                $orgId,
                 $firstName,
                 $lastName,
                 $data['email'] ?? null,
                 $data['phone'] ?? null,
                 $data['title'] ?? null,
-                $data['role'] ?? 'Member',
-                $data['start_date'] ?? null,
-                $data['end_date'] ?? null,
-                $data['status'] ?? 'Active',
                 $data['bio'] ?? null
             ]);
             
             $memberId = $db->lastInsertId();
+            
+            // If committees are provided, add them
+            if (!empty($data['committee_ids']) && is_array($data['committee_ids'])) {
+                foreach ($data['committee_ids'] as $committeeData) {
+                    $committeeId = is_array($committeeData) ? $committeeData['committee_id'] : $committeeData;
+                    $role = is_array($committeeData) ? ($committeeData['role'] ?? 'Member') : 'Member';
+                    $status = is_array($committeeData) ? ($committeeData['status'] ?? 'Active') : 'Active';
+                    
+                    $stmt = $db->prepare("INSERT INTO committee_members (committee_id, member_id, role, status, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([
+                        $committeeId,
+                        $memberId,
+                        $role,
+                        $status,
+                        $data['start_date'] ?? null,
+                        $data['end_date'] ?? null
+                    ]);
+                }
+            }
+            
             $stmt = $db->prepare("SELECT * FROM board_members WHERE id = ?");
             $stmt->execute([$memberId]);
             echo json_encode($stmt->fetch());
         } catch (PDOException $e) {
             error_log("Error creating member: " . $e->getMessage());
             http_response_code(400);
-            if (strpos($e->getMessage(), 'Data truncated') !== false || strpos($e->getMessage(), 'enum') !== false) {
-                echo json_encode(['error' => 'Invalid role value. Please update your database schema or contact administrator.']);
-            } else {
-                echo json_encode(['error' => 'Error creating member: ' . $e->getMessage()]);
-            }
+            echo json_encode(['error' => 'Error creating member: ' . $e->getMessage()]);
         }
         break;
         
@@ -116,17 +137,14 @@ switch ($method) {
         }
         
         try {
-            $stmt = $db->prepare("UPDATE board_members SET first_name = ?, last_name = ?, email = ?, phone = ?, title = ?, role = ?, start_date = ?, end_date = ?, status = ?, bio = ? WHERE id = ?");
+            // Update member basic info (no longer has role, status - those are in committee_members)
+            $stmt = $db->prepare("UPDATE board_members SET first_name = ?, last_name = ?, email = ?, phone = ?, title = ?, bio = ? WHERE id = ?");
             $stmt->execute([
                 $data['first_name'] ?? '',
                 $data['last_name'] ?? '',
                 $data['email'] ?? null,
                 $data['phone'] ?? null,
                 $data['title'] ?? null,
-                $data['role'] ?? 'Member',
-                $data['start_date'] ?? null,
-                $data['end_date'] ?? null,
-                $data['status'] ?? 'Active',
                 $data['bio'] ?? null,
                 $id
             ]);
@@ -137,11 +155,7 @@ switch ($method) {
         } catch (PDOException $e) {
             error_log("Error updating member: " . $e->getMessage());
             http_response_code(400);
-            if (strpos($e->getMessage(), 'Data truncated') !== false || strpos($e->getMessage(), 'enum') !== false) {
-                echo json_encode(['error' => 'Invalid role value "' . ($data['role'] ?? '') . '". The database may need to be updated. Please run: php database/fix_role_enum.php']);
-            } else {
-                echo json_encode(['error' => 'Error updating member: ' . $e->getMessage()]);
-            }
+            echo json_encode(['error' => 'Error updating member: ' . $e->getMessage()]);
         }
         break;
         

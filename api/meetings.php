@@ -33,7 +33,7 @@ switch ($method) {
             
             // Get attendees
             $stmt = $db->prepare("
-                SELECT ma.*, bm.first_name, bm.last_name, bm.role, bm.email 
+                SELECT ma.*, bm.first_name, bm.last_name, bm.email 
                 FROM meeting_attendees ma 
                 JOIN board_members bm ON ma.member_id = bm.id 
                 WHERE ma.meeting_id = ?
@@ -53,13 +53,13 @@ switch ($method) {
             $meeting['agenda_items'] = $stmt->fetchAll();
             
             echo json_encode($meeting);
-        } elseif (isset($_GET['organization_id'])) {
-            $orgId = (int)$_GET['organization_id'];
+        } elseif (isset($_GET['committee_id'])) {
+            $committeeId = (int)$_GET['committee_id'];
             $status = $_GET['status'] ?? null;
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : null;
             
-            $sql = "SELECT * FROM meetings WHERE organization_id = ?";
-            $params = [$orgId];
+            $sql = "SELECT * FROM meetings WHERE committee_id = ?";
+            $params = [$committeeId];
             
             if ($status) {
                 $sql .= " AND status = ?";
@@ -78,25 +78,25 @@ switch ($method) {
             echo json_encode($stmt->fetchAll());
         } else {
             http_response_code(400);
-            echo json_encode(['error' => 'id or organization_id is required']);
+            echo json_encode(['error' => 'id or committee_id is required']);
         }
         break;
         
     case 'POST':
         $data = json_decode(file_get_contents('php://input'), true);
-        $orgId = (int)($data['organization_id'] ?? 0);
+        $committeeId = (int)($data['committee_id'] ?? 0);
         $title = $data['title'] ?? '';
         $scheduledDate = $data['scheduled_date'] ?? '';
         
-        if (!$orgId || empty($title) || empty($scheduledDate)) {
+        if (!$committeeId || empty($title) || empty($scheduledDate)) {
             http_response_code(400);
-            echo json_encode(['error' => 'organization_id, title, and scheduled_date are required']);
+            echo json_encode(['error' => 'committee_id, title, and scheduled_date are required']);
             exit;
         }
         
-        $stmt = $db->prepare("INSERT INTO meetings (organization_id, title, meeting_type, scheduled_date, location, virtual_link, quorum_required, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO meetings (committee_id, title, meeting_type, scheduled_date, location, virtual_link, quorum_required, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
-            $orgId,
+            $committeeId,
             $title,
             $data['meeting_type'] ?? 'Regular',
             $scheduledDate,

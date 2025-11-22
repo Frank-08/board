@@ -28,9 +28,9 @@
             </div>
 
             <div class="organization-selector">
-                <label for="orgSelect">Organization:</label>
-                <select id="orgSelect" onchange="loadMembers()">
-                    <option value="">Select organization...</option>
+                <label for="committeeSelect">Filter by Committee:</label>
+                <select id="committeeSelect" onchange="loadMembers()">
+                    <option value="">All Members</option>
                 </select>
             </div>
 
@@ -66,28 +66,9 @@
                     <input type="text" id="title">
                 </div>
                 <div class="form-group">
-                    <label for="role">Role *</label>
-                    <select id="role" required>
-                        <option value="Member">Member</option>
-                        <option value="Chair">Chair</option>
-                        <option value="Deputy Chair">Deputy Chair</option>
-                        <option value="Secretary">Secretary</option>
-                        <option value="Treasurer">Treasurer</option>
-                        <option value="Ex-officio">Ex-officio</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="status">Status *</label>
-                    <select id="status" required>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Resigned">Resigned</option>
-                        <option value="Terminated">Terminated</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="startDate">Start Date</label>
-                    <input type="date" id="startDate">
+                    <label>Committees & Roles *</label>
+                    <div id="committeesContainer"></div>
+                    <button type="button" onclick="addCommitteeRow()" class="btn btn-sm" style="margin-top: 10px;">+ Add Committee</button>
                 </div>
                 <div class="form-group">
                     <label for="bio">Biography</label>
@@ -100,37 +81,39 @@
 
     <script src="assets/js/app.js"></script>
     <script>
-        let currentOrgId = null;
+        let allCommittees = [];
+        let currentCommitteeId = null;
 
         window.addEventListener('DOMContentLoaded', function() {
-            loadOrganizations();
+            loadCommittees();
+            loadMembers();
         });
 
-        function loadOrganizations() {
-            fetch('api/organizations.php')
+        function loadCommittees() {
+            fetch('api/committees.php')
                 .then(response => response.json())
                 .then(data => {
-                    const select = document.getElementById('orgSelect');
-                    select.innerHTML = '<option value="">Select organization...</option>';
-                    data.forEach(org => {
+                    allCommittees = data;
+                    const select = document.getElementById('committeeSelect');
+                    select.innerHTML = '<option value="">All Members</option>';
+                    data.forEach(committee => {
                         const option = document.createElement('option');
-                        option.value = org.id;
-                        option.textContent = org.name;
+                        option.value = committee.id;
+                        option.textContent = committee.name;
                         select.appendChild(option);
                     });
-                    if (data.length > 0) {
-                        select.value = data[0].id;
-                        currentOrgId = data[0].id;
-                        loadMembers();
-                    }
                 });
         }
 
         function loadMembers() {
-            currentOrgId = document.getElementById('orgSelect').value;
-            if (!currentOrgId) return;
+            currentCommitteeId = document.getElementById('committeeSelect').value;
+            
+            let url = 'api/members.php';
+            if (currentCommitteeId) {
+                url += `?committee_id=${currentCommitteeId}`;
+            }
 
-            fetch(`api/members.php?organization_id=${currentOrgId}`)
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     const list = document.getElementById('members-list');
@@ -138,34 +121,59 @@
                         list.innerHTML = '<p>No members found. Add your first board member.</p>';
                         return;
                     }
-                    list.innerHTML = data.map(member => `
-                        <div class="member-card">
-                            <div class="member-header">
-                                <h3>${member.first_name} ${member.last_name}</h3>
-                                <span class="badge badge-${member.status.toLowerCase()}">${member.status}</span>
-                            </div>
-                            <p class="member-role">${member.role}</p>
-                            ${member.title ? `<p class="member-title">${member.title}</p>` : ''}
-                            ${member.email ? `<p class="member-email">${member.email}</p>` : ''}
-                            ${member.phone ? `<p class="member-phone">${member.phone}</p>` : ''}
-                            <div class="member-actions">
-                                <button onclick="editMember(${member.id})" class="btn btn-sm">Edit</button>
-                                <button onclick="deleteMember(${member.id})" class="btn btn-sm btn-danger">Delete</button>
-                            </div>
-                        </div>
-                    `).join('');
+                    // Load committee memberships for each member
+                    Promise.all(data.map(member => 
+                        fetch(`api/committee_members.php?member_id=${member.id}`)
+                            .then(r => r.json())
+                            .then(committees => ({...member, committees}))
+                            .catch(err => {
+                                console.error(`Error loading committees for member ${member.id}:`, err);
+                                return {...member, committees: []};
+                            })
+                    )).then(membersWithCommittees => {
+                        list.innerHTML = membersWithCommittees.map(member => {
+                            const committeesList = member.committees && member.committees.length > 0 
+                                ? member.committees.map(c => {
+                                    const statusClass = c.status === 'Active' ? 'badge-active' : 
+                                                       c.status === 'Inactive' ? 'badge-inactive' : 
+                                                       'badge-resigned';
+                                    return `<span class="badge ${statusClass}" style="margin: 2px; display: inline-block;">${c.committee_name} - ${c.role}</span>`;
+                                }).join('')
+                                : '<span style="color: #999;">No committee assignments</span>';
+                            
+                            return `
+                                <div class="member-card">
+                                    <div class="member-header">
+                                        <h3>${member.first_name} ${member.last_name}</h3>
+                                    </div>
+                                    ${member.title ? `<p class="member-title">${member.title}</p>` : ''}
+                                    ${member.email ? `<p class="member-email">${member.email}</p>` : ''}
+                                    ${member.phone ? `<p class="member-phone">${member.phone}</p>` : ''}
+                                    <div style="margin-top: 10px;">
+                                        <strong>Committees:</strong><br>
+                                        <div style="margin-top: 5px;">${committeesList}</div>
+                                    </div>
+                                    <div class="member-actions">
+                                        <button onclick="editMember(${member.id})" class="btn btn-sm">Edit</button>
+                                        <button onclick="deleteMember(${member.id})" class="btn btn-sm btn-danger">Delete</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading members:', error);
                 });
         }
 
         function showMemberModal(member = null) {
-            if (!currentOrgId) {
-                alert('Please select an organization first');
-                return;
-            }
-
             const modal = document.getElementById('memberModal');
             const form = document.getElementById('memberForm');
             const title = document.getElementById('modalTitle');
+            
+            // Clear committees container
+            document.getElementById('committeesContainer').innerHTML = '';
             
             if (member) {
                 title.textContent = 'Edit Board Member';
@@ -175,16 +183,71 @@
                 document.getElementById('email').value = member.email || '';
                 document.getElementById('phone').value = member.phone || '';
                 document.getElementById('title').value = member.title || '';
-                document.getElementById('role').value = member.role;
-                document.getElementById('status').value = member.status;
-                document.getElementById('startDate').value = member.start_date || '';
                 document.getElementById('bio').value = member.bio || '';
+                
+                // Load and display existing committee memberships
+                fetch(`api/committee_members.php?member_id=${member.id}`)
+                    .then(response => response.json())
+                    .then(committees => {
+                        if (committees && committees.length > 0) {
+                            committees.forEach(cm => {
+                                addCommitteeRow(cm.committee_id, cm.role, cm.status, cm.start_date || '', cm.id);
+                            });
+                        } else {
+                            addCommitteeRow();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading committee memberships:', error);
+                        addCommitteeRow(); // Add empty row if error
+                    });
             } else {
                 title.textContent = 'New Board Member';
                 form.reset();
                 document.getElementById('memberId').value = '';
+                addCommitteeRow(); // Add one empty row
             }
             modal.style.display = 'block';
+        }
+
+        function addCommitteeRow(committeeId = '', role = 'Member', status = 'Active', startDate = '', membershipId = '') {
+            const container = document.getElementById('committeesContainer');
+            const rowId = 'committee-row-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            
+            const row = document.createElement('div');
+            row.id = rowId;
+            row.className = 'committee-row';
+            row.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; padding: 10px; background: #f9f9f9; border-radius: 4px;';
+            
+            row.innerHTML = `
+                <select class="committee-select" style="flex: 2;" required>
+                    <option value="">Select Committee...</option>
+                    ${allCommittees.map(c => `<option value="${c.id}" ${c.id == committeeId ? 'selected' : ''}>${c.name}</option>`).join('')}
+                </select>
+                <select class="committee-role" style="flex: 1;">
+                    <option value="Member" ${role === 'Member' ? 'selected' : ''}>Member</option>
+                    <option value="Chair" ${role === 'Chair' ? 'selected' : ''}>Chair</option>
+                    <option value="Deputy Chair" ${role === 'Deputy Chair' ? 'selected' : ''}>Deputy Chair</option>
+                    <option value="Secretary" ${role === 'Secretary' ? 'selected' : ''}>Secretary</option>
+                    <option value="Treasurer" ${role === 'Treasurer' ? 'selected' : ''}>Treasurer</option>
+                    <option value="Ex-officio" ${role === 'Ex-officio' ? 'selected' : ''}>Ex-officio</option>
+                </select>
+                <select class="committee-status" style="flex: 1;">
+                    <option value="Active" ${status === 'Active' ? 'selected' : ''}>Active</option>
+                    <option value="Inactive" ${status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                    <option value="Resigned" ${status === 'Resigned' ? 'selected' : ''}>Resigned</option>
+                    <option value="Terminated" ${status === 'Terminated' ? 'selected' : ''}>Terminated</option>
+                </select>
+                <input type="date" class="committee-start-date" placeholder="Start Date" value="${startDate || ''}" style="flex: 1;">
+                <input type="hidden" class="membership-id" value="${membershipId}">
+                <button type="button" onclick="removeCommitteeRow('${rowId}')" class="btn btn-sm btn-danger">×</button>
+            `;
+            
+            container.appendChild(row);
+        }
+
+        function removeCommitteeRow(rowId) {
+            document.getElementById(rowId).remove();
         }
 
         function closeMemberModal() {
@@ -195,16 +258,37 @@
         function saveMember(event) {
             event.preventDefault();
             const memberId = document.getElementById('memberId').value;
-            const data = {
-                organization_id: currentOrgId,
+            
+            // Collect committee memberships
+            const committeeRows = document.querySelectorAll('.committee-row');
+            const committeeIds = [];
+            
+            committeeRows.forEach(row => {
+                const committeeId = row.querySelector('.committee-select').value;
+                if (committeeId) {
+                    const membershipId = row.querySelector('.membership-id').value;
+                    committeeIds.push({
+                        committee_id: committeeId,
+                        role: row.querySelector('.committee-role').value,
+                        status: row.querySelector('.committee-status').value,
+                        start_date: row.querySelector('.committee-start-date').value || null,
+                        membership_id: membershipId || null
+                    });
+                }
+            });
+            
+            if (committeeIds.length === 0) {
+                alert('Please add at least one committee membership');
+                return;
+            }
+            
+            // Save member basic info
+            const memberData = {
                 first_name: document.getElementById('firstName').value,
                 last_name: document.getElementById('lastName').value,
                 email: document.getElementById('email').value,
                 phone: document.getElementById('phone').value,
                 title: document.getElementById('title').value,
-                role: document.getElementById('role').value,
-                status: document.getElementById('status').value,
-                start_date: document.getElementById('startDate').value || null,
                 bio: document.getElementById('bio').value
             };
 
@@ -212,29 +296,72 @@
             const method = memberId ? 'PUT' : 'POST';
             
             if (memberId) {
-                data.id = memberId;
+                memberData.id = memberId;
             }
 
+            // Save or update member
             fetch(url, {
                 method: method,
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
+                body: JSON.stringify(memberData)
             })
             .then(response => response.json())
-            .then(data => {
-                closeMemberModal();
-                loadMembers();
+            .then(savedMember => {
+                const actualMemberId = memberId || savedMember.id;
+                
+                // Save committee memberships
+                const membershipPromises = committeeIds.map(c => {
+                    if (c.membership_id) {
+                        // Update existing membership
+                        return fetch('api/committee_members.php', {
+                            method: 'PUT',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                id: c.membership_id,
+                                role: c.role,
+                                status: c.status,
+                                start_date: c.start_date
+                            })
+                        });
+                    } else {
+                        // Create new membership
+                        return fetch('api/committee_members.php', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                committee_id: c.committee_id,
+                                member_id: actualMemberId,
+                                role: c.role,
+                                status: c.status,
+                                start_date: c.start_date
+                            })
+                        });
+                    }
+                });
+                
+                return Promise.all(membershipPromises).then(() => {
+                    closeMemberModal();
+                    loadMembers();
+                });
             })
             .catch(error => {
                 console.error('Error saving member:', error);
-                alert('Error saving member');
+                alert('Error saving member: ' + error.message);
             });
         }
 
         function editMember(id) {
-            fetch(`api/members.php?id=${id}`)
-                .then(response => response.json())
-                .then(member => showMemberModal(member));
+            Promise.all([
+                fetch(`api/members.php?id=${id}`).then(r => r.json()),
+                fetch(`api/committee_members.php?member_id=${id}`).then(r => r.json())
+            ]).then(([member, committees]) => {
+                // Merge committee data into member object for compatibility
+                member.committees = committees;
+                showMemberModal(member);
+            }).catch(error => {
+                console.error('Error loading member:', error);
+                alert('Error loading member details');
+            });
         }
 
         function deleteMember(id) {

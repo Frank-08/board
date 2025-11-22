@@ -22,11 +22,16 @@ switch ($method) {
         if (isset($_GET['meeting_id'])) {
             $meetingId = (int)$_GET['meeting_id'];
             $stmt = $db->prepare("
-                SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.role, bm.title
+                SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.title,
+                    cm.role, cm.status as membership_status
                 FROM meeting_attendees ma
                 JOIN board_members bm ON ma.member_id = bm.id
+                JOIN meetings m ON ma.meeting_id = m.id
+                LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
                 WHERE ma.meeting_id = ?
-                ORDER BY bm.last_name ASC
+                ORDER BY 
+                    FIELD(cm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
+                    bm.last_name ASC
             ");
             $stmt->execute([$meetingId]);
             echo json_encode($stmt->fetchAll());
@@ -67,9 +72,12 @@ switch ($method) {
         
         $attendeeId = $db->lastInsertId();
         $stmt = $db->prepare("
-            SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.role, bm.title
+            SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.title,
+                cm.role, cm.status as membership_status
             FROM meeting_attendees ma
             JOIN board_members bm ON ma.member_id = bm.id
+            JOIN meetings m ON ma.meeting_id = m.id
+            LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
             WHERE ma.id = ?
         ");
         $stmt->execute([$attendeeId]);
@@ -131,15 +139,18 @@ switch ($method) {
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
         
-        $stmt = $db->prepare("
-            SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.role, bm.title
-            FROM meeting_attendees ma
-            JOIN board_members bm ON ma.member_id = bm.id
-            WHERE ma.id = ?
-        ");
-        $stmt->execute([$id]);
-        echo json_encode($stmt->fetch());
-        break;
+            $stmt = $db->prepare("
+                SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.title,
+                    cm.role, cm.status as membership_status
+                FROM meeting_attendees ma
+                JOIN board_members bm ON ma.member_id = bm.id
+                JOIN meetings m ON ma.meeting_id = m.id
+                LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
+                WHERE ma.id = ?
+            ");
+            $stmt->execute([$id]);
+            echo json_encode($stmt->fetch());
+            break;
         
     case 'DELETE':
         $data = json_decode(file_get_contents('php://input'), true);
