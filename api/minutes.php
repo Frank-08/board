@@ -79,9 +79,9 @@ switch ($method) {
         $meetingId = (int)($data['meeting_id'] ?? 0);
         $content = $data['content'] ?? '';
         
-        if (!$meetingId || empty($content)) {
+        if (!$meetingId) {
             http_response_code(400);
-            echo json_encode(['error' => 'meeting_id and content are required']);
+            echo json_encode(['error' => 'meeting_id is required']);
             exit;
         }
         

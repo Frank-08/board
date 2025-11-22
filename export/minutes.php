@@ -39,17 +39,19 @@ if (!$minutes) {
     die('No minutes found for this meeting');
 }
 
-// Get agenda items with comments
+// Get agenda items with comments and resolutions
 $stmt = $db->prepare("
     SELECT ai.*, 
         bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
         cm.role as presenter_role,
-        mac.comment as minutes_comment
+        mac.comment as minutes_comment,
+        r.resolution_number, r.title as resolution_title, r.status as resolution_status
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
     LEFT JOIN meetings m ON ai.meeting_id = m.id
     LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
     LEFT JOIN minutes_agenda_comments mac ON ai.id = mac.agenda_item_id AND mac.minutes_id = ?
+    LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
     WHERE ai.meeting_id = ?
     ORDER BY ai.position ASC
 ");
@@ -341,7 +343,13 @@ function formatDateTime($dateString) {
         <h2>Agenda Items & Discussion</h2>
         <?php foreach ($agendaItems as $item): ?>
         <div class="agenda-item">
-            <h4><?php echo ($item['position'] !== null ? ($item['position'] + 1) . '. ' : ''); ?><?php echo htmlspecialchars($item['title']); ?></h4>
+            <h4>
+                <?php echo ($item['position'] !== null ? ($item['position'] + 1) . '. ' : ''); ?>
+                <?php echo htmlspecialchars($item['title']); ?>
+                <?php if ($item['resolution_number']): ?>
+                <span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #<?php echo htmlspecialchars($item['resolution_number']); ?>)</span>
+                <?php endif; ?>
+            </h4>
             <?php if ($item['description']): ?>
             <div class="item-description"><?php echo nl2br(htmlspecialchars($item['description'])); ?></div>
             <?php endif; ?>
@@ -363,11 +371,6 @@ function formatDateTime($dateString) {
         <?php endforeach; ?>
     </div>
     <?php endif; ?>
-    
-    <div class="section">
-        <h2>Minutes</h2>
-        <div class="minutes-content"><?php echo nl2br(htmlspecialchars($minutes['content'])); ?></div>
-    </div>
     
     <?php if ($minutes['action_items']): ?>
     <div class="section">
@@ -395,4 +398,5 @@ function formatDateTime($dateString) {
     </div>
 </body>
 </html>
+
 

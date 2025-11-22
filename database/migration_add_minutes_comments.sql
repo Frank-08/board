@@ -16,3 +16,4 @@ CREATE TABLE IF NOT EXISTS minutes_agenda_comments (
     UNIQUE KEY unique_minutes_agenda_item (minutes_id, agenda_item_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+

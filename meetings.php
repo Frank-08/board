@@ -222,9 +222,9 @@
                         <option value="">Select member...</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="minutesContent">Minutes Content *</label>
-                    <textarea id="minutesContent" rows="15" required></textarea>
+                <div class="form-group" style="display: none;">
+                    <label for="minutesContent">Minutes Content</label>
+                    <textarea id="minutesContent" rows="15"></textarea>
                 </div>
                 <div class="form-group">
                     <label for="minutesActionItems">Action Items</label>
@@ -542,6 +542,7 @@
                             <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
                                 <h4 style="margin: 0 0 10px 0; color: #333;">
                                     ${item.position !== null ? (item.position + 1) + '. ' : ''}${item.title}
+                                    ${item.resolution_number ? `<span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #${item.resolution_number})</span>` : ''}
                                 </h4>
                                 ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
                                 <div style="margin-top: 10px;">
@@ -576,7 +577,6 @@
                         ${minutes.approved_first_name ? `<p><strong>Approved by:</strong> ${minutes.approved_first_name} ${minutes.approved_last_name}</p>` : ''}
                         ${minutes.approved_at ? `<p><strong>Approved on:</strong> ${formatDateTime(minutes.approved_at)}</p>` : ''}
                         ${agendaItemsHtml}
-                        <div class="minutes-text">${minutes.content.replace(/\n/g, '<br>')}</div>
                         ${minutes.action_items ? `<h4>Action Items</h4><div class="minutes-text">${minutes.action_items.replace(/\n/g, '<br>')}</div>` : ''}
                         ${minutes.next_meeting_date ? `<p><strong>Next Meeting:</strong> ${formatDateTime(minutes.next_meeting_date)}</p>` : ''}
                     </div>
