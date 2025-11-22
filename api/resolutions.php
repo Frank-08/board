@@ -83,7 +83,7 @@ switch ($method) {
             $position = $result['new_position'];
             
             // Create agenda item for the resolution
-            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $meetingId,
                 $title,
@@ -91,8 +91,7 @@ switch ($method) {
                 'Vote', // Resolutions are typically vote items
                 !empty($data['motion_moved_by']) ? (int)$data['motion_moved_by'] : null,
                 null, // duration
-                $position,
-                'Pending'
+                $position
             ]);
             
             $agendaItemId = $db->lastInsertId();
