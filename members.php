@@ -29,9 +29,9 @@
 
             <div class="organization-selector">
                 <!-- <label for="orgSelect">Committee:</label> -->
-                <select id="orgSelect" onchange="loadMembers()">
+                <!-- <select id="orgSelect" onchange="loadMembers()">
                     <option value="">Select Committee...</option>
-                </select>
+                </select> -->
             </div>
 
             <div id="members-list" class="members-grid"></div>
