@@ -128,7 +128,8 @@ switch ($method) {
                 $updates[] = "status = ?";
                 $params[] = $data['status'];
             } else {
-                $updates[] = "status = 'Approved'";
+                $updates[] = "status = ?";
+                $params[] = 'Approved';
             }
         } else {
             foreach ($fields as $field) {

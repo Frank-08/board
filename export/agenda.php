@@ -44,7 +44,7 @@ $stmt = $db->prepare("
     JOIN board_members bm ON ma.member_id = bm.id
     WHERE ma.meeting_id = ?
     ORDER BY 
-        FIELD(bm.role, 'Chair', 'Vice Chair', 'Secretary', 'Treasurer', 'Executive Director', 'Member'),
+        FIELD(bm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
         bm.last_name ASC
 ");
 $stmt->execute([$meetingId]);

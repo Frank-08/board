@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS meetings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     organization_id INT NOT NULL,
     title VARCHAR(255) NOT NULL,
-    meeting_type ENUM('Standing Committee', 'PiC', 'PRC', 'RPC', 'Workshop') DEFAULT 'Regular',
+    meeting_type ENUM('Standing Committee', 'PiC', 'PRC', 'RPC', 'Workshop') DEFAULT 'Standing Committee',
     scheduled_date DATETIME NOT NULL,
     location VARCHAR(255),
     virtual_link VARCHAR(255),

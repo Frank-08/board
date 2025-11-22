@@ -187,7 +187,7 @@ board/
 ### Key Features
 
 - **Dashboard**: Provides an overview of active members, upcoming meetings, pending resolutions, and draft minutes
-- **Board Members**: Manage member profiles with roles (Chair, Vice Chair, Secretary, Treasurer, Member, Executive Director)
+- **Board Members**: Manage member profiles with roles (Chair, Deputy Chair, Secretary, Treasurer, Member, Ex-officio)
 - **Meetings**: Full meeting lifecycle management from scheduling to completion
 - **Agenda Management**: Organize meeting agendas with items, presenters, and time allocations
 - **Minutes**: Create, review, approve, and publish meeting minutes
