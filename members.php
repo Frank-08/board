@@ -70,10 +70,10 @@
                     <select id="role" required>
                         <option value="Member">Member</option>
                         <option value="Chair">Chair</option>
-                        <option value="Vice Chair">Vice Chair</option>
+                        <option value="Deputy Chair">Deputy Chair</option>
                         <option value="Secretary">Secretary</option>
                         <option value="Treasurer">Treasurer</option>
-                        <option value="Executive Director">Executive Director</option>
+                        <option value="Ex-officio">Ex-officio</option>
                     </select>
                 </div>
                 <div class="form-group">
