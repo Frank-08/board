@@ -74,15 +74,6 @@
                         <label for="agendaItemDuration">Duration (minutes)</label>
                         <input type="number" id="agendaItemDuration" min="0">
                     </div>
-                    <div class="form-group">
-                        <label for="agendaItemStatus">Status</label>
-                        <select id="agendaItemStatus">
-                            <option value="Pending">Pending</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Deferred">Deferred</option>
-                        </select>
-                    </div>
                 </div>
                 <div class="form-group">
                     <label for="agendaItemPresenter">Presenter</label>
@@ -716,7 +707,6 @@
                     document.getElementById('agendaItemDescription').value = item.description || '';
                     document.getElementById('agendaItemType').value = item.item_type;
                     document.getElementById('agendaItemDuration').value = item.duration_minutes || '';
-                    document.getElementById('agendaItemStatus').value = item.status || 'Pending';
                     document.getElementById('agendaItemPresenter').value = item.presenter_id || '';
                     document.getElementById('modalAgendaTitle').textContent = 'Edit Agenda Item';
                 } else {
@@ -757,7 +747,6 @@
                 description: document.getElementById('agendaItemDescription').value,
                 item_type: document.getElementById('agendaItemType').value,
                 duration_minutes: document.getElementById('agendaItemDuration').value || null,
-                status: document.getElementById('agendaItemStatus').value,
                 presenter_id: document.getElementById('agendaItemPresenter').value || null
             };
 

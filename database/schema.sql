@@ -93,7 +93,6 @@ CREATE TABLE IF NOT EXISTS agenda_items (
     presenter_id INT,
     duration_minutes INT,
     position INT NOT NULL DEFAULT 0,
-    status ENUM('Pending', 'In Progress', 'Completed', 'Deferred') DEFAULT 'Pending',
     outcome TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

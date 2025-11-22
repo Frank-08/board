@@ -75,7 +75,7 @@ switch ($method) {
         $result = $stmt->fetch();
         $position = $result['new_position'];
         
-        $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $meetingId,
             $title,
@@ -83,8 +83,7 @@ switch ($method) {
             $data['item_type'] ?? 'Discussion',
             !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
             !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
-            $position,
-            $data['status'] ?? 'Pending'
+            $position
         ]);
         
         $itemId = $db->lastInsertId();
@@ -111,7 +110,7 @@ switch ($method) {
         $updates = [];
         $params = [];
         
-        $fields = ['title', 'description', 'item_type', 'presenter_id', 'duration_minutes', 'position', 'status', 'outcome'];
+        $fields = ['title', 'description', 'item_type', 'presenter_id', 'duration_minutes', 'position', 'outcome'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {
                 $updates[] = "$field = ?";
