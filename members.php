@@ -27,13 +27,6 @@
                 <button onclick="showMemberModal()" class="btn btn-primary">+ Add Member</button>
             </div>
 
-            <div class="organization-selector">
-                <label for="orgSelect">Committee:</label>
-                <select id="orgSelect" onchange="loadMembers()">
-                    <option value="">Select Committee...</option>
-                </select>
-            </div>
-
             <div id="members-list" class="members-grid"></div>
         </main>
     </div>
