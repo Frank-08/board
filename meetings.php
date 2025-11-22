@@ -325,7 +325,7 @@
         });
 
         function loadOrganizations() {
-            fetch('api/organizations.php')
+            fetch('api/committees.php')
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('orgSelect');
