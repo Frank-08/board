@@ -35,7 +35,7 @@ if (!$committeeId) {
 $stats = [];
 
 // Active members count
-$stmt = $db->prepare("SELECT COUNT(*) as count");
+$stmt = $db->prepare("SELECT COUNT(*) as count FROM committee_members WHERE committee_id = ? AND status = 'Active'");
 $stmt->execute([$committeeId]);
 $stats['active_members'] = (int)$stmt->fetch()['count'];
 
