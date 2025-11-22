@@ -59,10 +59,10 @@
                     <div class="form-group">
                         <label for="meetingType">Meeting Type *</label>
                         <select id="meetingType" required>
-                            <option value="Regular">Regular</option>
-                            <option value="Special">Special</option>
-                            <option value="Annual">Annual</option>
-                            <option value="Emergency">Emergency</option>
+                            <option value="Standing Committee">Standing Committee</option>
+                            <option value="PiC">Prebytery in Council</option>
+                            <option value="PRC">Pastoral Relations Commitee</option>
+                            <option value="RPC">Property Board</option>
                             <option value="Workshop">Workshop</option>
                         </select>
                     </div>
