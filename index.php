@@ -23,11 +23,11 @@
 
         <main>
             <div class="organization-selector">
-                <label for="orgSelect">Select Organization:</label>
+                <label for="orgSelect">Select Committee:</label>
                 <select id="orgSelect" onchange="loadDashboard()">
                     <option value="">Loading...</option>
                 </select>
-                <button onclick="showOrgModal()">+ New Organization</button>
+                <button onclick="showOrgModal()">+ New Committee</button>
             </div>
 
             <div id="dashboard" style="display:none;">
@@ -149,7 +149,7 @@
             document.getElementById('no-org').style.display = 'none';
 
             // Load dashboard stats
-            fetch(`api/dashboard.php?organization_id=${orgId}`)
+            fetch(`api/dashboard.php?committee_id=${orgId}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('stat-members').textContent = data.active_members || 0;
