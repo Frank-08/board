@@ -1,0 +1,140 @@
+<?php
+/**
+ * Meeting Attendees API Endpoint
+ */
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+require_once __DIR__ . '/../config/database.php';
+
+$method = $_SERVER['REQUEST_METHOD'];
+$db = getDBConnection();
+
+switch ($method) {
+    case 'GET':
+        if (isset($_GET['meeting_id'])) {
+            $meetingId = (int)$_GET['meeting_id'];
+            $stmt = $db->prepare("
+                SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.role, bm.title
+                FROM meeting_attendees ma
+                JOIN board_members bm ON ma.member_id = bm.id
+                WHERE ma.meeting_id = ?
+                ORDER BY bm.last_name ASC
+            ");
+            $stmt->execute([$meetingId]);
+            echo json_encode($stmt->fetchAll());
+        } else {
+            http_response_code(400);
+            echo json_encode(['error' => 'meeting_id is required']);
+        }
+        break;
+        
+    case 'POST':
+        $data = json_decode(file_get_contents('php://input'), true);
+        $meetingId = (int)($data['meeting_id'] ?? 0);
+        $memberId = (int)($data['member_id'] ?? 0);
+        
+        if (!$meetingId || !$memberId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'meeting_id and member_id are required']);
+            exit;
+        }
+        
+        // Check if already exists
+        $stmt = $db->prepare("SELECT id FROM meeting_attendees WHERE meeting_id = ? AND member_id = ?");
+        $stmt->execute([$meetingId, $memberId]);
+        if ($stmt->fetch()) {
+            http_response_code(409);
+            echo json_encode(['error' => 'Attendee already exists for this meeting']);
+            exit;
+        }
+        
+        $stmt = $db->prepare("INSERT INTO meeting_attendees (meeting_id, member_id, attendance_status, arrival_time, notes) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $meetingId,
+            $memberId,
+            $data['attendance_status'] ?? 'Absent',
+            $data['arrival_time'] ?? null,
+            $data['notes'] ?? null
+        ]);
+        
+        $attendeeId = $db->lastInsertId();
+        $stmt = $db->prepare("
+            SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.role, bm.title
+            FROM meeting_attendees ma
+            JOIN board_members bm ON ma.member_id = bm.id
+            WHERE ma.id = ?
+        ");
+        $stmt->execute([$attendeeId]);
+        echo json_encode($stmt->fetch());
+        break;
+        
+    case 'PUT':
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = (int)($data['id'] ?? 0);
+        
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID is required']);
+            exit;
+        }
+        
+        $updates = [];
+        $params = [];
+        
+        $fields = ['attendance_status', 'arrival_time', 'notes'];
+        foreach ($fields as $field) {
+            if (isset($data[$field])) {
+                $updates[] = "$field = ?";
+                $params[] = $data[$field];
+            }
+        }
+        
+        if (empty($updates)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'No fields to update']);
+            exit;
+        }
+        
+        $params[] = $id;
+        $sql = "UPDATE meeting_attendees SET " . implode(', ', $updates) . " WHERE id = ?";
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        
+        $stmt = $db->prepare("
+            SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.role, bm.title
+            FROM meeting_attendees ma
+            JOIN board_members bm ON ma.member_id = bm.id
+            WHERE ma.id = ?
+        ");
+        $stmt->execute([$id]);
+        echo json_encode($stmt->fetch());
+        break;
+        
+    case 'DELETE':
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = (int)($data['id'] ?? 0);
+        
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID is required']);
+            exit;
+        }
+        
+        $stmt = $db->prepare("DELETE FROM meeting_attendees WHERE id = ?");
+        $stmt->execute([$id]);
+        echo json_encode(['success' => true]);
+        break;
+        
+    default:
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+}
+

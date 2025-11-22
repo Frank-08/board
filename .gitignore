@@ -1,0 +1,27 @@
+# Configuration files with sensitive data
+config/database.php.local
+config/config.php.local
+
+# Uploads directory (but keep .gitkeep)
+uploads/*
+!uploads/.gitkeep
+
+# PHP specific
+*.log
+*.cache
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+
