@@ -45,7 +45,7 @@ switch ($method) {
             }
             
             $sql .= " ORDER BY 
-                FIELD(role, 'Chair', 'Vice Chair', 'Secretary', 'Treasurer', 'Executive Director', 'Member'),
+                FIELD(role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
                 last_name ASC, first_name ASC";
             
             $stmt = $db->prepare($sql);

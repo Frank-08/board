@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS board_members (
     email VARCHAR(255),
     phone VARCHAR(50),
     title VARCHAR(100),
-    role ENUM('Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Member', 'Ex-Officio') DEFAULT 'Member',
+    role ENUM('Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Member', 'Ex-officio') DEFAULT 'Member',
     start_date DATE,
     end_date DATE,
     status ENUM('Active', 'Inactive', 'Resigned', 'Terminated') DEFAULT 'Active',
