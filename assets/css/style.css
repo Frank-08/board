@@ -603,6 +603,28 @@ main {
     color: #333;
 }
 
+/* Committee Rows */
+.committee-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: 4px;
+    flex-wrap: wrap;
+}
+
+.committee-row select,
+.committee-row input {
+    flex: 1;
+    min-width: 120px;
+}
+
+.committee-row button {
+    flex: 0 0 auto;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .container {

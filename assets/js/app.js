@@ -75,26 +75,31 @@ function confirmAction(message) {
     return confirm(message);
 }
 
-// Load organizations into select element
-async function loadOrganizationsIntoSelect(selectId) {
+// Load committees into select element
+async function loadCommitteesIntoSelect(selectId) {
     try {
-        const organizations = await apiCall('committees.php');
+        const committees = await apiCall('committees.php');
         const select = document.getElementById(selectId);
         
         if (!select) return;
         
         select.innerHTML = '<option value="">Select Committee...</option>';
-        organizations.forEach(org => {
+        committees.forEach(committee => {
             const option = document.createElement('option');
-            option.value = org.id;
-            option.textContent = org.name;
+            option.value = committee.id;
+            option.textContent = committee.name;
             select.appendChild(option);
         });
         
-        return organizations;
+        return committees;
     } catch (error) {
-        console.error('Error loading Committee:', error);
+        console.error('Error loading committees:', error);
         return [];
     }
+}
+
+// Alias for backward compatibility
+async function loadOrganizationsIntoSelect(selectId) {
+    return loadCommitteesIntoSelect(selectId);
 }
 

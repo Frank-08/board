@@ -28,9 +28,9 @@
             </div>
 
             <div class="organization-selector">
-                <label for="orgSelect">Organization:</label>
-                <select id="orgSelect" onchange="loadMeetings()">
-                    <option value="">Select organization...</option>
+                <label for="committeeSelect">Committee:</label>
+                <select id="committeeSelect" onchange="loadMeetings()">
+                    <option value="">Select committee...</option>
                 </select>
             </div>
 
@@ -310,11 +310,11 @@
 
     <script src="assets/js/app.js"></script>
     <script>
-        let currentOrgId = null;
+        let currentCommitteeId = null;
         let currentMeetingId = null;
 
         window.addEventListener('DOMContentLoaded', function() {
-            loadOrganizations();
+            loadCommittees();
             
             // Check if meeting ID is in URL
             const urlParams = new URLSearchParams(window.location.search);
@@ -324,31 +324,31 @@
             }
         });
 
-        function loadOrganizations() {
+        function loadCommittees() {
             fetch('api/committees.php')
                 .then(response => response.json())
                 .then(data => {
-                    const select = document.getElementById('orgSelect');
-                    select.innerHTML = '<option value="">Select organization...</option>';
-                    data.forEach(org => {
+                    const select = document.getElementById('committeeSelect');
+                    select.innerHTML = '<option value="">Select committee...</option>';
+                    data.forEach(committee => {
                         const option = document.createElement('option');
-                        option.value = org.id;
-                        option.textContent = org.name;
+                        option.value = committee.id;
+                        option.textContent = committee.name;
                         select.appendChild(option);
                     });
                     if (data.length > 0) {
                         select.value = data[0].id;
-                        currentOrgId = data[0].id;
+                        currentCommitteeId = data[0].id;
                         loadMeetings();
                     }
                 });
         }
 
         function loadMeetings() {
-            currentOrgId = document.getElementById('orgSelect').value;
-            if (!currentOrgId) return;
+            currentCommitteeId = document.getElementById('committeeSelect').value;
+            if (!currentCommitteeId) return;
 
-            fetch(`api/meetings.php?organization_id=${currentOrgId}`)
+            fetch(`api/meetings.php?committee_id=${currentCommitteeId}`)
                 .then(response => response.json())
                 .then(data => {
                     const list = document.getElementById('meetings-list');
@@ -499,9 +499,11 @@
                     list.innerHTML = attendees.map(att => `
                         <div class="attendee-item">
                             <div>
-                                <strong>${att.first_name} ${att.last_name}</strong> (${att.role})
-                                ${att.attendance_status ? `<span class="badge badge-${att.attendance_status.toLowerCase()}">${att.attendance_status}</span>` : ''}
-                                ${att.arrival_time ? `<span style="font-size: 12px; color: #666;">Arrived: ${formatDateTime(att.arrival_time)}</span>` : ''}
+                                <strong>${att.first_name} ${att.last_name}</strong>
+                                ${att.role ? `(${att.role})` : ''}
+                                ${att.title ? `<br><span style="font-size: 12px; color: #666;">${att.title}</span>` : ''}
+                                ${att.attendance_status ? `<span class="badge badge-${att.attendance_status.toLowerCase()}" style="margin-left: 8px;">${att.attendance_status}</span>` : ''}
+                                ${att.arrival_time ? `<br><span style="font-size: 12px; color: #666;">Arrived: ${formatDateTime(att.arrival_time)}</span>` : ''}
                             </div>
                             <div class="item-actions">
                                 <button onclick="editAttendee(${att.id})" class="btn btn-sm">Edit</button>
@@ -579,8 +581,8 @@
         }
 
         function showMeetingModal(meeting = null) {
-            if (!currentOrgId) {
-                alert('Please select an organization first');
+            if (!currentCommitteeId) {
+                alert('Please select a committee first');
                 return;
             }
 
@@ -618,7 +620,7 @@
             const scheduledDate = document.getElementById('scheduledDate').value;
             
             const data = {
-                organization_id: currentOrgId,
+                committee_id: currentCommitteeId,
                 title: document.getElementById('meetingTitle').value,
                 meeting_type: document.getElementById('meetingType').value,
                 scheduled_date: scheduledDate.replace('T', ' ') + ':00',
@@ -1160,11 +1162,28 @@
                 });
         }
 
-        // Utility function to load board members
+        // Utility function to load board members for current committee with their roles
         function loadBoardMembers() {
-            if (!currentOrgId) return Promise.resolve([]);
-            return fetch(`api/members.php?organization_id=${currentOrgId}`)
-                .then(response => response.json());
+            if (!currentCommitteeId) return Promise.resolve([]);
+            // Get committee members which includes role for this committee
+            return fetch(`api/committee_members.php?committee_id=${currentCommitteeId}`)
+                .then(response => response.json())
+                .then(committeeMembers => {
+                    // Transform to format expected by other functions
+                    return committeeMembers.map(cm => ({
+                        id: cm.member_id,
+                        first_name: cm.first_name,
+                        last_name: cm.last_name,
+                        email: cm.email,
+                        phone: cm.phone,
+                        title: cm.title,
+                        role: cm.role  // Role in this committee
+                    }));
+                })
+                .catch(error => {
+                    console.error('Error loading board members:', error);
+                    return [];
+                });
         }
 
         function formatDateTimeInput(dateString) {

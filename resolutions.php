@@ -27,9 +27,9 @@
             </div>
 
             <div class="organization-selector">
-                <label for="orgSelect">Organization:</label>
-                <select id="orgSelect" onchange="loadResolutions()">
-                    <option value="">Select organization...</option>
+                <label for="committeeSelect">Committee:</label>
+                <select id="committeeSelect" onchange="loadResolutions()">
+                    <option value="">Select committee...</option>
                 </select>
             </div>
 
@@ -40,20 +40,20 @@
     <script src="assets/js/app.js"></script>
     <script>
         window.addEventListener('DOMContentLoaded', function() {
-            loadOrganizationsIntoSelect('orgSelect').then(orgs => {
-                if (orgs && orgs.length > 0) {
-                    document.getElementById('orgSelect').value = orgs[0].id;
+            loadOrganizationsIntoSelect('committeeSelect').then(committees => {
+                if (committees && committees.length > 0) {
+                    document.getElementById('committeeSelect').value = committees[0].id;
                     loadResolutions();
                 }
             });
         });
 
         function loadResolutions() {
-            const orgId = document.getElementById('orgSelect').value;
-            if (!orgId) return;
+            const committeeId = document.getElementById('committeeSelect').value;
+            if (!committeeId) return;
 
-            // Get all meetings for this organization, then get resolutions for each
-            fetch(`api/meetings.php?organization_id=${orgId}`)
+            // Get all meetings for this committee, then get resolutions for each
+            fetch(`api/meetings.php?committee_id=${committeeId}`)
                 .then(response => response.json())
                 .then(meetings => {
                     const meetingIds = meetings.map(m => m.id);

@@ -25,11 +25,14 @@ if (!$meeting) {
 // Get agenda items with linked resolutions
 $stmt = $db->prepare("
     SELECT ai.*, 
-        bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.role as presenter_role,
+        bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
+        cm.role as presenter_role,
         r.id as resolution_id, r.title as resolution_title, r.resolution_number, r.description as resolution_description,
         r.status as resolution_status, r.vote_type, r.votes_for, r.votes_against, r.votes_abstain
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
+    LEFT JOIN meetings m ON ai.meeting_id = m.id
+    LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
     LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
     WHERE ai.meeting_id = ?
     ORDER BY ai.position ASC
@@ -37,14 +40,17 @@ $stmt = $db->prepare("
 $stmt->execute([$meetingId]);
 $agendaItems = $stmt->fetchAll();
 
-// Get attendees
+// Get attendees with their role in the meeting's committee
 $stmt = $db->prepare("
-    SELECT ma.*, bm.first_name, bm.last_name, bm.role, bm.title
+    SELECT ma.*, bm.first_name, bm.last_name, bm.title,
+        cm.role, cm.status as membership_status
     FROM meeting_attendees ma
     JOIN board_members bm ON ma.member_id = bm.id
+    JOIN meetings m ON ma.meeting_id = m.id
+    LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
     WHERE ma.meeting_id = ?
     ORDER BY 
-        FIELD(bm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
+        FIELD(cm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
         bm.last_name ASC
 ");
 $stmt->execute([$meetingId]);
@@ -311,8 +317,11 @@ function formatTime($dateString) {
             <?php foreach ($attendees as $attendee): ?>
             <div class="attendee-item">
                 <strong><?php echo htmlspecialchars($attendee['first_name'] . ' ' . $attendee['last_name']); ?></strong>
-                <?php if ($attendee['role']): ?>
+                <?php if (!empty($attendee['role'])): ?>
                 <br><span style="color: #666; font-size: 14px;"><?php echo htmlspecialchars($attendee['role']); ?></span>
+                <?php endif; ?>
+                <?php if ($attendee['title']): ?>
+                <br><span style="color: #999; font-size: 12px;"><?php echo htmlspecialchars($attendee['title']); ?></span>
                 <?php endif; ?>
             </div>
             <?php endforeach; ?>
