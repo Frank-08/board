@@ -130,7 +130,7 @@
             currentOrgId = document.getElementById('orgSelect').value;
             if (!currentOrgId) return;
 
-            fetch(`api/members.php?organization_id=${currentOrgId}`)
+            fetch(`api/members.php?committee_id=${currentOrgId}`)
                 .then(response => response.json())
                 .then(data => {
                     const list = document.getElementById('members-list');
