@@ -496,7 +496,7 @@
                             return `
                                 <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}">
                                     <div class="item-header">
-                                        <h4>${item.position ? item.position + 1 + '. ' : ''}${item.title}</h4>
+                                        <h4>${(item.position !== null && item.position !== undefined) ? (parseInt(item.position) + 1) + '. ' : ''}${item.title}</h4>
                                         <div class="item-actions">
                                             ${item.resolution_id ? `<a href="#resolutions" onclick="showTab('resolutions'); event.preventDefault();" class="btn btn-sm" style="text-decoration: none; display: inline-block;">View Resolution</a>` : ''}
                                             <button onclick="showDocumentUploadModal(${item.id})" class="btn btn-sm">📎 Attach Document</button>
@@ -601,7 +601,7 @@
                         agendaItemsHtml += `
                             <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
                                 <h4 style="margin: 0 0 10px 0; color: #333;">
-                                    ${item.position !== null ? (item.position + 1) + '. ' : ''}${item.title}
+                                    ${(item.position !== null && item.position !== undefined) ? (parseInt(item.position) + 1) + '. ' : ''}${item.title}
                                     ${item.resolution_number ? `<span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #${item.resolution_number})</span>` : ''}
                                     ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase().replace(' ', '-')}" style="margin-left: 8px; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;">${item.resolution_status}</span>` : ''}
                                 </h4>

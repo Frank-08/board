@@ -76,11 +76,11 @@ switch ($method) {
         
         // If no agenda_item_id provided, create one automatically
         if (empty($data['agenda_item_id'])) {
-            // Get max position for agenda items
+            // Get max position for agenda items and ensure sequential numbering
             $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as new_position FROM agenda_items WHERE meeting_id = ?");
             $stmt->execute([$meetingId]);
             $result = $stmt->fetch();
-            $position = $result['new_position'];
+            $position = (int)$result['new_position'];
             
             // Create agenda item for the resolution
             $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position) VALUES (?, ?, ?, ?, ?, ?, ?)");

@@ -355,11 +355,11 @@ function formatTime($dateString) {
         <h3>Agenda Items</h3>
         
         <?php if (count($agendaItems) > 0): ?>
-            <?php foreach ($agendaItems as $index => $item): ?>
+            <?php foreach ($agendaItems as $item): ?>
             <div class="agenda-item">
                 <div class="agenda-item-header">
                     <div style="display: flex; align-items: flex-start;">
-                        <span class="agenda-item-number"><?php echo $index + 1; ?>.</span>
+                        <span class="agenda-item-number"><?php echo ($item['position'] !== null ? (int)$item['position'] + 1 : '?'); ?>.</span>
                         <span class="agenda-item-title"><?php echo htmlspecialchars($item['title']); ?></span>
                     </div>
                     <?php if ($item['item_type']): ?>

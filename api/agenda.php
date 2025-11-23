@@ -69,11 +69,11 @@ switch ($method) {
             exit;
         }
         
-        // Get max position
+        // Get max position and ensure sequential numbering (0-based, so max + 1)
         $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as new_position FROM agenda_items WHERE meeting_id = ?");
         $stmt->execute([$meetingId]);
         $result = $stmt->fetch();
-        $position = $result['new_position'];
+        $position = (int)$result['new_position'];
         
         $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
@@ -149,8 +149,30 @@ switch ($method) {
             exit;
         }
         
+        // Get the meeting_id and position of the item being deleted
+        $stmt = $db->prepare("SELECT meeting_id, position FROM agenda_items WHERE id = ?");
+        $stmt->execute([$id]);
+        $item = $stmt->fetch();
+        
+        if (!$item) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Agenda item not found']);
+            exit;
+        }
+        
+        // Delete the item
         $stmt = $db->prepare("DELETE FROM agenda_items WHERE id = ?");
         $stmt->execute([$id]);
+        
+        // Renumber remaining items to ensure sequential numbering
+        $stmt = $db->prepare("
+            UPDATE agenda_items 
+            SET position = position - 1 
+            WHERE meeting_id = ? AND position > ?
+            ORDER BY position ASC
+        ");
+        $stmt->execute([$item['meeting_id'], $item['position']]);
+        
         echo json_encode(['success' => true]);
         break;
         
