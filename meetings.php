@@ -81,6 +81,14 @@
                         <option value="">Select presenter...</option>
                     </select>
                 </div>
+
+                <!-- NEW: File attachments for agenda item -->
+                <div class="form-group">
+                    <label for="agendaItemFiles">Attachments</label>
+                    <input type="file" id="agendaItemFiles" multiple>
+                    <small style="display:block;color:#666;margin-top:6px;">Allowed: PDF, DOC, DOCX, XLS, XLSX, TXT. Max size per file: 10MB.</small>
+                </div>
+
                 <button type="submit" class="btn btn-primary">Save Agenda Item</button>
             </form>
         </div>
@@ -452,7 +460,7 @@
                         return;
                     }
                     list.innerHTML = items.map(item => `
-                        <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}">
+                        <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}" id="agenda-item-${item.id}">
                             <div class="item-header">
                                 <h4>${item.position ? item.position + 1 + '. ' : ''}${item.title}</h4>
                                 <div class="item-actions">
@@ -473,172 +481,114 @@
                                 ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
                                 ${item.status ? `<span class="badge badge-${item.status.toLowerCase()}">${item.status}</span>` : ''}
                             </div>
+                            <!-- Attachments placeholder -->
+                            <div id="agenda-attachments-${item.id}" class="agenda-attachments" style="margin-top:10px;"></div>
                         </div>
                     `).join('');
+
+                    // After rendering, load attachments for each item
+                    items.forEach(item => {
+                        loadAgendaAttachments(item.id);
+                    });
                 });
         }
 
-        function loadMeetingAttendees(meetingId) {
-            fetch(`api/attendees.php?meeting_id=${meetingId}`)
-                .then(response => response.json())
-                .then(attendees => {
-                    const list = document.getElementById('attendees-list');
-                    if (attendees.length === 0) {
-                        list.innerHTML = '<p>No attendees added yet.</p>';
-                        return;
-                    }
-                    list.innerHTML = attendees.map(att => `
-                        <div class="attendee-item">
-                            <div>
-                                <strong>${att.first_name} ${att.last_name}</strong>
-                                ${att.role ? `(${att.role})` : ''}
-                                ${att.title ? `<br><span style="font-size: 12px; color: #666;">${att.title}</span>` : ''}
-                                ${att.attendance_status ? `<span class="badge badge-${att.attendance_status.toLowerCase()}" style="margin-left: 8px;">${att.attendance_status}</span>` : ''}
-                                ${att.arrival_time ? `<br><span style="font-size: 12px; color: #666;">Arrived: ${formatDateTime(att.arrival_time)}</span>` : ''}
-                            </div>
-                            <div class="item-actions">
-                                <button onclick="editAttendee(${att.id})" class="btn btn-sm">Edit</button>
-                                <button onclick="deleteAttendee(${att.id})" class="btn btn-sm btn-danger">Delete</button>
-                            </div>
-                        </div>
-                    `).join('');
-                });
-        }
+        // Upload attachments after creating/updating an agenda item
+        function saveAgendaItem(event) {
+            event.preventDefault();
+            const itemId = document.getElementById('agendaItemId').value;
+            const data = {
+                meeting_id: currentMeetingId,
+                title: document.getElementById('agendaItemTitle').value,
+                description: document.getElementById('agendaItemDescription').value,
+                item_type: document.getElementById('agendaItemType').value,
+                duration_minutes: document.getElementById('agendaItemDuration').value || null,
+                presenter_id: document.getElementById('agendaItemPresenter').value || null
+            };
 
-        function loadMeetingMinutes(meetingId) {
-            Promise.all([
-                fetch(`api/minutes.php?meeting_id=${meetingId}`).then(r => r.json()),
-                fetch(`api/agenda.php?meeting_id=${meetingId}`).then(r => r.json())
-            ]).then(([minutes, agendaItems]) => {
-                const content = document.getElementById('minutes-content');
-                const createBtn = document.getElementById('createMinutesBtn');
-                const editBtn = document.getElementById('editMinutesBtn');
-                
-                if (!minutes || minutes === null) {
-                    content.innerHTML = '';
-                    if (createBtn) createBtn.style.display = 'inline-block';
-                    if (editBtn) editBtn.style.display = 'none';
-                    return;
-                }
-                
-                if (createBtn) createBtn.style.display = 'none';
-                if (editBtn) editBtn.style.display = 'inline-block';
-                
-                // Create a map of agenda item comments
-                const commentsMap = {};
-                if (minutes.agenda_comments) {
-                    minutes.agenda_comments.forEach(comment => {
-                        commentsMap[comment.agenda_item_id] = comment.comment;
-                    });
-                }
-                
-                // Build agenda items with comments section
-                let agendaItemsHtml = '';
-                if (agendaItems && agendaItems.length > 0) {
-                    agendaItemsHtml = '<div class="minutes-agenda-section"><h3>Agenda Items Discussion</h3>';
-                    agendaItems.forEach(item => {
-                        const comment = commentsMap[item.id] || '';
-                        agendaItemsHtml += `
-                            <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
-                                <h4 style="margin: 0 0 10px 0; color: #333;">
-                                    ${item.position !== null ? (item.position + 1) + '. ' : ''}${item.title}
-                                    ${item.resolution_number ? `<span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #${item.resolution_number})</span>` : ''}
-                                    ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase().replace(' ', '-')}" style="margin-left: 8px; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;">${item.resolution_status}</span>` : ''}
-                                </h4>
-                                ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
-                                <div style="margin-top: 10px;">
-                                    <strong>Discussion/Comments:</strong>
-                                    ${minutes.status !== 'Approved' ? `
-                                        <textarea class="agenda-comment-textarea" 
-                                            data-agenda-item-id="${item.id}" 
-                                            data-minutes-id="${minutes.id}"
-                                            style="width: 100%; min-height: 60px; margin-top: 5px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;"
-                                            onblur="saveAgendaComment(${item.id}, ${minutes.id}, this.value)">${comment}</textarea>
-                                    ` : `
-                                        <div style="margin-top: 5px; padding: 10px; background: #f9f9f9; border-radius: 4px; white-space: pre-wrap;">${comment || '<em style="color: #999;">No comments recorded</em>'}</div>
-                                    `}
-                                </div>
-                            </div>
-                        `;
-                    });
-                    agendaItemsHtml += '</div>';
-                }
-                
-                content.innerHTML = `
-                    <div class="minutes-display">
-                        <div class="minutes-header">
-                            <p><strong>Status:</strong> <span class="badge badge-${minutes.status.toLowerCase()}">${minutes.status}</span></p>
-                            <div>
-                                ${minutes.status !== 'Approved' ? `<button onclick="editMinutes()" class="btn btn-sm">Edit</button>` : ''}
-                                ${minutes.status === 'Draft' || minutes.status === 'Review' ? `<button onclick="approveMinutes()" class="btn btn-sm btn-primary">Approve</button>` : ''}
-                                <button onclick="window.open('export/minutes.php?meeting_id=${meetingId}', '_blank')" class="btn btn-sm btn-primary">Export to PDF</button>
-                            </div>
-                        </div>
-                        ${minutes.prepared_first_name ? `<p><strong>Prepared by:</strong> ${minutes.prepared_first_name} ${minutes.prepared_last_name}</p>` : ''}
-                        ${minutes.approved_first_name ? `<p><strong>Approved by:</strong> ${minutes.approved_first_name} ${minutes.approved_last_name}</p>` : ''}
-                        ${minutes.approved_at ? `<p><strong>Approved on:</strong> ${formatDateTime(minutes.approved_at)}</p>` : ''}
-                        ${agendaItemsHtml}
-                        ${minutes.action_items ? `<h4>Action Items</h4><div class="minutes-text">${minutes.action_items.replace(/\n/g, '<br>')}</div>` : ''}
-                        ${minutes.next_meeting_date ? `<p><strong>Next Meeting:</strong> ${formatDateTime(minutes.next_meeting_date)}</p>` : ''}
-                    </div>
-                `;
-            }).catch(error => {
-                console.error('Error loading minutes:', error);
-            });
-        }
-        
-        function saveAgendaComment(agendaItemId, minutesId, comment) {
-            if (!comment || comment.trim() === '') {
-                // If empty, delete the comment
-                fetch('api/minutes_comments.php', {
-                    method: 'DELETE',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({id: agendaItemId})
-                }).catch(err => console.error('Error deleting comment:', err));
-                return;
-            }
-            
-            fetch('api/minutes_comments.php', {
-                method: 'POST',
+            const method = itemId ? 'PUT' : 'POST';
+            if (itemId) data.id = itemId;
+
+            fetch('api/agenda.php', {
+                method: method,
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    minutes_id: minutesId,
-                    agenda_item_id: agendaItemId,
-                    comment: comment.trim()
-                })
-            }).catch(error => {
-                console.error('Error saving agenda comment:', error);
-                alert('Error saving comment');
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(async (res) => {
+                closeAgendaItemModal();
+                // If user selected files, upload them to api/documents.php
+                const fileInput = document.getElementById('agendaItemFiles');
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    const formData = new FormData();
+                    formData.append('meeting_id', currentMeetingId);
+                    formData.append('agenda_item_id', res.id);
+                    // append multiple files as files[]
+                    for (let i = 0; i < fileInput.files.length; i++) {
+                        formData.append('files[]', fileInput.files[i]);
+                    }
+                    try {
+                        const uploadRes = await fetch('api/documents.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        // ignore response details; refresh attachments
+                    } catch (err) {
+                        console.error('Error uploading attachments:', err);
+                        alert('Error uploading attachments');
+                    }
+                }
+                loadMeetingAgenda(currentMeetingId);
+            })
+            .catch(error => {
+                console.error('Error saving agenda item:', error);
+                alert('Error saving agenda item');
             });
         }
 
-        function loadMeetingResolutions(meetingId) {
-            fetch(`api/resolutions.php?meeting_id=${meetingId}`)
-                .then(response => response.json())
-                .then(resolutions => {
-                    const list = document.getElementById('resolutions-list');
-                    if (resolutions.length === 0) {
-                        list.innerHTML = '<p>No resolutions for this meeting.</p>';
+        // Load attachments for a specific agenda item and render in its container
+        function loadAgendaAttachments(agendaItemId) {
+            fetch(`api/documents.php?agenda_item_id=${agendaItemId}`)
+                .then(r => r.json())
+                .then(files => {
+                    const container = document.getElementById(`agenda-attachments-${agendaItemId}`);
+                    if (!container) return;
+                    if (!files || files.length === 0) {
+                        container.innerHTML = '';
                         return;
                     }
-                    list.innerHTML = resolutions.map(res => `
-                        <div class="resolution-item">
-                            <div class="item-header">
-                                <h4>${res.title}</h4>
-                                <div class="item-actions">
-                                    <button onclick="editResolution(${res.id})" class="btn btn-sm">Edit</button>
-                                    <button onclick="deleteResolution(${res.id})" class="btn btn-sm btn-danger">Delete</button>
-                                </div>
-                            </div>
-                            <p>${res.description}</p>
-                            ${res.resolution_number ? `<p><strong>Resolution #:</strong> ${res.resolution_number}</p>` : ''}
-                            ${res.moved_first_name ? `<p><strong>Moved by:</strong> ${res.moved_first_name} ${res.moved_last_name}</p>` : ''}
-                            ${res.seconded_first_name ? `<p><strong>Seconded by:</strong> ${res.seconded_first_name} ${res.seconded_last_name}</p>` : ''}
-                            ${res.vote_type ? `<p><strong>Vote:</strong> ${res.votes_for} for, ${res.votes_against} against, ${res.votes_abstain} abstain (${res.vote_type})</p>` : ''}
-                            <p><strong>Status:</strong> <span class="badge badge-${res.status.toLowerCase()}">${res.status}</span></p>
+                    container.innerHTML = files.map(f => `
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <a href="${f.file_path}" target="_blank" style="color:#007bff;text-decoration:none;">📎 ${f.file_name}</a>
+                            <span style="color:#666;font-size:12px;">(${Math.round(f.file_size/1024)} KB)</span>
+                            <button onclick="deleteDocument(${f.id}, ${agendaItemId})" class="btn btn-sm btn-danger" style="margin-left:12px;">Delete</button>
                         </div>
                     `).join('');
+                })
+                .catch(err => {
+                    console.error('Error loading attachments:', err);
                 });
+        }
+
+        function deleteDocument(documentId, agendaItemId) {
+            if (!confirm('Delete this attachment?')) return;
+            fetch('api/documents.php', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: documentId})
+            })
+            .then(r => r.json())
+            .then(resp => {
+                if (resp.success) {
+                    loadAgendaAttachments(agendaItemId);
+                } else {
+                    alert('Error deleting document');
+                }
+            })
+            .catch(err => {
+                console.error('Error deleting document:', err);
+                alert('Error deleting document');
+            });
         }
 
         function showMeetingModal(meeting = null) {
@@ -829,8 +779,29 @@
                 body: JSON.stringify(data)
             })
             .then(response => response.json())
-            .then(data => {
+            .then(async (res) => {
                 closeAgendaItemModal();
+                // If user selected files, upload them to api/documents.php
+                const fileInput = document.getElementById('agendaItemFiles');
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    const formData = new FormData();
+                    formData.append('meeting_id', currentMeetingId);
+                    formData.append('agenda_item_id', res.id);
+                    // append multiple files as files[]
+                    for (let i = 0; i < fileInput.files.length; i++) {
+                        formData.append('files[]', fileInput.files[i]);
+                    }
+                    try {
+                        const uploadRes = await fetch('api/documents.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        // ignore response details; refresh attachments
+                    } catch (err) {
+                        console.error('Error uploading attachments:', err);
+                        alert('Error uploading attachments');
+                    }
+                }
                 loadMeetingAgenda(currentMeetingId);
             })
             .catch(error => {
