@@ -1316,7 +1316,14 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Upload failed');
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.error) {
                     alert('Error: ' + data.error);
@@ -1327,7 +1334,7 @@
             })
             .catch(error => {
                 console.error('Error uploading document:', error);
-                alert('Error uploading document');
+                alert('Error uploading document: ' + error.message);
             });
         });
 

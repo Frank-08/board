@@ -18,9 +18,18 @@ require_once __DIR__ . '/../config/config.php';
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDBConnection();
 
-// Ensure uploads directory exists
+// Ensure uploads directory exists and is writable
 if (!file_exists(UPLOAD_DIR)) {
-    mkdir(UPLOAD_DIR, 0777, true);
+    if (!mkdir(UPLOAD_DIR, 0777, true)) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to create uploads directory']);
+        exit;
+    }
+}
+if (!is_writable(UPLOAD_DIR)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Uploads directory is not writable']);
+    exit;
 }
 
 switch ($method) {
@@ -139,36 +148,60 @@ switch ($method) {
             }
             
             // Insert document record
-            $stmt = $db->prepare("
-                INSERT INTO documents (committee_id, meeting_id, agenda_item_id, document_type, title, description, file_path, file_name, file_size, mime_type, uploaded_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([
-                $committeeId,
-                $meetingId,
-                $agendaItemId,
-                $documentType,
-                $title,
-                $description,
-                $uniqueFileName,
-                $fileName,
-                $fileSize,
-                $file['type'],
-                $uploadedBy
-            ]);
-            
-            $documentId = $db->lastInsertId();
-            $stmt = $db->prepare("
-                SELECT d.*, 
-                    bm.first_name as uploaded_first_name, bm.last_name as uploaded_last_name,
-                    ai.title as agenda_item_title
-                FROM documents d
-                LEFT JOIN board_members bm ON d.uploaded_by = bm.id
-                LEFT JOIN agenda_items ai ON d.agenda_item_id = ai.id
-                WHERE d.id = ?
-            ");
-            $stmt->execute([$documentId]);
-            echo json_encode($stmt->fetch());
+            try {
+                $stmt = $db->prepare("
+                    INSERT INTO documents (committee_id, meeting_id, agenda_item_id, document_type, title, description, file_path, file_name, file_size, mime_type, uploaded_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $committeeId,
+                    $meetingId,
+                    $agendaItemId,
+                    $documentType,
+                    $title,
+                    $description,
+                    $uniqueFileName,
+                    $fileName,
+                    $fileSize,
+                    $file['type'],
+                    $uploadedBy
+                ]);
+                
+                $documentId = $db->lastInsertId();
+                $stmt = $db->prepare("
+                    SELECT d.*, 
+                        bm.first_name as uploaded_first_name, bm.last_name as uploaded_last_name,
+                        ai.title as agenda_item_title
+                    FROM documents d
+                    LEFT JOIN board_members bm ON d.uploaded_by = bm.id
+                    LEFT JOIN agenda_items ai ON d.agenda_item_id = ai.id
+                    WHERE d.id = ?
+                ");
+                $stmt->execute([$documentId]);
+                echo json_encode($stmt->fetch());
+            } catch (Exception $e) {
+                // Delete uploaded file if database insert fails
+                if (file_exists($filePath)) {
+                    unlink($filePath);
+                }
+                http_response_code(500);
+                echo json_encode(['error' => 'Error saving document: ' . $e->getMessage()]);
+                exit;
+            }
+        } elseif (isset($_FILES['file']) && $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+            $errorMessages = [
+                UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize directive',
+                UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE directive',
+                UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
+                UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
+                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+                UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload'
+            ];
+            $errorCode = $_FILES['file']['error'];
+            http_response_code(400);
+            echo json_encode(['error' => $errorMessages[$errorCode] ?? 'Unknown upload error']);
+            exit;
         } else {
             // JSON request for updating document metadata
             $data = json_decode(file_get_contents('php://input'), true);
