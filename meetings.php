@@ -86,6 +86,7 @@
                 <div class="form-group">
                     <label for="agendaItemFiles">Attachments</label>
                     <input type="file" id="agendaItemFiles" multiple>
+                    <div id="agenda-item-existing-attachments" style="margin-top:8px;"></div>
                     <small style="display:block;color:#666;margin-top:6px;">Allowed: PDF, DOC, DOCX, XLS, XLSX, TXT. Max size per file: 10MB.</small>
                 </div>
 
@@ -523,16 +524,14 @@
                     const formData = new FormData();
                     formData.append('meeting_id', currentMeetingId);
                     formData.append('agenda_item_id', res.id);
-                    // append multiple files as files[]
                     for (let i = 0; i < fileInput.files.length; i++) {
                         formData.append('files[]', fileInput.files[i]);
                     }
                     try {
-                        const uploadRes = await fetch('api/documents.php', {
+                        await fetch('api/documents.php', {
                             method: 'POST',
                             body: formData
                         });
-                        // ignore response details; refresh attachments
                     } catch (err) {
                         console.error('Error uploading attachments:', err);
                         alert('Error uploading attachments');
@@ -546,7 +545,7 @@
             });
         }
 
-        // Load attachments for a specific agenda item and render in its container
+        // Load attachments for a specific agenda item and render in its container (agenda list)
         function loadAgendaAttachments(agendaItemId) {
             fetch(`api/documents.php?agenda_item_id=${agendaItemId}`)
                 .then(r => r.json())
@@ -559,7 +558,7 @@
                     }
                     container.innerHTML = files.map(f => `
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                            <a href="${f.file_path}" target="_blank" style="color:#007bff;text-decoration:none;">📎 ${f.file_name}</a>
+                            <a href="${f.file_url}" target="_blank" style="color:#007bff;text-decoration:none;">📎 ${f.file_name}</a>
                             <span style="color:#666;font-size:12px;">(${Math.round(f.file_size/1024)} KB)</span>
                             <button onclick="deleteDocument(${f.id}, ${agendaItemId})" class="btn btn-sm btn-danger" style="margin-left:12px;">Delete</button>
                         </div>
@@ -570,7 +569,29 @@
                 });
         }
 
-        function deleteDocument(documentId, agendaItemId) {
+        // Load attachments into agenda item modal when editing
+        function loadAgendaModalAttachments(agendaItemId) {
+            fetch(`api/documents.php?agenda_item_id=${agendaItemId}`)
+                .then(r => r.json())
+                .then(files => {
+                    const container = document.getElementById('agenda-item-existing-attachments');
+                    if (!container) return;
+                    if (!files || files.length === 0) {
+                        container.innerHTML = '';
+                        return;
+                    }
+                    container.innerHTML = '<strong>Existing attachments:</strong>' + files.map(f => `
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                            <a href="${f.file_url}" target="_blank" style="color:#007bff;text-decoration:none;">📎 ${f.file_name}</a>
+                            <span style="color:#666;font-size:12px;">(${Math.round(f.file_size/1024)} KB)</span>
+                            <button onclick="deleteDocument(${f.id}, null, true)" class="btn btn-sm btn-danger" style="margin-left:12px;">Delete</button>
+                        </div>
+                    `).join('');
+                })
+                .catch(err => console.error('Error loading modal attachments:', err));
+        }
+
+        function deleteDocument(documentId, agendaItemId = null, refreshModal = false) {
             if (!confirm('Delete this attachment?')) return;
             fetch('api/documents.php', {
                 method: 'DELETE',
@@ -580,7 +601,12 @@
             .then(r => r.json())
             .then(resp => {
                 if (resp.success) {
-                    loadAgendaAttachments(agendaItemId);
+                    if (agendaItemId) loadAgendaAttachments(agendaItemId);
+                    if (refreshModal) {
+                        // If modal visible and editing, refresh modal attachments
+                        const itemId = document.getElementById('agendaItemId').value;
+                        if (itemId) loadAgendaModalAttachments(itemId);
+                    }
                 } else {
                     alert('Error deleting document');
                 }
@@ -655,7 +681,7 @@
                 body: JSON.stringify(data)
             })
             .then(response => response.json())
-            .then(data => {
+            .then data => {
                 closeMeetingModal();
                 loadMeetings();
                 if (currentMeetingId == data.id) {
@@ -733,6 +759,9 @@
                     form.reset();
                     document.getElementById('agendaItemId').value = '';
                     document.getElementById('modalAgendaTitle').textContent = 'New Agenda Item';
+                    // clear existing attachments UI
+                    const existingContainer = document.getElementById('agenda-item-existing-attachments');
+                    if (existingContainer) existingContainer.innerHTML = '';
                 }
                 
                 // Populate presenter dropdown
@@ -747,6 +776,11 @@
                 
                 if (item && item.presenter_id) {
                     presenterSelect.value = item.presenter_id;
+                }
+
+                // If editing, load existing attachments into modal
+                if (item && item.id) {
+                    loadAgendaModalAttachments(item.id);
                 }
                 
                 modal.style.display = 'block';
@@ -787,16 +821,14 @@
                     const formData = new FormData();
                     formData.append('meeting_id', currentMeetingId);
                     formData.append('agenda_item_id', res.id);
-                    // append multiple files as files[]
                     for (let i = 0; i < fileInput.files.length; i++) {
                         formData.append('files[]', fileInput.files[i]);
                     }
                     try {
-                        const uploadRes = await fetch('api/documents.php', {
+                        await fetch('api/documents.php', {
                             method: 'POST',
                             body: formData
                         });
-                        // ignore response details; refresh attachments
                     } catch (err) {
                         console.error('Error uploading attachments:', err);
                         alert('Error uploading attachments');
