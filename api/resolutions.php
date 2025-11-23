@@ -76,14 +76,32 @@ switch ($method) {
         
         // If no agenda_item_id provided, create one automatically
         if (empty($data['agenda_item_id'])) {
+            // Get meeting date for item number format
+            $stmt = $db->prepare("SELECT scheduled_date FROM meetings WHERE id = ?");
+            $stmt->execute([$meetingId]);
+            $meeting = $stmt->fetch();
+            
+            if (!$meeting) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Meeting not found']);
+                exit;
+            }
+            
             // Get max position for agenda items and ensure sequential numbering
             $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as new_position FROM agenda_items WHERE meeting_id = ?");
             $stmt->execute([$meetingId]);
             $result = $stmt->fetch();
             $position = (int)$result['new_position'];
             
+            // Generate item number in format: YY.MM.SEQ
+            $meetingDate = new DateTime($meeting['scheduled_date']);
+            $year = $meetingDate->format('y'); // Last 2 digits of year
+            $month = $meetingDate->format('n'); // Month without leading zero (1-12)
+            $sequence = $position + 1; // Position is 0-based, sequence is 1-based
+            $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+            
             // Create agenda item for the resolution
-            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $meetingId,
                 $title,
@@ -91,7 +109,8 @@ switch ($method) {
                 'Vote', // Resolutions are typically vote items
                 !empty($data['motion_moved_by']) ? (int)$data['motion_moved_by'] : null,
                 null, // duration
-                $position
+                $position,
+                $itemNumber
             ]);
             
             $agendaItemId = $db->lastInsertId();

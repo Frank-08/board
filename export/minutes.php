@@ -351,7 +351,7 @@ function formatDateTime($dateString) {
         <?php foreach ($agendaItems as $item): ?>
         <div class="agenda-item">
             <h4>
-                <?php echo ($item['position'] !== null ? ($item['position'] + 1) . '. ' : ''); ?>
+                <?php echo htmlspecialchars($item['item_number'] ?? '') . ($item['item_number'] ? '. ' : ''); ?>
                 <?php echo htmlspecialchars($item['title']); ?>
                 <?php if ($item['resolution_number']): ?>
                 <span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #<?php echo htmlspecialchars($item['resolution_number']); ?>)</span>

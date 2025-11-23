@@ -93,12 +93,14 @@ CREATE TABLE IF NOT EXISTS agenda_items (
     presenter_id INT,
     duration_minutes INT,
     position INT NOT NULL DEFAULT 0,
+    item_number VARCHAR(20),
     outcome TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
     FOREIGN KEY (presenter_id) REFERENCES board_members(id) ON DELETE SET NULL,
-    INDEX idx_meeting_position (meeting_id, position)
+    INDEX idx_meeting_position (meeting_id, position),
+    INDEX idx_item_number (item_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table for meeting minutes

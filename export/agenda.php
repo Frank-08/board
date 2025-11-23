@@ -359,7 +359,7 @@ function formatTime($dateString) {
             <div class="agenda-item">
                 <div class="agenda-item-header">
                     <div style="display: flex; align-items: flex-start;">
-                        <span class="agenda-item-number"><?php echo ($item['position'] !== null ? (int)$item['position'] + 1 : '?'); ?>.</span>
+                        <span class="agenda-item-number"><?php echo htmlspecialchars($item['item_number'] ?? '?'); ?>.</span>
                         <span class="agenda-item-title"><?php echo htmlspecialchars($item['title']); ?></span>
                     </div>
                     <?php if ($item['item_type']): ?>
@@ -443,7 +443,7 @@ function formatTime($dateString) {
                     <div style="flex: 1;">
                         <span class="agenda-item-title"><?php echo htmlspecialchars($item['document']['title']); ?></span>
                         <p style="margin: 5px 0; color: #666; font-size: 14px;">
-                            <strong>From Agenda Item:</strong> <?php echo ($item['agenda_item']['position'] !== null ? ($item['agenda_item']['position'] + 1) . '. ' : ''); ?><?php echo htmlspecialchars($item['agenda_item']['title']); ?>
+                            <strong>From Agenda Item:</strong> <?php echo htmlspecialchars($item['agenda_item']['item_number'] ?? '') . ($item['agenda_item']['item_number'] ? '. ' : ''); ?><?php echo htmlspecialchars($item['agenda_item']['title']); ?>
                         </p>
                         <?php if ($item['document']['description']): ?>
                         <p style="margin: 5px 0; color: #555; font-size: 13px;"><?php echo nl2br(htmlspecialchars($item['document']['description'])); ?></p>

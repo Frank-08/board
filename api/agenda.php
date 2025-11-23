@@ -69,13 +69,31 @@ switch ($method) {
             exit;
         }
         
+        // Get meeting date for item number format
+        $stmt = $db->prepare("SELECT scheduled_date FROM meetings WHERE id = ?");
+        $stmt->execute([$meetingId]);
+        $meeting = $stmt->fetch();
+        
+        if (!$meeting) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Meeting not found']);
+            exit;
+        }
+        
         // Get max position and ensure sequential numbering (0-based, so max + 1)
         $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as new_position FROM agenda_items WHERE meeting_id = ?");
         $stmt->execute([$meetingId]);
         $result = $stmt->fetch();
         $position = (int)$result['new_position'];
         
-        $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        // Generate item number in format: YY.MM.SEQ
+        $meetingDate = new DateTime($meeting['scheduled_date']);
+        $year = $meetingDate->format('y'); // Last 2 digits of year
+        $month = $meetingDate->format('n'); // Month without leading zero (1-12)
+        $sequence = $position + 1; // Position is 0-based, sequence is 1-based
+        $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+        
+        $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $meetingId,
             $title,
@@ -83,7 +101,8 @@ switch ($method) {
             $data['item_type'] ?? 'Discussion',
             !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
             !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
-            $position
+            $position,
+            $itemNumber
         ]);
         
         $itemId = $db->lastInsertId();
@@ -149,8 +168,13 @@ switch ($method) {
             exit;
         }
         
-        // Get the meeting_id and position of the item being deleted
-        $stmt = $db->prepare("SELECT meeting_id, position FROM agenda_items WHERE id = ?");
+        // Get the meeting_id, position, and meeting date of the item being deleted
+        $stmt = $db->prepare("
+            SELECT ai.meeting_id, ai.position, m.scheduled_date 
+            FROM agenda_items ai
+            JOIN meetings m ON ai.meeting_id = m.id
+            WHERE ai.id = ?
+        ");
         $stmt->execute([$id]);
         $item = $stmt->fetch();
         
@@ -164,14 +188,33 @@ switch ($method) {
         $stmt = $db->prepare("DELETE FROM agenda_items WHERE id = ?");
         $stmt->execute([$id]);
         
-        // Renumber remaining items to ensure sequential numbering
+        // Renumber remaining items to ensure sequential numbering and update item numbers
         $stmt = $db->prepare("
-            UPDATE agenda_items 
-            SET position = position - 1 
+            SELECT id, position 
+            FROM agenda_items 
             WHERE meeting_id = ? AND position > ?
             ORDER BY position ASC
         ");
         $stmt->execute([$item['meeting_id'], $item['position']]);
+        $remainingItems = $stmt->fetchAll();
+        
+        // Update positions and item numbers
+        $meetingDate = new DateTime($item['scheduled_date']);
+        $year = $meetingDate->format('y');
+        $month = $meetingDate->format('n');
+        
+        foreach ($remainingItems as $remainingItem) {
+            $newPosition = $remainingItem['position'] - 1;
+            $newSequence = $newPosition + 1;
+            $newItemNumber = sprintf('%s.%s.%d', $year, $month, $newSequence);
+            
+            $updateStmt = $db->prepare("
+                UPDATE agenda_items 
+                SET position = ?, item_number = ?
+                WHERE id = ?
+            ");
+            $updateStmt->execute([$newPosition, $newItemNumber, $remainingItem['id']]);
+        }
         
         echo json_encode(['success' => true]);
         break;
