@@ -1,9 +1,10 @@
 <?php
 /**
  * Documents API - upload/list/delete documents
- * GET ?agenda_item_id= or ?meeting_id=    -> list documents
- * POST (multipart/form-data) files[] + meeting_id + agenda_item_id(optional) -> upload files
- * DELETE JSON { id: <document_id> }       -> delete document and unlink file
+ * Supports:
+ *  - GET ?agenda_item_id= or ?meeting_id=     -> list documents
+ *  - POST (multipart/form-data) files[] + meeting_id + agenda_item_id(optional) -> upload one or more files
+ *  - DELETE JSON { id: <document_id> }        -> delete document (and unlink file)
  */
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -33,19 +34,12 @@ if ($method === 'GET') {
         $stmt = $db->prepare("SELECT * FROM documents WHERE agenda_item_id = ? ORDER BY created_at ASC");
         $stmt->execute([$aid]);
         $rows = $stmt->fetchAll();
-        // Attach full URL
-        foreach ($rows as &$r) {
-            $r['file_url'] = rtrim(BASE_URL, '/') . '/' . ltrim($r['file_path'], '/');
-        }
         respond($rows);
     } elseif (isset($_GET['meeting_id'])) {
         $mid = (int)$_GET['meeting_id'];
         $stmt = $db->prepare("SELECT * FROM documents WHERE meeting_id = ? ORDER BY created_at ASC");
         $stmt->execute([$mid]);
         $rows = $stmt->fetchAll();
-        foreach ($rows as &$r) {
-            $r['file_url'] = rtrim(BASE_URL, '/') . '/' . ltrim($r['file_path'], '/');
-        }
         respond($rows);
     } else {
         respond(['error' => 'agenda_item_id or meeting_id is required'], 400);
@@ -55,7 +49,7 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     // Expect multipart/form-data with files[] and meeting_id, optional agenda_item_id
     $meeting_id = isset($_POST['meeting_id']) ? (int)$_POST['meeting_id'] : 0;
-    $agenda_item_id = isset($_POST['agenda_item_id']) && $_POST['agenda_item_id'] !== '' ? (int)$_POST['agenda_item_id'] : null;
+    $agenda_item_id = isset($_POST['agenda_item_id']) ? (int)$_POST['agenda_item_id'] : null;
     $uploaded_by = isset($_POST['uploaded_by']) ? (int)$_POST['uploaded_by'] : null;
 
     if (!$meeting_id) {
@@ -102,15 +96,18 @@ if ($method === 'POST') {
             continue;
         }
 
-        // store relative path for web access
+        // store relative path for web access (assumes uploads/ is web-accessible at /uploads/)
         $relativePath = 'uploads/' . $safeName;
-        $mime = mime_content_type($destPath) ?: 'application/octet-stream';
+
+        $stmt = $db->prepare("INSERT INTO documents (committee_id, meeting_id, meeting_id, agenda_item_id, document_type, title, description, file_path, file_name, file_size, mime_type, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        // Some older schemas may not have committee_id; set null for committee_id and document_type default to 'Agenda'
+        // Use prepared INSERT with referenced columns (explicit columns to be safe)
+        $stmt = $db->prepare("INSERT INTO documents (committee_id, meeting_id, agenda_item_id, document_type, title, description, file_path, file_name, file_size, mime_type, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $mime = mime_content_type($destPath) ?: ($ext === 'pdf' ? 'application/pdf' : 'application/octet-stream');
         $title = pathinfo($originalName, PATHINFO_FILENAME);
 
-        // Insert metadata
-        $stmt = $db->prepare("INSERT INTO documents (committee_id, meeting_id, agenda_item_id, document_type, title, description, file_path, file_name, file_size, mime_type, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
-            null,
+            null, // committee_id (optional)
             $meeting_id,
             $agenda_item_id,
             'Agenda',
@@ -131,8 +128,7 @@ if ($method === 'POST') {
             'file_path' => $relativePath,
             'file_name' => $originalName,
             'file_size' => $size,
-            'mime_type' => $mime,
-            'file_url' => rtrim(BASE_URL, '/') . '/' . $relativePath
+            'mime_type' => $mime
         ];
     }
 
@@ -149,7 +145,7 @@ if ($method === 'DELETE') {
     $row = $stmt->fetch();
     if (!$row) respond(['error' => 'Document not found'], 404);
 
-    $filePath = __DIR__ . '/../' . $row['file_path'];
+    $filePath = __DIR__ . '/../' . $row['file_path']; // relative 'uploads/...' from project root
     if (file_exists($filePath)) {
         @unlink($filePath);
     }

@@ -40,15 +40,6 @@ $stmt = $db->prepare("
 $stmt->execute([$meetingId]);
 $agendaItems = $stmt->fetchAll();
 
-// NEW: load attachments for agenda items (grouped by agenda_item_id)
-$stmt = $db->prepare("SELECT * FROM documents WHERE meeting_id = ? AND agenda_item_id IS NOT NULL ORDER BY created_at ASC");
-$stmt->execute([$meetingId]);
-$docs = $stmt->fetchAll();
-$attachmentsMap = [];
-foreach ($docs as $d) {
-    $attachmentsMap[$d['agenda_item_id']][] = $d;
-}
-
 // Get attendees with their role in the meeting's committee
 $stmt = $db->prepare("
     SELECT ma.*, bm.first_name, bm.last_name, bm.title,
@@ -396,19 +387,6 @@ function formatTime($dateString) {
                     <?php if ($item['status'] && $item['status'] != 'Pending'): ?>
                     <p><strong>Status:</strong> <?php echo htmlspecialchars($item['status']); ?></p>
                     <?php endif; ?>
-
-                    <!-- NEW: Attachments for exported agenda item -->
-                    <?php if (!empty($attachmentsMap[$item['id']])): ?>
-                        <div style="margin-top:10px;">
-                            <strong>Attachments:</strong>
-                            <ul>
-                                <?php foreach ($attachmentsMap[$item['id']] as $att): ?>
-                                    <li><a href="<?php echo htmlspecialchars(BASE_URL . '/' . $att['file_path']); ?>" target="_blank"><?php echo htmlspecialchars($att['file_name']); ?></a></li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
-                    <?php endif; ?>
-                    
                 </div>
             </div>
             <?php endforeach; ?>
