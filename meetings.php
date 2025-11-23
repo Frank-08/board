@@ -200,6 +200,42 @@
         </div>
     </div>
 
+    <!-- Document Upload Modal -->
+    <div id="documentUploadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDocumentUploadModal()">&times;</span>
+            <h2 id="modalDocumentTitle">Upload Document</h2>
+            <form id="documentUploadForm" enctype="multipart/form-data">
+                <input type="hidden" id="documentAgendaItemId">
+                <div class="form-group">
+                    <label for="documentTitle">Document Title *</label>
+                    <input type="text" id="documentTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="documentDescription">Description</label>
+                    <textarea id="documentDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="documentType">Document Type</label>
+                    <select id="documentType">
+                        <option value="Other">Other</option>
+                        <option value="Agenda">Agenda</option>
+                        <option value="Minutes">Minutes</option>
+                        <option value="Resolution">Resolution</option>
+                        <option value="Report">Report</option>
+                        <option value="Policy">Policy</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="documentFile">File *</label>
+                    <input type="file" id="documentFile" required accept=".pdf,.doc,.docx,.xls,.xlsx,.txt">
+                    <small style="color: #666;">Max size: 10MB. Allowed types: PDF, DOC, DOCX, XLS, XLSX, TXT</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload Document</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Minutes Modal -->
     <div id="minutesModal" class="modal">
         <div class="modal-content modal-large">
@@ -451,30 +487,54 @@
                         list.innerHTML = '<p>No agenda items yet.</p>';
                         return;
                     }
-                    list.innerHTML = items.map(item => `
-                        <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}">
-                            <div class="item-header">
-                                <h4>${item.position ? item.position + 1 + '. ' : ''}${item.title}</h4>
-                                <div class="item-actions">
-                                    ${item.resolution_id ? `<a href="#resolutions" onclick="showTab('resolutions'); event.preventDefault();" class="btn btn-sm" style="text-decoration: none; display: inline-block;">View Resolution</a>` : ''}
-                                    <button onclick="editAgendaItem(${item.id})" class="btn btn-sm">Edit</button>
-                                    <button onclick="deleteAgendaItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
+                    // Load documents for each agenda item
+                    Promise.all(items.map(item => 
+                        fetch(`api/documents.php?agenda_item_id=${item.id}`).then(r => r.json())
+                    )).then(documentsArrays => {
+                        list.innerHTML = items.map((item, index) => {
+                            const documents = documentsArrays[index] || [];
+                            return `
+                                <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}">
+                                    <div class="item-header">
+                                        <h4>${item.position ? item.position + 1 + '. ' : ''}${item.title}</h4>
+                                        <div class="item-actions">
+                                            ${item.resolution_id ? `<a href="#resolutions" onclick="showTab('resolutions'); event.preventDefault();" class="btn btn-sm" style="text-decoration: none; display: inline-block;">View Resolution</a>` : ''}
+                                            <button onclick="showDocumentUploadModal(${item.id})" class="btn btn-sm">📎 Attach Document</button>
+                                            <button onclick="editAgendaItem(${item.id})" class="btn btn-sm">Edit</button>
+                                            <button onclick="deleteAgendaItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
+                                        </div>
+                                    </div>
+                                    ${item.description ? `<p>${item.description}</p>` : ''}
+                                    ${item.resolution_id ? `<div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #28a745;">
+                                        <strong>📋 Linked Resolution:</strong> ${item.resolution_title || 'Resolution'} 
+                                        ${item.resolution_number ? `(#${item.resolution_number})` : ''}
+                                        ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase()}" style="margin-left: 8px;">${item.resolution_status}</span>` : ''}
+                                    </div>` : ''}
+                                    ${documents.length > 0 ? `
+                                        <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #007bff;">
+                                            <strong>📎 Attached Documents:</strong>
+                                            <ul style="margin: 5px 0; padding-left: 20px;">
+                                                ${documents.map(doc => `
+                                                    <li>
+                                                        <a href="api/download.php?id=${doc.id}" target="_blank" style="text-decoration: none; color: #007bff;">
+                                                            ${doc.title || doc.file_name}
+                                                        </a>
+                                                        <button onclick="deleteDocument(${doc.id}, ${item.id})" class="btn btn-sm btn-danger" style="margin-left: 10px; padding: 2px 8px; font-size: 11px;">Delete</button>
+                                                    </li>
+                                                `).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+                                    <div class="agenda-meta">
+                                        <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
+                                        ${item.presenter_first_name ? `<span>Presenter: ${item.presenter_first_name} ${item.presenter_last_name}</span>` : ''}
+                                        ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
+                                        ${item.status ? `<span class="badge badge-${item.status.toLowerCase()}">${item.status}</span>` : ''}
+                                    </div>
                                 </div>
-                            </div>
-                            ${item.description ? `<p>${item.description}</p>` : ''}
-                            ${item.resolution_id ? `<div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #28a745;">
-                                <strong>📋 Linked Resolution:</strong> ${item.resolution_title || 'Resolution'} 
-                                ${item.resolution_number ? `(#${item.resolution_number})` : ''}
-                                ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase()}" style="margin-left: 8px;">${item.resolution_status}</span>` : ''}
-                            </div>` : ''}
-                            <div class="agenda-meta">
-                                <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
-                                ${item.presenter_first_name ? `<span>Presenter: ${item.presenter_first_name} ${item.presenter_last_name}</span>` : ''}
-                                ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
-                                ${item.status ? `<span class="badge badge-${item.status.toLowerCase()}">${item.status}</span>` : ''}
-                            </div>
-                        </div>
-                    `).join('');
+                            `;
+                        }).join('');
+                    });
                 });
         }
 
@@ -1221,6 +1281,78 @@
                 });
         }
 
+        function showDocumentUploadModal(agendaItemId) {
+            const modal = document.getElementById('documentUploadModal');
+            const form = document.getElementById('documentUploadForm');
+            document.getElementById('documentAgendaItemId').value = agendaItemId;
+            form.reset();
+            modal.style.display = 'block';
+        }
+
+        function closeDocumentUploadModal() {
+            document.getElementById('documentUploadModal').style.display = 'none';
+            document.getElementById('documentUploadForm').reset();
+        }
+
+        document.getElementById('documentUploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            const agendaItemId = document.getElementById('documentAgendaItemId').value;
+            const fileInput = document.getElementById('documentFile');
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a file');
+                return;
+            }
+            
+            formData.append('file', fileInput.files[0]);
+            formData.append('title', document.getElementById('documentTitle').value);
+            formData.append('description', document.getElementById('documentDescription').value);
+            formData.append('document_type', document.getElementById('documentType').value);
+            formData.append('meeting_id', currentMeetingId);
+            formData.append('agenda_item_id', agendaItemId);
+            
+            fetch('api/documents.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    closeDocumentUploadModal();
+                    loadMeetingAgenda(currentMeetingId);
+                }
+            })
+            .catch(error => {
+                console.error('Error uploading document:', error);
+                alert('Error uploading document');
+            });
+        });
+
+        function deleteDocument(documentId, agendaItemId) {
+            if (!confirm('Are you sure you want to delete this document?')) return;
+            
+            fetch('api/documents.php', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: documentId})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    loadMeetingAgenda(currentMeetingId);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting document:', error);
+                alert('Error deleting document');
+            });
+        }
+
         // Utility function to load board members for current committee with their roles
         function loadBoardMembers() {
             if (!currentCommitteeId) return Promise.resolve([]);
@@ -1257,12 +1389,13 @@
         }
 
         window.onclick = function(event) {
-            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'minutesModal'];
+            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'minutesModal', 'documentUploadModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target == modal) {
                     if (modalId === 'meetingModal') closeMeetingModal();
                     else if (modalId === 'agendaItemModal') closeAgendaItemModal();
+                    else if (modalId === 'documentUploadModal') closeDocumentUploadModal();
                     else if (modalId === 'attendeeModal') closeAttendeeModal();
                     else if (modalId === 'resolutionModal') closeResolutionModal();
                     else if (modalId === 'minutesModal') closeMinutesModal();

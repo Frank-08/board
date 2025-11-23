@@ -164,6 +164,7 @@ CREATE TABLE IF NOT EXISTS documents (
     id INT AUTO_INCREMENT PRIMARY KEY,
     committee_id INT,
     meeting_id INT,
+    agenda_item_id INT,
     document_type ENUM('Agenda', 'Minutes', 'Resolution', 'Report', 'Policy', 'Other') DEFAULT 'Other',
     title VARCHAR(255) NOT NULL,
     description TEXT,
@@ -176,9 +177,11 @@ CREATE TABLE IF NOT EXISTS documents (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (committee_id) REFERENCES committees(id) ON DELETE CASCADE,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
+    FOREIGN KEY (agenda_item_id) REFERENCES agenda_items(id) ON DELETE SET NULL,
     FOREIGN KEY (uploaded_by) REFERENCES board_members(id) ON DELETE SET NULL,
     INDEX idx_committee (committee_id),
     INDEX idx_meeting (meeting_id),
+    INDEX idx_agenda_item (agenda_item_id),
     INDEX idx_type (document_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

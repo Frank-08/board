@@ -40,6 +40,28 @@ $stmt = $db->prepare("
 $stmt->execute([$meetingId]);
 $agendaItems = $stmt->fetchAll();
 
+// Get documents linked to agenda items
+$agendaItemIds = array_filter(array_column($agendaItems, 'id'));
+$documentsByAgendaItem = [];
+if (!empty($agendaItemIds)) {
+    $placeholders = implode(',', array_fill(0, count($agendaItemIds), '?'));
+    $stmt = $db->prepare("
+        SELECT d.*, d.agenda_item_id
+        FROM documents d
+        WHERE d.agenda_item_id IN ($placeholders)
+        ORDER BY d.agenda_item_id, d.created_at ASC
+    ");
+    $stmt->execute($agendaItemIds);
+    $allDocuments = $stmt->fetchAll();
+    
+    foreach ($allDocuments as $doc) {
+        if (!isset($documentsByAgendaItem[$doc['agenda_item_id']])) {
+            $documentsByAgendaItem[$doc['agenda_item_id']] = [];
+        }
+        $documentsByAgendaItem[$doc['agenda_item_id']][] = $doc;
+    }
+}
+
 // Get attendees with their role in the meeting's committee
 $stmt = $db->prepare("
     SELECT ma.*, bm.first_name, bm.last_name, bm.title,
@@ -394,6 +416,49 @@ function formatTime($dateString) {
             <p>No agenda items have been added yet.</p>
         <?php endif; ?>
     </div>
+
+    <?php
+    // Collect all documents for display at the bottom
+    $allDocuments = [];
+    foreach ($agendaItems as $item) {
+        if (isset($documentsByAgendaItem[$item['id']])) {
+            foreach ($documentsByAgendaItem[$item['id']] as $doc) {
+                $allDocuments[] = [
+                    'document' => $doc,
+                    'agenda_item' => $item
+                ];
+            }
+        }
+    }
+    ?>
+    
+    <?php if (!empty($allDocuments)): ?>
+    <div class="agenda-section">
+        <h3>Attached Documents</h3>
+        <?php foreach ($allDocuments as $item): ?>
+        <div class="agenda-item">
+            <div class="agenda-item-header">
+                <div style="display: flex; align-items: flex-start;">
+                    <span class="agenda-item-number">📎</span>
+                    <div style="flex: 1;">
+                        <span class="agenda-item-title"><?php echo htmlspecialchars($item['document']['title']); ?></span>
+                        <p style="margin: 5px 0; color: #666; font-size: 14px;">
+                            <strong>From Agenda Item:</strong> <?php echo ($item['agenda_item']['position'] !== null ? ($item['agenda_item']['position'] + 1) . '. ' : ''); ?><?php echo htmlspecialchars($item['agenda_item']['title']); ?>
+                        </p>
+                        <?php if ($item['document']['description']): ?>
+                        <p style="margin: 5px 0; color: #555; font-size: 13px;"><?php echo nl2br(htmlspecialchars($item['document']['description'])); ?></p>
+                        <?php endif; ?>
+                        <p style="margin: 5px 0; color: #999; font-size: 12px;">
+                            File: <?php echo htmlspecialchars($item['document']['file_name']); ?> 
+                            (<?php echo number_format($item['document']['file_size'] / 1024, 2); ?> KB)
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 
     <div class="footer">
         <p>Generated on <?php echo date('F j, Y \a\t g:i A'); ?></p>
