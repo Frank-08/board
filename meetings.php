@@ -28,9 +28,9 @@
             </div>
 
             <div class="organization-selector">
-                <label for="committeeSelect">Committee:</label>
-                <select id="committeeSelect" onchange="loadMeetings()">
-                    <option value="">Select committee...</option>
+                <label for="meetingTypeSelect">Meeting Type:</label>
+                <select id="meetingTypeSelect" onchange="loadMeetings()">
+                    <option value="">Select meeting type...</option>
                 </select>
             </div>
 
@@ -290,13 +290,9 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="meetingType">Meeting Type *</label>
-                        <select id="meetingType" required>
-                            <option value="Standing Committee">Standing Committee</option>
-                            <option value="PiC">Prebytery in Council</option>
-                            <option value="PRC">Pastoral Relations Commitee</option>
-                            <option value="RPC">Property Board</option>
-                            <option value="Workshop">Workshop</option>
+                        <label for="meetingTypeId">Meeting Type *</label>
+                        <select id="meetingTypeId" required>
+                            <option value="">Select meeting type...</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -337,11 +333,12 @@
 
     <script src="assets/js/app.js"></script>
     <script>
-        let currentCommitteeId = null;
+        let currentMeetingTypeId = null;
         let currentMeetingId = null;
+        let allMeetingTypes = [];
 
         window.addEventListener('DOMContentLoaded', function() {
-            loadCommittees();
+            loadMeetingTypes();
             
             // Check if meeting ID is in URL
             const urlParams = new URLSearchParams(window.location.search);
@@ -351,31 +348,40 @@
             }
         });
 
-        function loadCommittees() {
-            fetch('api/committees.php')
+        function loadMeetingTypes() {
+            fetch('api/meeting_types.php')
                 .then(response => response.json())
                 .then(data => {
-                    const select = document.getElementById('committeeSelect');
-                    select.innerHTML = '<option value="">Select committee...</option>';
-                    data.forEach(committee => {
+                    allMeetingTypes = data;
+                    const select = document.getElementById('meetingTypeSelect');
+                    const meetingTypeSelect = document.getElementById('meetingTypeId');
+                    
+                    select.innerHTML = '<option value="">Select meeting type...</option>';
+                    meetingTypeSelect.innerHTML = '<option value="">Select meeting type...</option>';
+                    
+                    data.forEach(meetingType => {
                         const option = document.createElement('option');
-                        option.value = committee.id;
-                        option.textContent = committee.name;
+                        option.value = meetingType.id;
+                        option.textContent = meetingType.name;
                         select.appendChild(option);
+                        
+                        const option2 = option.cloneNode(true);
+                        meetingTypeSelect.appendChild(option2);
                     });
+                    
                     if (data.length > 0) {
                         select.value = data[0].id;
-                        currentCommitteeId = data[0].id;
+                        currentMeetingTypeId = data[0].id;
                         loadMeetings();
                     }
                 });
         }
 
         function loadMeetings() {
-            currentCommitteeId = document.getElementById('committeeSelect').value;
-            if (!currentCommitteeId) return;
+            currentMeetingTypeId = document.getElementById('meetingTypeSelect').value;
+            if (!currentMeetingTypeId) return;
 
-            fetch(`api/meetings.php?committee_id=${currentCommitteeId}`)
+            fetch(`api/meetings.php?meeting_type_id=${currentMeetingTypeId}`)
                 .then(response => response.json())
                 .then(data => {
                     const list = document.getElementById('meetings-list');
@@ -702,8 +708,8 @@
         }
 
         function showMeetingModal(meeting = null) {
-            if (!currentCommitteeId) {
-                alert('Please select a committee first');
+            if (!currentMeetingTypeId) {
+                alert('Please select a meeting type first');
                 return;
             }
 
@@ -715,7 +721,7 @@
                 title.textContent = 'Edit Meeting';
                 document.getElementById('meetingId').value = meeting.id;
                 document.getElementById('meetingTitle').value = meeting.title;
-                document.getElementById('meetingType').value = meeting.meeting_type;
+                document.getElementById('meetingTypeId').value = meeting.meeting_type_id || currentMeetingTypeId;
                 document.getElementById('scheduledDate').value = meeting.scheduled_date.replace(' ', 'T').substring(0, 16);
                 document.getElementById('location').value = meeting.location || '';
                 document.getElementById('virtualLink').value = meeting.virtual_link || '';
@@ -726,6 +732,7 @@
                 title.textContent = 'New Meeting';
                 form.reset();
                 document.getElementById('meetingId').value = '';
+                document.getElementById('meetingTypeId').value = currentMeetingTypeId;
             }
             modal.style.display = 'block';
         }
@@ -741,9 +748,8 @@
             const scheduledDate = document.getElementById('scheduledDate').value;
             
             const data = {
-                committee_id: currentCommitteeId,
+                meeting_type_id: document.getElementById('meetingTypeId').value || currentMeetingTypeId,
                 title: document.getElementById('meetingTitle').value,
-                meeting_type: document.getElementById('meetingType').value,
                 scheduled_date: scheduledDate.replace('T', ' ') + ':00',
                 location: document.getElementById('location').value,
                 virtual_link: document.getElementById('virtualLink').value,
@@ -1360,22 +1366,22 @@
             });
         }
 
-        // Utility function to load board members for current committee with their roles
+        // Utility function to load board members for current meeting type with their roles
         function loadBoardMembers() {
-            if (!currentCommitteeId) return Promise.resolve([]);
-            // Get committee members which includes role for this committee
-            return fetch(`api/committee_members.php?committee_id=${currentCommitteeId}`)
+            if (!currentMeetingTypeId) return Promise.resolve([]);
+            // Get meeting type members which includes role for this meeting type
+            return fetch(`api/meeting_type_members.php?meeting_type_id=${currentMeetingTypeId}`)
                 .then(response => response.json())
-                .then(committeeMembers => {
+                .then(meetingTypeMembers => {
                     // Transform to format expected by other functions
-                    return committeeMembers.map(cm => ({
-                        id: cm.member_id,
-                        first_name: cm.first_name,
-                        last_name: cm.last_name,
-                        email: cm.email,
-                        phone: cm.phone,
-                        title: cm.title,
-                        role: cm.role  // Role in this committee
+                    return meetingTypeMembers.map(mtm => ({
+                        id: mtm.member_id,
+                        first_name: mtm.first_name,
+                        last_name: mtm.last_name,
+                        email: mtm.email,
+                        phone: mtm.phone,
+                        title: mtm.title,
+                        role: mtm.role  // Role in this meeting type
                     }));
                 })
                 .catch(error => {

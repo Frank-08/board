@@ -105,7 +105,7 @@ switch ($method) {
             $description = $_POST['description'] ?? null;
             $meetingId = !empty($_POST['meeting_id']) ? (int)$_POST['meeting_id'] : null;
             $agendaItemId = !empty($_POST['agenda_item_id']) ? (int)$_POST['agenda_item_id'] : null;
-            $committeeId = !empty($_POST['committee_id']) ? (int)$_POST['committee_id'] : null;
+            $meetingTypeId = !empty($_POST['meeting_type_id']) ? (int)$_POST['meeting_type_id'] : null;
             $documentType = $_POST['document_type'] ?? 'Other';
             $uploadedBy = !empty($_POST['uploaded_by']) ? (int)$_POST['uploaded_by'] : null;
             
@@ -137,24 +137,24 @@ switch ($method) {
                 exit;
             }
             
-            // Get meeting's committee if not provided
-            if (!$committeeId && $meetingId) {
-                $stmt = $db->prepare("SELECT committee_id FROM meetings WHERE id = ?");
+            // Get meeting's meeting type if not provided
+            if (!$meetingTypeId && $meetingId) {
+                $stmt = $db->prepare("SELECT meeting_type_id FROM meetings WHERE id = ?");
                 $stmt->execute([$meetingId]);
                 $meeting = $stmt->fetch();
                 if ($meeting) {
-                    $committeeId = $meeting['committee_id'];
+                    $meetingTypeId = $meeting['meeting_type_id'];
                 }
             }
             
             // Insert document record
             try {
                 $stmt = $db->prepare("
-                    INSERT INTO documents (committee_id, meeting_id, agenda_item_id, document_type, title, description, file_path, file_name, file_size, mime_type, uploaded_by)
+                    INSERT INTO documents (meeting_type_id, meeting_id, agenda_item_id, document_type, title, description, file_path, file_name, file_size, mime_type, uploaded_by)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([
-                    $committeeId,
+                    $meetingTypeId,
                     $meetingId,
                     $agendaItemId,
                     $documentType,

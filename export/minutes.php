@@ -14,7 +14,7 @@ if (!$meetingId) {
 $db = getDBConnection();
 
 // Get meeting details
-$stmt = $db->prepare("SELECT m.*, c.name as committee_name, c.address as committee_address, c.phone as committee_phone, c.email as committee_email FROM meetings m JOIN committees c ON m.committee_id = c.id WHERE m.id = ?");
+$stmt = $db->prepare("SELECT m.*, mt.name as meeting_type_name, mt.description as meeting_type_description FROM meetings m JOIN meeting_types mt ON m.meeting_type_id = mt.id WHERE m.id = ?");
 $stmt->execute([$meetingId]);
 $meeting = $stmt->fetch();
 
@@ -43,13 +43,13 @@ if (!$minutes) {
 $stmt = $db->prepare("
     SELECT ai.*, 
         bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
-        cm.role as presenter_role,
+        mtm.role as presenter_role,
         mac.comment as minutes_comment,
         r.resolution_number, r.title as resolution_title, r.status as resolution_status
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
     LEFT JOIN meetings m ON ai.meeting_id = m.id
-    LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
+    LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     LEFT JOIN minutes_agenda_comments mac ON ai.id = mac.agenda_item_id AND mac.minutes_id = ?
     LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
     WHERE ai.meeting_id = ?
@@ -58,17 +58,17 @@ $stmt = $db->prepare("
 $stmt->execute([$minutes['id'], $meetingId]);
 $agendaItems = $stmt->fetchAll();
 
-// Get attendees with their role in the meeting's committee
+// Get attendees with their role in the meeting's meeting type
 $stmt = $db->prepare("
     SELECT ma.*, bm.first_name, bm.last_name, bm.title,
-        cm.role, cm.status as membership_status
+        mtm.role, mtm.status as membership_status
     FROM meeting_attendees ma
     JOIN board_members bm ON ma.member_id = bm.id
     JOIN meetings m ON ma.meeting_id = m.id
-    LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
+    LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     WHERE ma.meeting_id = ?
     ORDER BY 
-        FIELD(cm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
+        FIELD(mtm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
         bm.last_name ASC
 ");
 $stmt->execute([$meetingId]);
@@ -309,7 +309,7 @@ function formatDateTime($dateString) {
     
     <div class="header">
         <h1>Meeting Minutes</h1>
-        <p><?php echo htmlspecialchars($meeting['committee_name']); ?></p>
+        <p><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></p>
     </div>
     
     <div class="meeting-info">

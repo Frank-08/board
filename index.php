@@ -23,11 +23,11 @@
 
         <main>
             <div class="organization-selector">
-                <label for="committeeSelect">Select Committee:</label>
-                <select id="committeeSelect" onchange="loadDashboard()">
+                <label for="meetingTypeSelect">Select Meeting Type:</label>
+                <select id="meetingTypeSelect" onchange="loadDashboard()">
                     <option value="">Loading...</option>
                 </select>
-                <button onclick="showCommitteeModal()">+ New Committee</button>
+                <button onclick="showMeetingTypeModal()">+ New Meeting Type</button>
             </div>
 
             <div id="dashboard" style="display:none;">
@@ -67,64 +67,48 @@
                 </div>
             </div>
 
-            <div id="no-committee" style="display:none;">
-                <p>No committee selected. Please create or select a committee.</p>
+            <div id="no-meeting-type" style="display:none;">
+                <p>No meeting type selected. Please create or select a meeting type.</p>
             </div>
         </main>
     </div>
 
-    <!-- Committee Modal -->
-    <div id="committeeModal" class="modal">
+    <!-- Meeting Type Modal -->
+    <div id="meetingTypeModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeCommitteeModal()">&times;</span>
-            <h2>New Committee</h2>
-            <form id="committeeForm" onsubmit="createCommittee(event)">
+            <span class="close" onclick="closeMeetingTypeModal()">&times;</span>
+            <h2>New Meeting Type</h2>
+            <form id="meetingTypeForm" onsubmit="createMeetingType(event)">
                 <div class="form-group">
-                    <label for="orgName">Name *</label>
-                    <input type="text" id="orgName" required>
+                    <label for="meetingTypeName">Name *</label>
+                    <input type="text" id="meetingTypeName" required>
                 </div>
                 <div class="form-group">
-                    <label for="orgDescription">Description</label>
-                    <textarea id="orgDescription"></textarea>
+                    <label for="meetingTypeDescription">Description</label>
+                    <textarea id="meetingTypeDescription"></textarea>
                 </div>
-                <div class="form-group">
-                    <label for="orgEmail">Email</label>
-                    <input type="email" id="orgEmail">
-                </div>
-                <div class="form-group">
-                    <label for="orgPhone">Phone</label>
-                    <input type="tel" id="orgPhone">
-                </div>
-                <div class="form-group">
-                    <label for="orgWebsite">Website</label>
-                    <input type="url" id="orgWebsite">
-                </div>
-                <div class="form-group">
-                    <label for="orgAddress">Address</label>
-                    <textarea id="orgAddress"></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">Create Committee</button>
+                <button type="submit" class="btn btn-primary">Create Meeting Type</button>
             </form>
         </div>
     </div>
 
     <script src="assets/js/app.js"></script>
     <script>
-        // Load committees on page load
+        // Load meeting types on page load
         window.addEventListener('DOMContentLoaded', function() {
-            loadCommittees();
+            loadMeetingTypes();
         });
 
-        function loadCommittees() {
-            fetch('api/committees.php')
+        function loadMeetingTypes() {
+            fetch('api/meeting_types.php')
                 .then(response => response.json())
                 .then(data => {
-                    const select = document.getElementById('committeeSelect');
-                    select.innerHTML = '<option value="">Select a committee...</option>';
-                    data.forEach(committee => {
+                    const select = document.getElementById('meetingTypeSelect');
+                    select.innerHTML = '<option value="">Select a meeting type...</option>';
+                    data.forEach(meetingType => {
                         const option = document.createElement('option');
-                        option.value = committee.id;
-                        option.textContent = committee.name;
+                        option.value = meetingType.id;
+                        option.textContent = meetingType.name;
                         select.appendChild(option);
                     });
                     if (data.length > 0) {
@@ -133,23 +117,23 @@
                     }
                 })
                 .catch(error => {
-                    console.error('Error loading committees:', error);
+                    console.error('Error loading meeting types:', error);
                 });
         }
 
         function loadDashboard() {
-            const committeeId = document.getElementById('committeeSelect').value;
-            if (!committeeId) {
+            const meetingTypeId = document.getElementById('meetingTypeSelect').value;
+            if (!meetingTypeId) {
                 document.getElementById('dashboard').style.display = 'none';
-                document.getElementById('no-committee').style.display = 'block';
+                document.getElementById('no-meeting-type').style.display = 'block';
                 return;
             }
 
             document.getElementById('dashboard').style.display = 'block';
-            document.getElementById('no-committee').style.display = 'none';
+            document.getElementById('no-meeting-type').style.display = 'none';
 
             // Load dashboard stats
-            fetch(`api/dashboard.php?committee_id=${committeeId}`)
+            fetch(`api/dashboard.php?meeting_type_id=${meetingTypeId}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('stat-members').textContent = data.active_members || 0;
@@ -191,39 +175,35 @@
                 });
         }
 
-        function showCommitteeModal() {
-            document.getElementById('committeeModal').style.display = 'block';
+        function showMeetingTypeModal() {
+            document.getElementById('meetingTypeModal').style.display = 'block';
         }
 
-        function closeCommitteeModal() {
-            document.getElementById('committeeModal').style.display = 'none';
-            document.getElementById('committeeForm').reset();
+        function closeMeetingTypeModal() {
+            document.getElementById('meetingTypeModal').style.display = 'none';
+            document.getElementById('meetingTypeForm').reset();
         }
 
-        function createCommittee(event) {
+        function createMeetingType(event) {
             event.preventDefault();
             const data = {
-                name: document.getElementById('orgName').value,
-                description: document.getElementById('orgDescription').value,
-                email: document.getElementById('orgEmail').value,
-                phone: document.getElementById('orgPhone').value,
-                website: document.getElementById('orgWebsite').value,
-                address: document.getElementById('orgAddress').value
+                name: document.getElementById('meetingTypeName').value,
+                description: document.getElementById('meetingTypeDescription').value
             };
 
-            fetch('api/committees.php', {
+            fetch('api/meeting_types.php', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             })
             .then(response => response.json())
             .then(data => {
-                closeCommitteeModal();
-                loadCommittees();
+                closeMeetingTypeModal();
+                loadMeetingTypes();
             })
             .catch(error => {
-                console.error('Error creating committee:', error);
-                alert('Error creating committee');
+                console.error('Error creating meeting type:', error);
+                alert('Error creating meeting type');
             });
         }
 
@@ -240,9 +220,9 @@
 
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('committeeModal');
+            const modal = document.getElementById('meetingTypeModal');
             if (event.target == modal) {
-                closeCommitteeModal();
+                closeMeetingTypeModal();
             }
         }
     </script>

@@ -53,13 +53,13 @@ switch ($method) {
             $meeting['agenda_items'] = $stmt->fetchAll();
             
             echo json_encode($meeting);
-        } elseif (isset($_GET['committee_id'])) {
-            $committeeId = (int)$_GET['committee_id'];
+        } elseif (isset($_GET['meeting_type_id'])) {
+            $meetingTypeId = (int)$_GET['meeting_type_id'];
             $status = $_GET['status'] ?? null;
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : null;
             
-            $sql = "SELECT * FROM meetings WHERE committee_id = ?";
-            $params = [$committeeId];
+            $sql = "SELECT * FROM meetings WHERE meeting_type_id = ?";
+            $params = [$meetingTypeId];
             
             if ($status) {
                 $sql .= " AND status = ?";
@@ -78,27 +78,26 @@ switch ($method) {
             echo json_encode($stmt->fetchAll());
         } else {
             http_response_code(400);
-            echo json_encode(['error' => 'id or committee_id is required']);
+            echo json_encode(['error' => 'id or meeting_type_id is required']);
         }
         break;
         
     case 'POST':
         $data = json_decode(file_get_contents('php://input'), true);
-        $committeeId = (int)($data['committee_id'] ?? 0);
+        $meetingTypeId = (int)($data['meeting_type_id'] ?? 0);
         $title = $data['title'] ?? '';
         $scheduledDate = $data['scheduled_date'] ?? '';
         
-        if (!$committeeId || empty($title) || empty($scheduledDate)) {
+        if (!$meetingTypeId || empty($title) || empty($scheduledDate)) {
             http_response_code(400);
-            echo json_encode(['error' => 'committee_id, title, and scheduled_date are required']);
+            echo json_encode(['error' => 'meeting_type_id, title, and scheduled_date are required']);
             exit;
         }
         
-        $stmt = $db->prepare("INSERT INTO meetings (committee_id, title, meeting_type, scheduled_date, location, virtual_link, quorum_required, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO meetings (meeting_type_id, title, scheduled_date, location, virtual_link, quorum_required, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
-            $committeeId,
+            $meetingTypeId,
             $title,
-            $data['meeting_type'] ?? 'Regular',
             $scheduledDate,
             $data['location'] ?? null,
             $data['virtual_link'] ?? null,
@@ -123,19 +122,31 @@ switch ($method) {
             exit;
         }
         
-        $stmt = $db->prepare("UPDATE meetings SET title = ?, meeting_type = ?, scheduled_date = ?, location = ?, virtual_link = ?, quorum_required = ?, quorum_met = ?, status = ?, notes = ? WHERE id = ?");
-        $stmt->execute([
-            $data['title'] ?? '',
-            $data['meeting_type'] ?? 'Regular',
-            $data['scheduled_date'] ?? '',
-            $data['location'] ?? null,
-            $data['virtual_link'] ?? null,
-            $data['quorum_required'] ?? 0,
-            isset($data['quorum_met']) ? (int)$data['quorum_met'] : 0,
-            $data['status'] ?? 'Scheduled',
-            $data['notes'] ?? null,
-            $id
-        ]);
+        $updates = [];
+        $params = [];
+        
+        $fields = ['title', 'meeting_type_id', 'scheduled_date', 'location', 'virtual_link', 'quorum_required', 'quorum_met', 'status', 'notes'];
+        foreach ($fields as $field) {
+            if (isset($data[$field])) {
+                $updates[] = "$field = ?";
+                if ($field === 'quorum_met') {
+                    $params[] = (int)$data[$field];
+                } else {
+                    $params[] = $data[$field];
+                }
+            }
+        }
+        
+        if (empty($updates)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'No fields to update']);
+            exit;
+        }
+        
+        $params[] = $id;
+        $sql = "UPDATE meetings SET " . implode(', ', $updates) . " WHERE id = ?";
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
         
         $stmt = $db->prepare("SELECT * FROM meetings WHERE id = ?");
         $stmt->execute([$id]);

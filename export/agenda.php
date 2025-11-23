@@ -14,7 +14,7 @@ if (!$meetingId) {
 $db = getDBConnection();
 
 // Get meeting details
-$stmt = $db->prepare("SELECT m.*, c.name as committee_name, c.address as committee_address, c.phone as committee_phone, c.email as committee_email FROM meetings m JOIN committees c ON m.committee_id = c.id WHERE m.id = ?");
+$stmt = $db->prepare("SELECT m.*, mt.name as meeting_type_name, mt.description as meeting_type_description FROM meetings m JOIN meeting_types mt ON m.meeting_type_id = mt.id WHERE m.id = ?");
 $stmt->execute([$meetingId]);
 $meeting = $stmt->fetch();
 
@@ -26,13 +26,13 @@ if (!$meeting) {
 $stmt = $db->prepare("
     SELECT ai.*, 
         bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
-        cm.role as presenter_role,
+        mtm.role as presenter_role,
         r.id as resolution_id, r.title as resolution_title, r.resolution_number, r.description as resolution_description,
         r.status as resolution_status, r.vote_type, r.votes_for, r.votes_against, r.votes_abstain
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
     LEFT JOIN meetings m ON ai.meeting_id = m.id
-    LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
+    LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
     WHERE ai.meeting_id = ?
     ORDER BY ai.position ASC
@@ -69,10 +69,10 @@ $stmt = $db->prepare("
     FROM meeting_attendees ma
     JOIN board_members bm ON ma.member_id = bm.id
     JOIN meetings m ON ma.meeting_id = m.id
-    LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
+    LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     WHERE ma.meeting_id = ?
     ORDER BY 
-        FIELD(cm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
+        FIELD(mtm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
         bm.last_name ASC
 ");
 $stmt->execute([$meetingId]);
@@ -294,7 +294,7 @@ function formatTime($dateString) {
     </div>
 
     <div class="header">
-        <div class="organization"><?php echo htmlspecialchars($meeting['committee_name']); ?></div>
+        <div class="organization"><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></div>
         <h1>Meeting Agenda</h1>
     </div>
 
@@ -324,10 +324,10 @@ function formatTime($dateString) {
             <div class="info-value"><?php echo htmlspecialchars($meeting['virtual_link']); ?></div>
         </div>
         <?php endif; ?>
-        <?php if ($meeting['committee_address']): ?>
-        <div class="info-row">
-            <div class="info-label">Committee Address:</div>
-            <div class="info-value"><?php echo htmlspecialchars($meeting['committee_address']); ?></div>
+        <?php if ($meeting['meeting_type_description']): ?>
+            <div class="info-row">
+            <div class="info-label">Meeting Type Description:</div>
+            <div class="info-value"><?php echo htmlspecialchars($meeting['meeting_type_description']); ?></div>
         </div>
         <?php endif; ?>
     </div>
@@ -462,7 +462,7 @@ function formatTime($dateString) {
 
     <div class="footer">
         <p>Generated on <?php echo date('F j, Y \a\t g:i A'); ?></p>
-        <p><?php echo htmlspecialchars($meeting['committee_name']); ?> - Governance Board Management System</p>
+        <p><?php echo htmlspecialchars($meeting['meeting_type_name']); ?> - Governance Board Management System</p>
     </div>
 </body>
 </html>

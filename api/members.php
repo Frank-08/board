@@ -32,29 +32,29 @@ switch ($method) {
             }
             
             echo json_encode($member);
-        } elseif (isset($_GET['committee_id'])) {
-            // Get members for a specific committee
-            $committeeId = (int)$_GET['committee_id'];
+        } elseif (isset($_GET['meeting_type_id'])) {
+            // Get members for a specific meeting type
+            $meetingTypeId = (int)$_GET['meeting_type_id'];
             $status = $_GET['status'] ?? null;
             
             $sql = "
                 SELECT DISTINCT bm.*, 
-                    GROUP_CONCAT(CONCAT(c.name, ':', cm.role) SEPARATOR '|') as committees
+                    GROUP_CONCAT(CONCAT(mt.name, ':', mtm.role, ':', mtm.status, ':', mtm.start_date, ':', mtm.id) SEPARATOR '|') as meeting_types
                 FROM board_members bm
-                JOIN committee_members cm ON bm.id = cm.member_id
-                JOIN committees c ON cm.committee_id = c.id
-                WHERE cm.committee_id = ?
+                JOIN meeting_type_members mtm ON bm.id = mtm.member_id
+                JOIN meeting_types mt ON mtm.meeting_type_id = mt.id
+                WHERE mtm.meeting_type_id = ?
             ";
-            $params = [$committeeId];
+            $params = [$meetingTypeId];
             
             if ($status) {
-                $sql .= " AND cm.status = ?";
+                $sql .= " AND mtm.status = ?";
                 $params[] = $status;
             }
             
             $sql .= " GROUP BY bm.id
                 ORDER BY 
-                    FIELD(cm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
+                    FIELD(mtm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
                     bm.last_name ASC, bm.first_name ASC";
             
             $stmt = $db->prepare($sql);
@@ -92,21 +92,21 @@ switch ($method) {
             
             $memberId = $db->lastInsertId();
             
-            // If committees are provided, add them
-            if (!empty($data['committee_ids']) && is_array($data['committee_ids'])) {
-                foreach ($data['committee_ids'] as $committeeData) {
-                    $committeeId = is_array($committeeData) ? $committeeData['committee_id'] : $committeeData;
-                    $role = is_array($committeeData) ? ($committeeData['role'] ?? 'Member') : 'Member';
-                    $status = is_array($committeeData) ? ($committeeData['status'] ?? 'Active') : 'Active';
+            // If meeting types are provided, add them
+            if (!empty($data['meeting_type_ids']) && is_array($data['meeting_type_ids'])) {
+                foreach ($data['meeting_type_ids'] as $meetingTypeData) {
+                    $meetingTypeId = is_array($meetingTypeData) ? $meetingTypeData['meeting_type_id'] : $meetingTypeData;
+                    $role = is_array($meetingTypeData) ? ($meetingTypeData['role'] ?? 'Member') : 'Member';
+                    $status = is_array($meetingTypeData) ? ($meetingTypeData['status'] ?? 'Active') : 'Active';
                     
-                    $stmt = $db->prepare("INSERT INTO committee_members (committee_id, member_id, role, status, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt = $db->prepare("INSERT INTO meeting_type_members (meeting_type_id, member_id, role, status, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)");
                     $stmt->execute([
-                        $committeeId,
+                        $meetingTypeId,
                         $memberId,
                         $role,
                         $status,
-                        $data['start_date'] ?? null,
-                        $data['end_date'] ?? null
+                        is_array($meetingTypeData) ? ($meetingTypeData['start_date'] ?? null) : null,
+                        is_array($meetingTypeData) ? ($meetingTypeData['end_date'] ?? null) : null
                     ]);
                 }
             }

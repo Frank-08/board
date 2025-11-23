@@ -28,8 +28,8 @@
             </div>
 
             <div class="organization-selector">
-                <label for="committeeSelect">Filter by Committee:</label>
-                <select id="committeeSelect" onchange="loadMembers()">
+                <label for="meetingTypeSelect">Filter by Meeting Type:</label>
+                <select id="meetingTypeSelect" onchange="loadMembers()">
                     <option value="">All Members</option>
                 </select>
             </div>
@@ -66,9 +66,9 @@
                     <input type="text" id="title">
                 </div>
                 <div class="form-group">
-                    <label>Committees & Roles *</label>
-                    <div id="committeesContainer"></div>
-                    <button type="button" onclick="addCommitteeRow()" class="btn btn-sm" style="margin-top: 10px;">+ Add Committee</button>
+                    <label>Meeting Types & Roles *</label>
+                    <div id="meetingTypesContainer"></div>
+                    <button type="button" onclick="addMeetingTypeRow()" class="btn btn-sm" style="margin-top: 10px;">+ Add Meeting Type</button>
                 </div>
                 <div class="form-group">
                     <label for="bio">Biography</label>
@@ -81,36 +81,36 @@
 
     <script src="assets/js/app.js"></script>
     <script>
-        let allCommittees = [];
-        let currentCommitteeId = null;
+        let allMeetingTypes = [];
+        let currentMeetingTypeId = null;
 
         window.addEventListener('DOMContentLoaded', function() {
-            loadCommittees();
+            loadMeetingTypes();
             loadMembers();
         });
 
-        function loadCommittees() {
-            fetch('api/committees.php')
+        function loadMeetingTypes() {
+            fetch('api/meeting_types.php')
                 .then(response => response.json())
                 .then(data => {
-                    allCommittees = data;
-                    const select = document.getElementById('committeeSelect');
+                    allMeetingTypes = data;
+                    const select = document.getElementById('meetingTypeSelect');
                     select.innerHTML = '<option value="">All Members</option>';
-                    data.forEach(committee => {
+                    data.forEach(meetingType => {
                         const option = document.createElement('option');
-                        option.value = committee.id;
-                        option.textContent = committee.name;
+                        option.value = meetingType.id;
+                        option.textContent = meetingType.name;
                         select.appendChild(option);
                     });
                 });
         }
 
         function loadMembers() {
-            currentCommitteeId = document.getElementById('committeeSelect').value;
+            currentMeetingTypeId = document.getElementById('meetingTypeSelect').value;
             
             let url = 'api/members.php';
-            if (currentCommitteeId) {
-                url += `?committee_id=${currentCommitteeId}`;
+            if (currentMeetingTypeId) {
+                url += `?meeting_type_id=${currentMeetingTypeId}`;
             }
 
             fetch(url)
@@ -121,25 +121,25 @@
                         list.innerHTML = '<p>No members found. Add your first board member.</p>';
                         return;
                     }
-                    // Load committee memberships for each member
+                    // Load meeting type memberships for each member
                     Promise.all(data.map(member => 
-                        fetch(`api/committee_members.php?member_id=${member.id}`)
+                        fetch(`api/meeting_type_members.php?member_id=${member.id}`)
                             .then(r => r.json())
-                            .then(committees => ({...member, committees}))
+                            .then(meetingTypes => ({...member, meetingTypes}))
                             .catch(err => {
-                                console.error(`Error loading committees for member ${member.id}:`, err);
-                                return {...member, committees: []};
+                                console.error(`Error loading meeting types for member ${member.id}:`, err);
+                                return {...member, meetingTypes: []};
                             })
-                    )).then(membersWithCommittees => {
-                        list.innerHTML = membersWithCommittees.map(member => {
-                            const committeesList = member.committees && member.committees.length > 0 
-                                ? member.committees.map(c => {
-                                    const statusClass = c.status === 'Active' ? 'badge-active' : 
-                                                       c.status === 'Inactive' ? 'badge-inactive' : 
+                    )).then(membersWithMeetingTypes => {
+                        list.innerHTML = membersWithMeetingTypes.map(member => {
+                            const meetingTypesList = member.meetingTypes && member.meetingTypes.length > 0 
+                                ? member.meetingTypes.map(mt => {
+                                    const statusClass = mt.status === 'Active' ? 'badge-active' : 
+                                                       mt.status === 'Inactive' ? 'badge-inactive' : 
                                                        'badge-resigned';
-                                    return `<span class="badge ${statusClass}" style="margin: 2px; display: inline-block;">${c.committee_name} - ${c.role}</span>`;
+                                    return `<span class="badge ${statusClass}" style="margin: 2px; display: inline-block;">${mt.meeting_type_name} - ${mt.role}</span>`;
                                 }).join('')
-                                : '<span style="color: #999;">No committee assignments</span>';
+                                : '<span style="color: #999;">No meeting type assignments</span>';
                             
                             return `
                                 <div class="member-card">
@@ -150,8 +150,8 @@
                                     ${member.email ? `<p class="member-email">${member.email}</p>` : ''}
                                     ${member.phone ? `<p class="member-phone">${member.phone}</p>` : ''}
                                     <div style="margin-top: 10px;">
-                                        <strong>Committees:</strong><br>
-                                        <div style="margin-top: 5px;">${committeesList}</div>
+                                        <strong>Meeting Types:</strong><br>
+                                        <div style="margin-top: 5px;">${meetingTypesList}</div>
                                     </div>
                                     <div class="member-actions">
                                         <button onclick="editMember(${member.id})" class="btn btn-sm">Edit</button>
@@ -172,8 +172,8 @@
             const form = document.getElementById('memberForm');
             const title = document.getElementById('modalTitle');
             
-            // Clear committees container
-            document.getElementById('committeesContainer').innerHTML = '';
+            // Clear meeting types container
+            document.getElementById('meetingTypesContainer').innerHTML = '';
             
             if (member) {
                 title.textContent = 'Edit Board Member';
@@ -185,46 +185,46 @@
                 document.getElementById('title').value = member.title || '';
                 document.getElementById('bio').value = member.bio || '';
                 
-                // Load and display existing committee memberships
-                fetch(`api/committee_members.php?member_id=${member.id}`)
+                // Load and display existing meeting type memberships
+                fetch(`api/meeting_type_members.php?member_id=${member.id}`)
                     .then(response => response.json())
-                    .then(committees => {
-                        if (committees && committees.length > 0) {
-                            committees.forEach(cm => {
-                                addCommitteeRow(cm.committee_id, cm.role, cm.status, cm.start_date || '', cm.id);
+                    .then(meetingTypes => {
+                        if (meetingTypes && meetingTypes.length > 0) {
+                            meetingTypes.forEach(mtm => {
+                                addMeetingTypeRow(mtm.meeting_type_id, mtm.role, mtm.status, mtm.start_date || '', mtm.id);
                             });
                         } else {
-                            addCommitteeRow();
+                            addMeetingTypeRow();
                         }
                     })
                     .catch(error => {
-                        console.error('Error loading committee memberships:', error);
-                        addCommitteeRow(); // Add empty row if error
+                        console.error('Error loading meeting type memberships:', error);
+                        addMeetingTypeRow(); // Add empty row if error
                     });
             } else {
                 title.textContent = 'New Board Member';
                 form.reset();
                 document.getElementById('memberId').value = '';
-                addCommitteeRow(); // Add one empty row
+                addMeetingTypeRow(); // Add one empty row
             }
             modal.style.display = 'block';
         }
 
-        function addCommitteeRow(committeeId = '', role = 'Member', status = 'Active', startDate = '', membershipId = '') {
-            const container = document.getElementById('committeesContainer');
-            const rowId = 'committee-row-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        function addMeetingTypeRow(meetingTypeId = '', role = 'Member', status = 'Active', startDate = '', membershipId = '') {
+            const container = document.getElementById('meetingTypesContainer');
+            const rowId = 'meeting-type-row-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
             
             const row = document.createElement('div');
             row.id = rowId;
-            row.className = 'committee-row';
+            row.className = 'meeting-type-row';
             row.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; padding: 10px; background: #f9f9f9; border-radius: 4px;';
             
             row.innerHTML = `
-                <select class="committee-select" style="flex: 2;" required>
-                    <option value="">Select Committee...</option>
-                    ${allCommittees.map(c => `<option value="${c.id}" ${c.id == committeeId ? 'selected' : ''}>${c.name}</option>`).join('')}
+                <select class="meeting-type-select" style="flex: 2;" required>
+                    <option value="">Select Meeting Type...</option>
+                    ${allMeetingTypes.map(mt => `<option value="${mt.id}" ${mt.id == meetingTypeId ? 'selected' : ''}>${mt.name}</option>`).join('')}
                 </select>
-                <select class="committee-role" style="flex: 1;">
+                <select class="meeting-type-role" style="flex: 1;">
                     <option value="Member" ${role === 'Member' ? 'selected' : ''}>Member</option>
                     <option value="Chair" ${role === 'Chair' ? 'selected' : ''}>Chair</option>
                     <option value="Deputy Chair" ${role === 'Deputy Chair' ? 'selected' : ''}>Deputy Chair</option>
@@ -232,21 +232,21 @@
                     <option value="Treasurer" ${role === 'Treasurer' ? 'selected' : ''}>Treasurer</option>
                     <option value="Ex-officio" ${role === 'Ex-officio' ? 'selected' : ''}>Ex-officio</option>
                 </select>
-                <select class="committee-status" style="flex: 1;">
+                <select class="meeting-type-status" style="flex: 1;">
                     <option value="Active" ${status === 'Active' ? 'selected' : ''}>Active</option>
                     <option value="Inactive" ${status === 'Inactive' ? 'selected' : ''}>Inactive</option>
                     <option value="Resigned" ${status === 'Resigned' ? 'selected' : ''}>Resigned</option>
                     <option value="Terminated" ${status === 'Terminated' ? 'selected' : ''}>Terminated</option>
                 </select>
-                <input type="date" class="committee-start-date" placeholder="Start Date" value="${startDate || ''}" style="flex: 1;">
+                <input type="date" class="meeting-type-start-date" placeholder="Start Date" value="${startDate || ''}" style="flex: 1;">
                 <input type="hidden" class="membership-id" value="${membershipId}">
-                <button type="button" onclick="removeCommitteeRow('${rowId}')" class="btn btn-sm btn-danger">×</button>
+                <button type="button" onclick="removeMeetingTypeRow('${rowId}')" class="btn btn-sm btn-danger">×</button>
             `;
             
             container.appendChild(row);
         }
 
-        function removeCommitteeRow(rowId) {
+        function removeMeetingTypeRow(rowId) {
             document.getElementById(rowId).remove();
         }
 
@@ -259,26 +259,26 @@
             event.preventDefault();
             const memberId = document.getElementById('memberId').value;
             
-            // Collect committee memberships
-            const committeeRows = document.querySelectorAll('.committee-row');
-            const committeeIds = [];
+            // Collect meeting type memberships
+            const meetingTypeRows = document.querySelectorAll('.meeting-type-row');
+            const meetingTypeIds = [];
             
-            committeeRows.forEach(row => {
-                const committeeId = row.querySelector('.committee-select').value;
-                if (committeeId) {
+            meetingTypeRows.forEach(row => {
+                const meetingTypeId = row.querySelector('.meeting-type-select').value;
+                if (meetingTypeId) {
                     const membershipId = row.querySelector('.membership-id').value;
-                    committeeIds.push({
-                        committee_id: committeeId,
-                        role: row.querySelector('.committee-role').value,
-                        status: row.querySelector('.committee-status').value,
-                        start_date: row.querySelector('.committee-start-date').value || null,
+                    meetingTypeIds.push({
+                        meeting_type_id: meetingTypeId,
+                        role: row.querySelector('.meeting-type-role').value,
+                        status: row.querySelector('.meeting-type-status').value,
+                        start_date: row.querySelector('.meeting-type-start-date').value || null,
                         membership_id: membershipId || null
                     });
                 }
             });
             
-            if (committeeIds.length === 0) {
-                alert('Please add at least one committee membership');
+            if (meetingTypeIds.length === 0) {
+                alert('Please add at least one meeting type membership');
                 return;
             }
             
@@ -309,31 +309,31 @@
             .then(savedMember => {
                 const actualMemberId = memberId || savedMember.id;
                 
-                // Save committee memberships
-                const membershipPromises = committeeIds.map(c => {
-                    if (c.membership_id) {
+                // Save meeting type memberships
+                const membershipPromises = meetingTypeIds.map(mt => {
+                    if (mt.membership_id) {
                         // Update existing membership
-                        return fetch('api/committee_members.php', {
+                        return fetch('api/meeting_type_members.php', {
                             method: 'PUT',
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({
-                                id: c.membership_id,
-                                role: c.role,
-                                status: c.status,
-                                start_date: c.start_date
+                                id: mt.membership_id,
+                                role: mt.role,
+                                status: mt.status,
+                                start_date: mt.start_date
                             })
                         });
                     } else {
                         // Create new membership
-                        return fetch('api/committee_members.php', {
+                        return fetch('api/meeting_type_members.php', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({
-                                committee_id: c.committee_id,
+                                meeting_type_id: mt.meeting_type_id,
                                 member_id: actualMemberId,
-                                role: c.role,
-                                status: c.status,
-                                start_date: c.start_date
+                                role: mt.role,
+                                status: mt.status,
+                                start_date: mt.start_date
                             })
                         });
                     }
@@ -353,10 +353,10 @@
         function editMember(id) {
             Promise.all([
                 fetch(`api/members.php?id=${id}`).then(r => r.json()),
-                fetch(`api/committee_members.php?member_id=${id}`).then(r => r.json())
-            ]).then(([member, committees]) => {
-                // Merge committee data into member object for compatibility
-                member.committees = committees;
+                fetch(`api/meeting_type_members.php?member_id=${id}`).then(r => r.json())
+            ]).then(([member, meetingTypes]) => {
+                // Merge meeting type data into member object for compatibility
+                member.meetingTypes = meetingTypes;
                 showMemberModal(member);
             }).catch(error => {
                 console.error('Error loading member:', error);

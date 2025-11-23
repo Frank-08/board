@@ -3,15 +3,11 @@ CREATE DATABASE IF NOT EXISTS governance_board CHARACTER SET utf8mb4 COLLATE utf
 
 USE governance_board;
 
--- Table for committees
-CREATE TABLE IF NOT EXISTS committees (
+-- Table for meeting types
+CREATE TABLE IF NOT EXISTS meeting_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    address TEXT,
-    phone VARCHAR(50),
-    email VARCHAR(255),
-    website VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -30,10 +26,10 @@ CREATE TABLE IF NOT EXISTS board_members (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Junction table for many-to-many relationship between committees and members
-CREATE TABLE IF NOT EXISTS committee_members (
+-- Junction table for many-to-many relationship between meeting types and members
+CREATE TABLE IF NOT EXISTS meeting_type_members (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    committee_id INT NOT NULL,
+    meeting_type_id INT NOT NULL,
     member_id INT NOT NULL,
     role ENUM('Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Member', 'Ex-officio') DEFAULT 'Member',
     start_date DATE,
@@ -41,19 +37,18 @@ CREATE TABLE IF NOT EXISTS committee_members (
     status ENUM('Active', 'Inactive', 'Resigned', 'Terminated') DEFAULT 'Active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (committee_id) REFERENCES committees(id) ON DELETE CASCADE,
+    FOREIGN KEY (meeting_type_id) REFERENCES meeting_types(id) ON DELETE CASCADE,
     FOREIGN KEY (member_id) REFERENCES board_members(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_committee_member (committee_id, member_id),
-    INDEX idx_committee (committee_id),
+    UNIQUE KEY unique_meeting_type_member (meeting_type_id, member_id),
+    INDEX idx_meeting_type (meeting_type_id),
     INDEX idx_member (member_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table for board meetings
 CREATE TABLE IF NOT EXISTS meetings (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    committee_id INT NOT NULL,
+    meeting_type_id INT NOT NULL,
     title VARCHAR(255) NOT NULL,
-    meeting_type ENUM('Standing Committee', 'PiC', 'PRC', 'RPC', 'Workshop') DEFAULT 'Standing Committee',
     scheduled_date DATETIME NOT NULL,
     location VARCHAR(255),
     virtual_link VARCHAR(255),
@@ -63,8 +58,8 @@ CREATE TABLE IF NOT EXISTS meetings (
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (committee_id) REFERENCES committees(id) ON DELETE CASCADE,
-    INDEX idx_committee_date (committee_id, scheduled_date),
+    FOREIGN KEY (meeting_type_id) REFERENCES meeting_types(id) ON DELETE CASCADE,
+    INDEX idx_meeting_type_date (meeting_type_id, scheduled_date),
     INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -164,7 +159,7 @@ CREATE TABLE IF NOT EXISTS resolutions (
 -- Table for documents
 CREATE TABLE IF NOT EXISTS documents (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    committee_id INT,
+    meeting_type_id INT,
     meeting_id INT,
     agenda_item_id INT,
     document_type ENUM('Agenda', 'Minutes', 'Resolution', 'Report', 'Policy', 'Other') DEFAULT 'Other',
@@ -177,19 +172,23 @@ CREATE TABLE IF NOT EXISTS documents (
     uploaded_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (committee_id) REFERENCES committees(id) ON DELETE CASCADE,
+    FOREIGN KEY (meeting_type_id) REFERENCES meeting_types(id) ON DELETE CASCADE,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
     FOREIGN KEY (agenda_item_id) REFERENCES agenda_items(id) ON DELETE SET NULL,
     FOREIGN KEY (uploaded_by) REFERENCES board_members(id) ON DELETE SET NULL,
-    INDEX idx_committee (committee_id),
+    INDEX idx_meeting_type (meeting_type_id),
     INDEX idx_meeting (meeting_id),
     INDEX idx_agenda_item (agenda_item_id),
     INDEX idx_type (document_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insert default committee
-INSERT INTO committees (name, description, email) VALUES 
-('Sample Committee', 'A sample committee for governance board management', 'admin@example.com');
+-- Insert default meeting types (from original ENUM values)
+INSERT INTO meeting_types (name, description) VALUES 
+('Standing Committee', 'Regular standing committee meetings'),
+('PiC', 'PiC meeting type'),
+('PRC', 'PRC meeting type'),
+('RPC', 'RPC meeting type'),
+('Workshop', 'Workshop meetings');
 
 -- Insert sample board members
 INSERT INTO board_members (first_name, last_name, email, title) VALUES
@@ -198,8 +197,8 @@ INSERT INTO board_members (first_name, last_name, email, title) VALUES
 ('Robert', 'Johnson', 'robert.johnson@example.com', 'Legal Counsel'),
 ('Mary', 'Williams', 'mary.williams@example.com', 'Director');
 
--- Insert sample committee memberships
-INSERT INTO committee_members (committee_id, member_id, role, status) VALUES
+-- Insert sample meeting type memberships
+INSERT INTO meeting_type_members (meeting_type_id, member_id, role, status) VALUES
 (1, 1, 'Chair', 'Active'),
 (1, 2, 'Treasurer', 'Active'),
 (1, 3, 'Secretary', 'Active'),
