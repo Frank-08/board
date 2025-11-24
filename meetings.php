@@ -499,11 +499,35 @@
                     )).then(documentsArrays => {
                         list.innerHTML = items.map((item, index) => {
                             const documents = documentsArrays[index] || [];
+                            const isFirst = index === 0;
+                            const isLast = index === items.length - 1;
                             return `
-                                <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}">
+                                <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}" 
+                                     draggable="true" 
+                                     data-item-id="${item.id}" 
+                                     data-position="${item.position}">
                                     <div class="item-header">
+                                        <div class="item-drag-handle" title="Drag to reorder">
+                                            <span class="drag-icon">☰</span>
+                                        </div>
                                         <h4>${item.item_number ? item.item_number + '. ' : ''}${item.title}</h4>
                                         <div class="item-actions">
+                                            <div class="reorder-buttons">
+                                                <button onclick="moveAgendaItemUp(${item.id})" 
+                                                        class="btn btn-sm btn-reorder" 
+                                                        title="Move up"
+                                                        ${isFirst ? 'disabled' : ''}
+                                                        style="padding: 4px 8px; min-width: auto;">
+                                                    ↑
+                                                </button>
+                                                <button onclick="moveAgendaItemDown(${item.id})" 
+                                                        class="btn btn-sm btn-reorder" 
+                                                        title="Move down"
+                                                        ${isLast ? 'disabled' : ''}
+                                                        style="padding: 4px 8px; min-width: auto;">
+                                                    ↓
+                                                </button>
+                                            </div>
                                             ${item.resolution_id ? `<a href="#resolutions" onclick="showTab('resolutions'); event.preventDefault();" class="btn btn-sm" style="text-decoration: none; display: inline-block;">View Resolution</a>` : ''}
                                             <button onclick="showDocumentUploadModal(${item.id})" class="btn btn-sm">📎 Attach Document</button>
                                             <button onclick="editAgendaItem(${item.id})" class="btn btn-sm">Edit</button>
@@ -540,6 +564,8 @@
                                 </div>
                             `;
                         }).join('');
+                        // Initialize drag-and-drop after items are rendered
+                        makeAgendaItemsSortable(meetingId);
                     });
                 });
         }
@@ -920,6 +946,170 @@
             .catch(error => {
                 console.error('Error deleting agenda item:', error);
                 alert('Error deleting agenda item');
+            });
+        }
+
+        // Agenda Item Reordering
+        let draggedElement = null;
+        let draggedIndex = null;
+
+        function makeAgendaItemsSortable(meetingId) {
+            const list = document.getElementById('agenda-items-list');
+            if (!list) return;
+
+            const items = list.querySelectorAll('.agenda-item');
+            
+            items.forEach((item, index) => {
+                // Remove existing listeners to avoid duplicates
+                const newItem = item.cloneNode(true);
+                item.parentNode.replaceChild(newItem, item);
+            });
+
+            // Re-query after cloning
+            const updatedItems = list.querySelectorAll('.agenda-item');
+            
+            updatedItems.forEach((item, index) => {
+                item.addEventListener('dragstart', (e) => {
+                    draggedElement = item;
+                    draggedIndex = index;
+                    item.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/html', item.innerHTML);
+                });
+
+                item.addEventListener('dragend', (e) => {
+                    item.classList.remove('dragging');
+                    // Remove drop indicator classes
+                    updatedItems.forEach(i => i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom'));
+                });
+
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    
+                    const rect = item.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    
+                    // Remove all drag-over classes
+                    updatedItems.forEach(i => i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom'));
+                    
+                    if (item !== draggedElement) {
+                        if (e.clientY < midY) {
+                            item.classList.add('drag-over-top');
+                        } else {
+                            item.classList.add('drag-over-bottom');
+                        }
+                    }
+                });
+
+                item.addEventListener('dragleave', (e) => {
+                    item.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+                });
+
+                item.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    if (draggedElement && draggedElement !== item) {
+                        const dropIndex = Array.from(updatedItems).indexOf(item);
+                        const rect = item.getBoundingClientRect();
+                        const midY = rect.top + rect.height / 2;
+                        const insertBefore = e.clientY < midY;
+                        
+                        const finalIndex = insertBefore ? dropIndex : dropIndex + 1;
+                        
+                        // Reorder in DOM
+                        if (draggedIndex < finalIndex) {
+                            item.parentNode.insertBefore(draggedElement, item.nextSibling);
+                        } else {
+                            item.parentNode.insertBefore(draggedElement, item);
+                        }
+                        
+                        // Update positions via API
+                        const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el => 
+                            parseInt(el.getAttribute('data-item-id'))
+                        );
+                        reorderAgendaItems(meetingId, newOrder);
+                    }
+                    
+                    // Clean up
+                    updatedItems.forEach(i => i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom'));
+                });
+            });
+        }
+
+        function moveAgendaItemUp(itemId) {
+            if (!currentMeetingId) return;
+            
+            const list = document.getElementById('agenda-items-list');
+            const items = Array.from(list.querySelectorAll('.agenda-item'));
+            const currentIndex = items.findIndex(item => 
+                parseInt(item.getAttribute('data-item-id')) === itemId
+            );
+            
+            if (currentIndex <= 0) return; // Already at top
+            
+            // Swap in DOM
+            const currentItem = items[currentIndex];
+            const previousItem = items[currentIndex - 1];
+            currentItem.parentNode.insertBefore(currentItem, previousItem);
+            
+            // Update positions via API
+            const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el => 
+                parseInt(el.getAttribute('data-item-id'))
+            );
+            reorderAgendaItems(currentMeetingId, newOrder);
+        }
+
+        function moveAgendaItemDown(itemId) {
+            if (!currentMeetingId) return;
+            
+            const list = document.getElementById('agenda-items-list');
+            const items = Array.from(list.querySelectorAll('.agenda-item'));
+            const currentIndex = items.findIndex(item => 
+                parseInt(item.getAttribute('data-item-id')) === itemId
+            );
+            
+            if (currentIndex < 0 || currentIndex >= items.length - 1) return; // Already at bottom
+            
+            // Swap in DOM
+            const currentItem = items[currentIndex];
+            const nextItem = items[currentIndex + 1];
+            nextItem.parentNode.insertBefore(currentItem, nextItem.nextSibling);
+            
+            // Update positions via API
+            const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el => 
+                parseInt(el.getAttribute('data-item-id'))
+            );
+            reorderAgendaItems(currentMeetingId, newOrder);
+        }
+
+        function reorderAgendaItems(meetingId, newOrder) {
+            // newOrder is an array of item IDs in the new order
+            fetch('api/agenda.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    action: 'reorder',
+                    meeting_id: meetingId,
+                    order: newOrder
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Error reordering items:', data.error);
+                    alert('Error reordering agenda items. Reloading...');
+                    loadMeetingAgenda(meetingId);
+                } else {
+                    // Reload to get updated item numbers
+                    loadMeetingAgenda(meetingId);
+                }
+            })
+            .catch(error => {
+                console.error('Error reordering agenda items:', error);
+                alert('Error reordering agenda items. Reloading...');
+                loadMeetingAgenda(meetingId);
             });
         }
 

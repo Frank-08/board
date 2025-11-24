@@ -532,6 +532,80 @@ main {
     color: #666;
 }
 
+/* Agenda Item Reordering */
+.item-drag-handle {
+    cursor: grab;
+    padding: 5px 10px;
+    margin-right: 10px;
+    color: #999;
+    user-select: none;
+    display: flex;
+    align-items: center;
+}
+
+.item-drag-handle:active {
+    cursor: grabbing;
+}
+
+.drag-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.agenda-item {
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+.agenda-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.agenda-item.drag-over-top {
+    border-top: 3px solid #667eea;
+    padding-top: 18px;
+}
+
+.agenda-item.drag-over-bottom {
+    border-bottom: 3px solid #667eea;
+    padding-bottom: 18px;
+}
+
+.reorder-buttons {
+    display: flex;
+    gap: 4px;
+    margin-right: 8px;
+}
+
+.btn-reorder {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    color: #666;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.btn-reorder:hover:not(:disabled) {
+    background: #e0e0e0;
+    border-color: #bbb;
+    color: #333;
+}
+
+.btn-reorder:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.item-header h4 {
+    margin: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
 /* Attendee Items */
 .attendee-item {
     background: white;

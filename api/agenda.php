@@ -60,6 +60,78 @@ switch ($method) {
         
     case 'POST':
         $data = json_decode(file_get_contents('php://input'), true);
+        
+        // Handle reorder action
+        if (isset($data['action']) && $data['action'] === 'reorder') {
+            $meetingId = (int)($data['meeting_id'] ?? 0);
+            $order = $data['order'] ?? [];
+            
+            if (!$meetingId || empty($order)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'meeting_id and order are required']);
+                exit;
+            }
+            
+            // Get meeting date for item number format
+            $stmt = $db->prepare("SELECT scheduled_date FROM meetings WHERE id = ?");
+            $stmt->execute([$meetingId]);
+            $meeting = $stmt->fetch();
+            
+            if (!$meeting) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Meeting not found']);
+                exit;
+            }
+            
+            // Verify all items belong to this meeting
+            $placeholders = implode(',', array_fill(0, count($order), '?'));
+            $stmt = $db->prepare("
+                SELECT id FROM agenda_items 
+                WHERE meeting_id = ? AND id IN ($placeholders)
+            ");
+            $stmt->execute(array_merge([$meetingId], $order));
+            $validItems = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            if (count($validItems) !== count($order)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid item IDs or items do not belong to this meeting']);
+                exit;
+            }
+            
+            // Start transaction
+            $db->beginTransaction();
+            
+            try {
+                $meetingDate = new DateTime($meeting['scheduled_date']);
+                $year = $meetingDate->format('y');
+                $month = $meetingDate->format('n');
+                
+                // Update positions and item numbers
+                $updateStmt = $db->prepare("
+                    UPDATE agenda_items 
+                    SET position = ?, item_number = ?
+                    WHERE id = ?
+                ");
+                
+                foreach ($order as $index => $itemId) {
+                    $position = $index; // 0-based position
+                    $sequence = $position + 1; // 1-based sequence for item number
+                    $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                    
+                    $updateStmt->execute([$position, $itemNumber, (int)$itemId]);
+                }
+                
+                $db->commit();
+                echo json_encode(['success' => true, 'message' => 'Agenda items reordered successfully']);
+            } catch (Exception $e) {
+                $db->rollBack();
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to reorder agenda items: ' . $e->getMessage()]);
+            }
+            break;
+        }
+        
+        // Normal item creation
         $meetingId = (int)($data['meeting_id'] ?? 0);
         $title = $data['title'] ?? '';
         
