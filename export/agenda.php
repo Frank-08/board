@@ -339,6 +339,7 @@ function formatTime($dateString) {
 <body>
     <div class="no-print print-buttons">
         <button onclick="window.print()" class="btn">Print / Save as PDF</button>
+        <a href="agenda_pdf.php?meeting_id=<?php echo $meetingId; ?>" class="btn" style="background-color: #28a745;">Download Combined PDF (with attachments)</a>
         <a href="javascript:history.back()" class="btn btn-secondary">Back</a>
     </div>
 
