@@ -13,7 +13,8 @@ if (!$documentId) {
 }
 
 $db = getDBConnection();
-$stmt = $db->prepare("SELECT file_path, file_name, mime_type FROM documents WHERE id = ?");
+// Query all relevant metadata for file lookup and verification
+$stmt = $db->prepare("SELECT id, file_path, file_name, file_size, mime_type, created_at FROM documents WHERE id = ?");
 $stmt->execute([$documentId]);
 $document = $stmt->fetch();
 
@@ -22,40 +23,95 @@ if (!$document) {
     die('Document not found');
 }
 
-// Handle file_path - it may be stored as just filename or as a full/relative path
+// Get metadata
 $storedPath = $document['file_path'];
+$storedFileName = $document['file_name'];
+$storedFileSize = $document['file_size'];
+$docId = $document['id'];
 $uploadDir = rtrim(realpath(UPLOAD_DIR) ?: UPLOAD_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
-// Try different path combinations
+// Try multiple strategies to find the file
 $filePath = null;
+$searchAttempts = [];
 
-// 1. If file_path is an absolute path, use it directly
-if (file_exists($storedPath)) {
+// Strategy 1: Use file_path as stored (absolute path)
+if ($storedPath && file_exists($storedPath)) {
     $filePath = $storedPath;
+    $searchAttempts[] = "Absolute path: $storedPath";
 }
-// 2. If file_path is relative to UPLOAD_DIR (most common case)
-elseif (file_exists($uploadDir . $storedPath)) {
+// Strategy 2: file_path relative to UPLOAD_DIR
+elseif ($storedPath && file_exists($uploadDir . $storedPath)) {
     $filePath = $uploadDir . $storedPath;
+    $searchAttempts[] = "Relative path: " . $uploadDir . $storedPath;
 }
-// 3. Try with just the filename (in case full path was stored)
-else {
-    $fileName = basename($storedPath);
-    if (file_exists($uploadDir . $fileName)) {
-        $filePath = $uploadDir . $fileName;
+// Strategy 3: Use basename of file_path
+elseif ($storedPath) {
+    $fileNameFromPath = basename($storedPath);
+    if (file_exists($uploadDir . $fileNameFromPath)) {
+        $filePath = $uploadDir . $fileNameFromPath;
+        $searchAttempts[] = "Basename from path: " . $uploadDir . $fileNameFromPath;
     }
-    // 4. Try with trimmed leading slashes
-    else {
-        $trimmedPath = ltrim($storedPath, '/\\');
-        if (file_exists($uploadDir . $trimmedPath)) {
-            $filePath = $uploadDir . $trimmedPath;
+}
+// Strategy 4: Use file_name (original filename) - fallback
+if (!$filePath && $storedFileName) {
+    $fileNameOnly = basename($storedFileName);
+    $potentialPath = $uploadDir . $fileNameOnly;
+    if (file_exists($potentialPath)) {
+        $filePath = $potentialPath;
+        $searchAttempts[] = "Original filename: " . $potentialPath;
+    }
+}
+// Strategy 5: Search by file_name with trimmed slashes
+if (!$filePath && $storedFileName) {
+    $trimmedFileName = ltrim(basename($storedFileName), '/\\');
+    $potentialPath = $uploadDir . $trimmedFileName;
+    if (file_exists($potentialPath)) {
+        $filePath = $potentialPath;
+        $searchAttempts[] = "Trimmed filename: " . $potentialPath;
+    }
+}
+// Strategy 6: If we have file_size, search uploads directory for matching size
+if (!$filePath && $storedFileSize && is_dir($uploadDir)) {
+    $files = scandir($uploadDir);
+    foreach ($files as $file) {
+        if ($file === '.' || $file === '..') continue;
+        $fullPath = $uploadDir . $file;
+        if (is_file($fullPath) && filesize($fullPath) == $storedFileSize) {
+            // Verify it's a PDF
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            if ($ext === 'pdf') {
+                $filePath = $fullPath;
+                $searchAttempts[] = "Size match: $fullPath (size: $storedFileSize)";
+                break;
+            }
         }
     }
 }
 
+// Verify file was found
 if (!$filePath || !file_exists($filePath)) {
     http_response_code(404);
-    error_log("PDF Viewer - File not found. Stored path: " . $storedPath . ", Upload dir: " . $uploadDir);
-    die('File not found: ' . htmlspecialchars(basename($storedPath)));
+    $errorDetails = [
+        "Document ID: $docId",
+        "Stored file_path: " . ($storedPath ?: 'NULL'),
+        "Stored file_name: " . ($storedFileName ?: 'NULL'),
+        "Stored file_size: " . ($storedFileSize ?: 'NULL'),
+        "Upload directory: $uploadDir",
+        "Upload dir exists: " . (is_dir($uploadDir) ? 'yes' : 'no'),
+        "Search attempts: " . implode(', ', $searchAttempts ?: ['none'])
+    ];
+    if (is_dir($uploadDir)) {
+        $uploadFiles = array_slice(scandir($uploadDir), 2);
+        $errorDetails[] = "Files in upload dir: " . implode(', ', array_slice($uploadFiles, 0, 10));
+    }
+    error_log("PDF Viewer - File not found. " . implode(' | ', $errorDetails));
+    die('File not found: ' . htmlspecialchars($storedFileName ?: basename($storedPath ?: 'unknown')));
+}
+
+// Verify file size matches database record (if available)
+if ($storedFileSize && filesize($filePath) != $storedFileSize) {
+    error_log("PDF Viewer - File size mismatch. Expected: $storedFileSize, Actual: " . filesize($filePath) . ", File: $filePath");
+    // Continue anyway, but log the mismatch
 }
 
 // Verify it's a PDF
