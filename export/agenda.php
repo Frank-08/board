@@ -302,7 +302,7 @@ function formatTime($dateString) {
         <h2><?php echo htmlspecialchars($meeting['title']); ?></h2>
         <div class="info-row">
             <div class="info-label">Meeting Type:</div>
-            <div class="info-value"><?php echo htmlspecialchars($meeting['meeting_type']); ?></div>
+            <div class="info-value"><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></div>
         </div>
         <div class="info-row">
             <div class="info-label">Date:</div>
@@ -404,10 +404,6 @@ function formatTime($dateString) {
                     
                     <?php if ($item['duration_minutes']): ?>
                     <p><strong>Duration:</strong> <?php echo htmlspecialchars($item['duration_minutes']); ?> minutes</p>
-                    <?php endif; ?>
-                    
-                    <?php if ($item['status'] && $item['status'] != 'Pending'): ?>
-                    <p><strong>Status:</strong> <?php echo htmlspecialchars($item['status']); ?></p>
                     <?php endif; ?>
                 </div>
             </div>
