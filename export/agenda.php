@@ -497,12 +497,20 @@ function formatTime($dateString) {
                     (<?php echo number_format($item['document']['file_size'] / 1024, 2); ?> KB)
                 </div>
             </div>
+            <?php
+            // Construct direct file path URL
+            $filePath = $item['document']['file_path'];
+            // Ensure we use just the filename if file_path contains a path
+            $fileName = basename($filePath);
+            // Construct absolute URL path starting with /board/uploads/
+            $pdfUrl = '/board/uploads/' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8');
+            ?>
             <iframe 
                 class="pdf-embed-iframe" 
-                src="api/view_pdf.php?id=<?php echo $item['document']['id']; ?>"
+                src="<?php echo $pdfUrl; ?>"
                 title="<?php echo htmlspecialchars($item['document']['title']); ?>">
                 <p>Your browser does not support PDFs. 
-                <a href="api/view_pdf.php?id=<?php echo $item['document']['id']; ?>" target="_blank">Click here to view the PDF</a>.</p>
+                <a href="<?php echo $pdfUrl; ?>" target="_blank">Click here to view the PDF</a>.</p>
             </iframe>
         </div>
         <?php endforeach; ?>
