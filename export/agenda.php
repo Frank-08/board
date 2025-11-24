@@ -285,6 +285,55 @@ function formatTime($dateString) {
             color: #666;
             font-size: 12px;
         }
+        
+        .pdf-embed-container {
+            margin: 20px 0;
+            page-break-inside: avoid;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .pdf-embed-header {
+            background-color: #f5f5f5;
+            padding: 10px 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .pdf-embed-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .pdf-embed-meta {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .pdf-embed-iframe {
+            width: 100%;
+            border: none;
+            display: block;
+        }
+        
+        @media print {
+            .pdf-embed-iframe {
+                height: auto;
+                min-height: 800px;
+            }
+            
+            .pdf-embed-container {
+                page-break-inside: avoid;
+                page-break-after: always;
+            }
+        }
+        
+        @media screen {
+            .pdf-embed-iframe {
+                height: 600px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -436,25 +485,25 @@ function formatTime($dateString) {
     <div class="agenda-section">
         <h3>Attached PDF Documents</h3>
         <?php foreach ($pdfDocuments as $item): ?>
-        <div class="agenda-item">
-            <div class="agenda-item-header">
-                <div style="display: flex; align-items: flex-start;">
-                    <span class="agenda-item-number">📎</span>
-                    <div style="flex: 1;">
-                        <span class="agenda-item-title"><?php echo htmlspecialchars($item['document']['title']); ?></span>
-                        <p style="margin: 5px 0; color: #666; font-size: 14px;">
-                            <strong>From Agenda Item:</strong> <?php echo htmlspecialchars($item['agenda_item']['item_number'] ?? '') . ($item['agenda_item']['item_number'] ? '. ' : ''); ?><?php echo htmlspecialchars($item['agenda_item']['title']); ?>
-                        </p>
-                        <?php if ($item['document']['description']): ?>
-                        <p style="margin: 5px 0; color: #555; font-size: 13px;"><?php echo nl2br(htmlspecialchars($item['document']['description'])); ?></p>
-                        <?php endif; ?>
-                        <p style="margin: 5px 0; color: #999; font-size: 12px;">
-                            File: <?php echo htmlspecialchars($item['document']['file_name']); ?> 
-                            (<?php echo number_format($item['document']['file_size'] / 1024, 2); ?> KB)
-                        </p>
-                    </div>
+        <div class="pdf-embed-container">
+            <div class="pdf-embed-header">
+                <div class="pdf-embed-title"><?php echo htmlspecialchars($item['document']['title']); ?></div>
+                <div class="pdf-embed-meta">
+                    <strong>From Agenda Item:</strong> <?php echo htmlspecialchars($item['agenda_item']['item_number'] ?? '') . ($item['agenda_item']['item_number'] ? '. ' : ''); ?><?php echo htmlspecialchars($item['agenda_item']['title']); ?>
+                    <?php if ($item['document']['description']): ?>
+                    | <?php echo htmlspecialchars($item['document']['description']); ?>
+                    <?php endif; ?>
+                    | File: <?php echo htmlspecialchars($item['document']['file_name']); ?> 
+                    (<?php echo number_format($item['document']['file_size'] / 1024, 2); ?> KB)
                 </div>
             </div>
+            <iframe 
+                class="pdf-embed-iframe" 
+                src="api/view_pdf.php?id=<?php echo $item['document']['id']; ?>"
+                title="<?php echo htmlspecialchars($item['document']['title']); ?>">
+                <p>Your browser does not support PDFs. 
+                <a href="api/view_pdf.php?id=<?php echo $item['document']['id']; ?>" target="_blank">Click here to view the PDF</a>.</p>
+            </iframe>
         </div>
         <?php endforeach; ?>
     </div>
