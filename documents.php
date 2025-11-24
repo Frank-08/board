@@ -1,8 +1,3 @@
-<?php
-require_once __DIR__ . '/config/config.php';
-require_once __DIR__ . '/config/auth.php';
-requireLogin();
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,15 +17,6 @@ requireLogin();
                     <li><a href="meetings.php">Meetings</a></li>
                     <li><a href="resolutions.php">Resolutions</a></li>
                     <li><a href="documents.php" class="active">Documents</a></li>
-                    <li style="float: right;">
-                        <span style="margin-right: 15px; color: #666;">
-                            <?php 
-                            $user = getCurrentUser();
-                            echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name'] ?: $user['username']);
-                            ?>
-                        </span>
-                        <a href="#" onclick="handleLogout(); return false;">Logout</a>
-                    </li>
                 </ul>
             </nav>
         </header>
@@ -441,24 +427,6 @@ requireLogin();
             }
             if (event.target == editModal) {
                 closeEditModal();
-            }
-        }
-
-        function handleLogout() {
-            if (confirm('Are you sure you want to logout?')) {
-                fetch('api/auth.php', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({action: 'logout'})
-                })
-                .then(response => response.json())
-                .then(data => {
-                    window.location.href = 'login.php';
-                })
-                .catch(error => {
-                    console.error('Logout error:', error);
-                    window.location.href = 'login.php';
-                });
             }
         }
     </script>
