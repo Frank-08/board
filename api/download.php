@@ -22,11 +22,27 @@ if (!$document) {
     die('Document not found');
 }
 
-$filePath = UPLOAD_DIR . $document['file_path'];
+// Normalize paths - ensure UPLOAD_DIR has trailing slash and file_path doesn't have leading slash
+$uploadDir = rtrim(realpath(UPLOAD_DIR) ?: UPLOAD_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+$fileName = basename($document['file_path']); // Get just the filename in case path is stored
+$filePath = $uploadDir . $fileName;
 
+// Try alternative path if the above doesn't work
 if (!file_exists($filePath)) {
-    http_response_code(404);
-    die('File not found');
+    // Try with the file_path as stored (in case it's already a full path or relative)
+    $altPath = UPLOAD_DIR . ltrim($document['file_path'], '/\\');
+    if (file_exists($altPath)) {
+        $filePath = $altPath;
+    } else {
+        // Try realpath resolution
+        $resolvedPath = realpath(UPLOAD_DIR . $fileName);
+        if ($resolvedPath && file_exists($resolvedPath)) {
+            $filePath = $resolvedPath;
+        } else {
+            http_response_code(404);
+            die('File not found: ' . htmlspecialchars($fileName));
+        }
+    }
 }
 
 header('Content-Type: ' . $document['mime_type']);
