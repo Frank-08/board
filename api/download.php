@@ -22,27 +22,39 @@ if (!$document) {
     die('Document not found');
 }
 
-// Normalize paths - ensure UPLOAD_DIR has trailing slash and file_path doesn't have leading slash
+// Handle file_path - it may be stored as just filename or as a full/relative path
+$storedPath = $document['file_path'];
 $uploadDir = rtrim(realpath(UPLOAD_DIR) ?: UPLOAD_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-$fileName = basename($document['file_path']); // Get just the filename in case path is stored
-$filePath = $uploadDir . $fileName;
 
-// Try alternative path if the above doesn't work
-if (!file_exists($filePath)) {
-    // Try with the file_path as stored (in case it's already a full path or relative)
-    $altPath = UPLOAD_DIR . ltrim($document['file_path'], '/\\');
-    if (file_exists($altPath)) {
-        $filePath = $altPath;
-    } else {
-        // Try realpath resolution
-        $resolvedPath = realpath(UPLOAD_DIR . $fileName);
-        if ($resolvedPath && file_exists($resolvedPath)) {
-            $filePath = $resolvedPath;
-        } else {
-            http_response_code(404);
-            die('File not found: ' . htmlspecialchars($fileName));
+// Try different path combinations
+$filePath = null;
+
+// 1. If file_path is an absolute path, use it directly
+if (file_exists($storedPath)) {
+    $filePath = $storedPath;
+}
+// 2. If file_path is relative to UPLOAD_DIR (most common case)
+elseif (file_exists($uploadDir . $storedPath)) {
+    $filePath = $uploadDir . $storedPath;
+}
+// 3. Try with just the filename (in case full path was stored)
+else {
+    $fileName = basename($storedPath);
+    if (file_exists($uploadDir . $fileName)) {
+        $filePath = $uploadDir . $fileName;
+    }
+    // 4. Try with trimmed leading slashes
+    else {
+        $trimmedPath = ltrim($storedPath, '/\\');
+        if (file_exists($uploadDir . $trimmedPath)) {
+            $filePath = $uploadDir . $trimmedPath;
         }
     }
+}
+
+if (!$filePath || !file_exists($filePath)) {
+    http_response_code(404);
+    die('File not found: ' . htmlspecialchars(basename($storedPath)));
 }
 
 header('Content-Type: ' . $document['mime_type']);
