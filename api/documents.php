@@ -86,10 +86,14 @@ switch ($method) {
             $stmt = $db->prepare("
                 SELECT d.*, 
                     bm.first_name as uploaded_first_name, bm.last_name as uploaded_last_name,
-                    ai.title as agenda_item_title
+                    ai.title as agenda_item_title,
+                    m.title as meeting_title, m.scheduled_date as meeting_date,
+                    mt.name as meeting_type_name
                 FROM documents d
                 LEFT JOIN board_members bm ON d.uploaded_by = bm.id
                 LEFT JOIN agenda_items ai ON d.agenda_item_id = ai.id
+                LEFT JOIN meetings m ON d.meeting_id = m.id
+                LEFT JOIN meeting_types mt ON d.meeting_type_id = mt.id
                 ORDER BY d.created_at DESC
             ");
             $stmt->execute();
