@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS documents (
 -- Insert default meeting types (from original ENUM values)
 INSERT INTO meeting_types (name, description) VALUES 
 ('Standing Committee', 'Regular standing committee meetings'),
-('PiC', 'PiC meeting type'),
+('Presbytery in Council', 'Presbytery in Council meeting type'),
 ('PRC', 'PRC meeting type'),
 ('RPC', 'RPC meeting type'),
 ('Workshop', 'Workshop meetings');
