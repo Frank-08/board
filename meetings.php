@@ -228,8 +228,8 @@
                 </div>
                 <div class="form-group">
                     <label for="documentFile">File *</label>
-                    <input type="file" id="documentFile" required accept=".pdf,.doc,.docx,.xls,.xlsx,.txt">
-                    <small style="color: #666;">Max size: 10MB. Allowed types: PDF, DOC, DOCX, XLS, XLSX, TXT</small>
+                    <input type="file" id="documentFile" required accept=".pdf,application/pdf">
+                    <small style="color: #666;">Max size: 10MB. Only PDF files are allowed for agenda items.</small>
                 </div>
                 <button type="submit" class="btn btn-primary">Upload Document</button>
             </form>
@@ -1501,7 +1501,15 @@
                 return;
             }
             
-            formData.append('file', fileInput.files[0]);
+            // Validate PDF for agenda items
+            const file = fileInput.files[0];
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            if (fileExtension !== 'pdf' && file.type !== 'application/pdf') {
+                alert('Only PDF files are allowed for agenda items');
+                return;
+            }
+            
+            formData.append('file', file);
             formData.append('title', document.getElementById('documentTitle').value);
             formData.append('description', document.getElementById('documentDescription').value);
             formData.append('document_type', document.getElementById('documentType').value);

@@ -124,6 +124,13 @@ switch ($method) {
             $fileName = $file['name'];
             $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
             
+            // If uploading to an agenda item, only PDFs are allowed
+            if ($agendaItemId && $fileExtension !== 'pdf' && $file['type'] !== 'application/pdf') {
+                http_response_code(400);
+                echo json_encode(['error' => 'Only PDF files are allowed for agenda items']);
+                exit;
+            }
+            
             if (!in_array($fileExtension, ALLOWED_FILE_TYPES)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'File type not allowed']);

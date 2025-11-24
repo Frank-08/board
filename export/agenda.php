@@ -414,24 +414,28 @@ function formatTime($dateString) {
     </div>
 
     <?php
-    // Collect all documents for display at the bottom
-    $allDocuments = [];
+    // Collect PDF documents attached to agenda items for display at the end
+    $pdfDocuments = [];
     foreach ($agendaItems as $item) {
         if (isset($documentsByAgendaItem[$item['id']])) {
             foreach ($documentsByAgendaItem[$item['id']] as $doc) {
-                $allDocuments[] = [
-                    'document' => $doc,
-                    'agenda_item' => $item
-                ];
+                // Only include PDF files
+                $fileExtension = strtolower(pathinfo($doc['file_name'], PATHINFO_EXTENSION));
+                if ($fileExtension === 'pdf' || $doc['mime_type'] === 'application/pdf') {
+                    $pdfDocuments[] = [
+                        'document' => $doc,
+                        'agenda_item' => $item
+                    ];
+                }
             }
         }
     }
     ?>
     
-    <?php if (!empty($allDocuments)): ?>
+    <?php if (!empty($pdfDocuments)): ?>
     <div class="agenda-section">
-        <h3>Attached Documents</h3>
-        <?php foreach ($allDocuments as $item): ?>
+        <h3>Attached PDF Documents</h3>
+        <?php foreach ($pdfDocuments as $item): ?>
         <div class="agenda-item">
             <div class="agenda-item-header">
                 <div style="display: flex; align-items: flex-start;">
