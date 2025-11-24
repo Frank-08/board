@@ -146,8 +146,25 @@ if ($useTCPDF && class_exists('TCPDF')) {
     // Add first page
     $pdf->AddPage();
     
+    // Add logo if configured and exists
+    $logoHtml = '';
+    if (defined('LOGO_PATH') && LOGO_PATH && file_exists(LOGO_PATH)) {
+        $logoWidth = defined('LOGO_WIDTH') ? LOGO_WIDTH : 60;
+        $logoHeight = defined('LOGO_HEIGHT') ? LOGO_HEIGHT : 0;
+        try {
+            // Try to add logo as image in PDF
+            $pdf->Image(LOGO_PATH, ($pdf->getPageWidth() - $logoWidth) / 2, 15, $logoWidth, $logoHeight);
+            $logoY = $logoHeight > 0 ? $logoHeight + 5 : 25;
+            $pdf->SetY($logoY);
+        } catch (Exception $e) {
+            // If image fails, add to HTML instead
+            $logoHtml = '<div style="text-align:center; margin-bottom:15px;"><img src="' . LOGO_PATH . '" style="max-width:' . $logoWidth . 'mm; height:auto;" alt="Logo"></div>';
+        }
+    }
+    
     // Build HTML content for agenda
-    $html = '<h1 style="text-align:center; color:#667eea; font-size:24px;">Meeting Agenda</h1>';
+    $html = $logoHtml;
+    $html .= '<h1 style="text-align:center; color:#667eea; font-size:24px;">Meeting Agenda</h1>';
     $html .= '<div style="text-align:center; margin-bottom:20px; color:#666;">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
     
     $html .= '<div style="background:#f5f5f5; padding:15px; margin-bottom:20px; border-radius:5px;">';

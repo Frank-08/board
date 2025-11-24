@@ -308,6 +308,16 @@ function formatDateTime($dateString) {
     </div>
     
     <div class="header">
+        <?php 
+        $logoUrl = defined('LOGO_URL') && LOGO_URL ? LOGO_URL : (defined('LOGO_PATH') && LOGO_PATH ? str_replace(__DIR__ . '/../', '', LOGO_PATH) : '');
+        $logoPath = defined('LOGO_PATH') && LOGO_PATH ? LOGO_PATH : '';
+        if ($logoUrl && ($logoPath && file_exists($logoPath)) || (!$logoPath && file_exists(__DIR__ . '/../' . $logoUrl))): ?>
+        <div style="text-align:center; margin-bottom:15px;">
+            <img src="<?php echo htmlspecialchars($logoUrl); ?>" 
+                 alt="Logo" 
+                 style="max-width:<?php echo defined('LOGO_WIDTH') ? LOGO_WIDTH : 60; ?>px; height:<?php echo defined('LOGO_HEIGHT') && LOGO_HEIGHT > 0 ? LOGO_HEIGHT : 'auto'; ?>px; max-height:80px;">
+        </div>
+        <?php endif; ?>
         <h1>Meeting Minutes</h1>
         <p><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></p>
     </div>
