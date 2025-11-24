@@ -65,7 +65,7 @@ if (!empty($agendaItemIds)) {
 // Get attendees with their role in the meeting's committee
 $stmt = $db->prepare("
     SELECT ma.*, bm.first_name, bm.last_name, bm.title,
-        cm.role, cm.status as membership_status
+        mtm.role, mtm.status as membership_status
     FROM meeting_attendees ma
     JOIN board_members bm ON ma.member_id = bm.id
     JOIN meetings m ON ma.meeting_id = m.id
