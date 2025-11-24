@@ -268,11 +268,11 @@
                 if (meetingTypeId) {
                     const membershipId = row.querySelector('.membership-id').value;
                     meetingTypeIds.push({
-                        meeting_type_id: meetingTypeId,
+                        meeting_type_id: parseInt(meetingTypeId, 10),
                         role: row.querySelector('.meeting-type-role').value,
                         status: row.querySelector('.meeting-type-status').value,
                         start_date: row.querySelector('.meeting-type-start-date').value || null,
-                        membership_id: membershipId || null
+                        membership_id: membershipId ? parseInt(membershipId, 10) : null
                     });
                 }
             });
@@ -305,8 +305,19 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(memberData)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Failed to save member');
+                    });
+                }
+                return response.json();
+            })
             .then(savedMember => {
+                if (savedMember.error) {
+                    throw new Error(savedMember.error);
+                }
+                
                 const actualMemberId = memberId || savedMember.id;
                 
                 // Save meeting type memberships
@@ -322,6 +333,13 @@
                                 status: mt.status,
                                 start_date: mt.start_date
                             })
+                        }).then(response => {
+                            if (!response.ok) {
+                                return response.json().then(data => {
+                                    throw new Error(data.error || 'Failed to update membership');
+                                });
+                            }
+                            return response.json();
                         });
                     } else {
                         // Create new membership
@@ -335,13 +353,29 @@
                                 status: mt.status,
                                 start_date: mt.start_date
                             })
+                        }).then(response => {
+                            if (!response.ok) {
+                                return response.json().then(data => {
+                                    throw new Error(data.error || 'Failed to create membership');
+                                });
+                            }
+                            return response.json();
                         });
                     }
                 });
                 
-                return Promise.all(membershipPromises).then(() => {
+                return Promise.all(membershipPromises).then((results) => {
+                    // Check for any errors in the results
+                    results.forEach(result => {
+                        if (result && result.error) {
+                            throw new Error(result.error);
+                        }
+                    });
                     closeMemberModal();
                     loadMembers();
+                }).catch(error => {
+                    console.error('Error saving meeting type memberships:', error);
+                    alert('Error saving member to meeting type: ' + error.message);
                 });
             })
             .catch(error => {

@@ -73,11 +73,11 @@ switch ($method) {
         $attendeeId = $db->lastInsertId();
         $stmt = $db->prepare("
             SELECT ma.*, bm.first_name, bm.last_name, bm.email, bm.phone, bm.title,
-                cm.role, cm.status as membership_status
+                mtm.role, mtm.status as membership_status
             FROM meeting_attendees ma
             JOIN board_members bm ON ma.member_id = bm.id
             JOIN meetings m ON ma.meeting_id = m.id
-            LEFT JOIN committee_members cm ON bm.id = cm.member_id AND m.committee_id = cm.committee_id
+            LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
             WHERE ma.id = ?
         ");
         $stmt->execute([$attendeeId]);
