@@ -25,3 +25,8 @@ Thumbs.db
 *.tmp
 *.bak
 
+# Docker
+.env
+.env.local
+.env.*.local
+

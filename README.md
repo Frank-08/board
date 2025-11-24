@@ -33,6 +33,20 @@ A comprehensive LAMP (Linux, Apache, MySQL, PHP) stack application for managing 
 
 ## Installation
 
+### Option A: Docker (Recommended)
+
+For quick setup using Docker, see [DOCKER.md](DOCKER.md) for complete instructions.
+
+**Quick start:**
+```bash
+cp .env.example .env
+./docker/start.sh
+```
+
+Access the application at http://localhost:8080
+
+### Option B: Traditional LAMP Installation
+
 ### 1. Clone or Download the Project
 
 ```bash

@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: board_web
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./uploads:/var/www/html/uploads
+    environment:
+      - DB_HOST=db
+      - DB_NAME=${DB_NAME:-governance_board}
+      - DB_USER=${DB_USER:-board_user}
+      - DB_PASS=${DB_PASS:-board_password}
+      - APP_ENV=development
+      - BASE_URL=${BASE_URL:-http://localhost:8080}
+    depends_on:
+      - db
+    networks:
+      - board_network
+
+  db:
+    image: mysql:8.0
+    container_name: board_db
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_password}
+      - MYSQL_DATABASE=${DB_NAME:-governance_board}
+      - MYSQL_USER=${DB_USER:-board_user}
+      - MYSQL_PASSWORD=${DB_PASS:-board_password}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - board_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+
+networks:
+  board_network:
+    driver: bridge
+

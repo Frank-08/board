@@ -4,7 +4,8 @@
 RewriteEngine On
 
 # Set base directory
-RewriteBase /board/
+# For Docker: use /, for traditional install: use /board/
+RewriteBase /
 
 # Prevent directory listing
 Options -Indexes

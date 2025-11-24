@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: board_web_prod
+    ports:
+      - "80:80"
+    volumes:
+      - ./uploads:/var/www/html/uploads:rw
+      - uploads_backup:/var/www/html/uploads_backup
+    environment:
+      - DB_HOST=db
+      - DB_NAME=${DB_NAME:-governance_board}
+      - DB_USER=${DB_USER:-board_user}
+      - DB_PASS=${DB_PASS}
+      - APP_ENV=production
+      - BASE_URL=${BASE_URL:-http://localhost}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - board_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  db:
+    image: mysql:8.0
+    container_name: board_db_prod
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME:-governance_board}
+      - MYSQL_USER=${DB_USER:-board_user}
+      - MYSQL_PASSWORD=${DB_PASS}
+    volumes:
+      - db_data_prod:/var/lib/mysql
+      - db_backup:/var/backups/mysql
+    networks:
+      - board_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  db_data_prod:
+  db_backup:
+  uploads_backup:
+
+networks:
+  board_network:
+    driver: bridge
+
