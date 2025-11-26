@@ -26,4 +26,5 @@ Thumbs.db
 *.bak
 
 Vm File
-.ova
+*.ova
+*.vmdk
