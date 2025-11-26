@@ -416,6 +416,9 @@
                         <div class="meeting-detail-header">
                             <h2>${meeting.title}</h2>
                             <div>
+                                <a href="export/notice.php?meeting_id=${meeting.id}" target="_blank" class="btn btn-primary" style="text-decoration: none; display: inline-block; margin-right: 5px;">
+                                    📋 Generate Notice
+                                </a>
                                 <button onclick="editMeetingFromDetail()" class="btn btn-secondary">Edit</button>
                                 <button onclick="deleteMeeting(${meeting.id})" class="btn btn-danger">Delete</button>
                             </div>
