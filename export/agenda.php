@@ -114,15 +114,15 @@ function formatTime($dateString) {
             max-width: 800px;
             margin: 0 auto;
             padding: 40px 20px;
-            line-height: 1.6;
+            line-height: 1.4;
             color: #333;
         }
         
         .header {
             text-align: center;
             border-bottom: 3px solid #667eea;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
         }
         
         .header h1 {
@@ -139,9 +139,9 @@ function formatTime($dateString) {
         
         .meeting-info {
             background-color: #f5f5f5;
-            padding: 20px;
+            padding: 12px;
             border-radius: 8px;
-            margin-bottom: 30px;
+            margin-bottom: 15px;
         }
         
         .meeting-info h2 {
@@ -152,7 +152,7 @@ function formatTime($dateString) {
         
         .info-row {
             display: flex;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
         
         .info-label {
@@ -166,24 +166,24 @@ function formatTime($dateString) {
         }
         
         .attendees-section {
-            margin-bottom: 30px;
+            margin-bottom: 15px;
         }
         
         .attendees-section h3 {
             color: #667eea;
             border-bottom: 2px solid #667eea;
             padding-bottom: 5px;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         
         .attendee-list {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            gap: 8px;
         }
         
         .attendee-item {
-            padding: 8px;
+            padding: 6px;
             background-color: #f9f9f9;
             border-left: 3px solid #667eea;
         }
@@ -192,12 +192,12 @@ function formatTime($dateString) {
             color: #667eea;
             border-bottom: 2px solid #667eea;
             padding-bottom: 5px;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
         }
         
         .agenda-item {
-            margin-bottom: 20px;
-            padding: 15px;
+            margin-bottom: 12px;
+            padding: 10px;
             background-color: #f9f9f9;
             border-left: 4px solid #667eea;
             border-radius: 4px;
@@ -207,7 +207,7 @@ function formatTime($dateString) {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
         
         .agenda-item-number {
@@ -234,13 +234,13 @@ function formatTime($dateString) {
         }
         
         .agenda-item-details {
-            margin-top: 10px;
+            margin-top: 6px;
             color: #555;
             font-size: 14px;
         }
         
         .agenda-item-details p {
-            margin: 5px 0;
+            margin: 3px 0;
         }
         
         .print-buttons {
@@ -287,7 +287,7 @@ function formatTime($dateString) {
         }
         
         .pdf-embed-container {
-            margin: 20px 0;
+            margin: 12px 0;
             page-break-inside: avoid;
             border: 1px solid #ddd;
             border-radius: 4px;
@@ -296,7 +296,7 @@ function formatTime($dateString) {
         
         .pdf-embed-header {
             background-color: #f5f5f5;
-            padding: 10px 15px;
+            padding: 8px 12px;
             border-bottom: 1px solid #ddd;
         }
         
@@ -434,19 +434,19 @@ function formatTime($dateString) {
                     <?php endif; ?>
                     
                     <?php if ($item['resolution_id']): ?>
-                    <div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #28a745;">
-                        <p style="margin: 0 0 5px 0;"><strong>📋 Linked Resolution:</strong> <?php echo htmlspecialchars($item['resolution_title']); ?></p>
+                    <div style="background: #e8f5e9; padding: 8px; border-radius: 4px; margin: 6px 0; border-left: 3px solid #28a745;">
+                        <p style="margin: 0 0 3px 0;"><strong>📋 Linked Resolution:</strong> <?php echo htmlspecialchars($item['resolution_title']); ?></p>
                         <?php if ($item['resolution_number']): ?>
-                        <p style="margin: 5px 0;"><strong>Resolution #:</strong> <?php echo htmlspecialchars($item['resolution_number']); ?></p>
+                        <p style="margin: 3px 0;"><strong>Resolution #:</strong> <?php echo htmlspecialchars($item['resolution_number']); ?></p>
                         <?php endif; ?>
                         <?php if ($item['resolution_description']): ?>
-                        <p style="margin: 5px 0;"><?php echo nl2br(htmlspecialchars($item['resolution_description'])); ?></p>
+                        <p style="margin: 3px 0;"><?php echo nl2br(htmlspecialchars($item['resolution_description'])); ?></p>
                         <?php endif; ?>
                         <?php if ($item['resolution_status']): ?>
-                        <p style="margin: 5px 0;"><strong>Resolution Status:</strong> <?php echo htmlspecialchars($item['resolution_status']); ?></p>
+                        <p style="margin: 3px 0;"><strong>Resolution Status:</strong> <?php echo htmlspecialchars($item['resolution_status']); ?></p>
                         <?php endif; ?>
                         <?php if ($item['vote_type']): ?>
-                        <p style="margin: 5px 0;"><strong>Vote:</strong> <?php echo htmlspecialchars($item['vote_type']); ?>
+                        <p style="margin: 3px 0;"><strong>Vote:</strong> <?php echo htmlspecialchars($item['vote_type']); ?>
                             <?php if ($item['votes_for'] > 0 || $item['votes_against'] > 0 || $item['votes_abstain'] > 0): ?>
                             (<?php echo $item['votes_for']; ?> for, <?php echo $item['votes_against']; ?> against, <?php echo $item['votes_abstain']; ?> abstain)
                             <?php endif; ?>

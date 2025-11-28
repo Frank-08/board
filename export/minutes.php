@@ -119,7 +119,7 @@ function formatDateTime($dateString) {
             max-width: 900px;
             margin: 0 auto;
             padding: 40px 20px;
-            line-height: 1.6;
+            line-height: 1.4;
             color: #333;
         }
         
@@ -148,8 +148,8 @@ function formatDateTime($dateString) {
         .header {
             text-align: center;
             border-bottom: 3px solid #333;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
         }
         
         .header h1 {
@@ -164,18 +164,18 @@ function formatDateTime($dateString) {
         }
         
         .meeting-info {
-            margin-bottom: 30px;
-            padding: 15px;
+            margin-bottom: 15px;
+            padding: 12px;
             background: #f9f9f9;
             border-left: 4px solid #007bff;
         }
         
         .meeting-info p {
-            margin: 8px 0;
+            margin: 5px 0;
         }
         
         .section {
-            margin-bottom: 30px;
+            margin-bottom: 15px;
             page-break-inside: avoid;
         }
         
@@ -183,26 +183,26 @@ function formatDateTime($dateString) {
             color: #333;
             border-bottom: 2px solid #333;
             padding-bottom: 5px;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             font-size: 18px;
         }
         
         .section h3 {
             color: #555;
-            margin-top: 20px;
-            margin-bottom: 10px;
+            margin-top: 12px;
+            margin-bottom: 8px;
             font-size: 16px;
         }
         
         .attendee-list {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
+            gap: 8px;
+            margin-top: 8px;
         }
         
         .attendee-item {
-            padding: 10px;
+            padding: 6px;
             background: #f9f9f9;
             border-radius: 4px;
             font-size: 14px;
@@ -210,32 +210,32 @@ function formatDateTime($dateString) {
         
         .attendee-item strong {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
         
         .agenda-item {
-            margin-bottom: 25px;
-            padding: 15px;
+            margin-bottom: 12px;
+            padding: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             page-break-inside: avoid;
         }
         
         .agenda-item h4 {
-            margin: 0 0 10px 0;
+            margin: 0 0 6px 0;
             color: #333;
             font-size: 16px;
         }
         
         .agenda-item .item-description {
             color: #666;
-            margin: 10px 0;
+            margin: 6px 0;
             font-style: italic;
         }
         
         .agenda-comment {
-            margin-top: 15px;
-            padding: 12px;
+            margin-top: 8px;
+            padding: 8px;
             background: #f0f8ff;
             border-left: 4px solid #007bff;
             border-radius: 4px;
@@ -243,28 +243,28 @@ function formatDateTime($dateString) {
         
         .agenda-comment strong {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
             color: #333;
         }
         
         .minutes-content {
             white-space: pre-wrap;
-            margin-top: 15px;
-            padding: 15px;
+            margin-top: 10px;
+            padding: 10px;
             background: #f9f9f9;
             border-radius: 4px;
         }
         
         .action-items {
-            margin-top: 15px;
-            padding: 15px;
+            margin-top: 10px;
+            padding: 10px;
             background: #fff8dc;
             border-left: 4px solid #ffc107;
             border-radius: 4px;
         }
         
         .action-items ul {
-            margin: 10px 0;
+            margin: 6px 0;
             padding-left: 20px;
         }
         

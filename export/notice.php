@@ -64,15 +64,15 @@ function formatDateTime($dateString) {
             max-width: 800px;
             margin: 0 auto;
             padding: 40px 20px;
-            line-height: 1.6;
+            line-height: 1.4;
             color: #333;
         }
         
         .header {
             text-align: center;
             border-bottom: 3px solid #667eea;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
         }
         
         .header h1 {
@@ -91,10 +91,10 @@ function formatDateTime($dateString) {
         
         .notice-content {
             background-color: #ffffff;
-            padding: 30px;
+            padding: 15px;
             border: 2px solid #667eea;
             border-radius: 8px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
         
         .notice-content h2 {
@@ -102,12 +102,12 @@ function formatDateTime($dateString) {
             color: #333;
             font-size: 24px;
             border-bottom: 2px solid #667eea;
-            padding-bottom: 10px;
+            padding-bottom: 8px;
         }
         
         .info-row {
-            margin-bottom: 15px;
-            padding: 10px 0;
+            margin-bottom: 8px;
+            padding: 6px 0;
             border-bottom: 1px solid #eee;
         }
         
@@ -140,14 +140,14 @@ function formatDateTime($dateString) {
         }
         
         .notes-section {
-            margin-top: 30px;
-            padding-top: 20px;
+            margin-top: 15px;
+            padding-top: 12px;
             border-top: 2px solid #eee;
         }
         
         .notes-section h3 {
             color: #667eea;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
         .print-buttons {
