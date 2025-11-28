@@ -196,7 +196,7 @@ function formatDateTime($dateString) {
 <body>
     <div class="header">
         <?php if (defined('LOGO_URL') && LOGO_URL && file_exists(__DIR__ . '/../' . LOGO_URL)): ?>
-            <img src="<?php echo '../' . LOGO_URL; ?>" alt="<?php echo APP_NAME; ?> Logo" style="max-width: <?php echo LOGO_WIDTH; ?>px; max-height: <?php echo LOGO_HEIGHT ?: 'auto'; ?>; margin-bottom: 10px;">
+            <img src="<?php echo '../' . LOGO_URL; ?>" alt="<?php echo APP_NAME; ?> Logo" style="max-width: <?php echo defined('LOGO_WIDTH') ? LOGO_WIDTH : 60; ?>px; height:<?php echo defined('LOGO_HEIGHT') && LOGO_HEIGHT > 0 ? LOGO_HEIGHT : 'auto'; ?>px; max-height:80px; margin-bottom: 10px;">
         <?php endif; ?>
         <h1>Notice of Meeting</h1>
         <div class="organization"><?php echo htmlspecialchars(APP_NAME); ?></div>

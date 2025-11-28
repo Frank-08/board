@@ -385,12 +385,6 @@ function formatTime($dateString) {
             <div class="info-value"><?php echo htmlspecialchars($meeting['virtual_link']); ?></div>
         </div>
         <?php endif; ?>
-        <?php if ($meeting['meeting_type_description']): ?>
-            <div class="info-row">
-            <div class="info-label">Meeting Type Description:</div>
-            <div class="info-value"><?php echo htmlspecialchars($meeting['meeting_type_description']); ?></div>
-        </div>
-        <?php endif; ?>
     </div>
 
     <?php if (count($attendees) > 0): ?>
