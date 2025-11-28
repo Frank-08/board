@@ -387,25 +387,6 @@ function formatTime($dateString) {
         <?php endif; ?>
     </div>
 
-    <?php if (count($attendees) > 0): ?>
-    <div class="attendees-section">
-        <h3>Expected Attendees</h3>
-        <div class="attendee-list">
-            <?php foreach ($attendees as $attendee): ?>
-            <div class="attendee-item">
-                <strong><?php echo htmlspecialchars($attendee['first_name'] . ' ' . $attendee['last_name']); ?></strong>
-                <?php if (!empty($attendee['role'])): ?>
-                <br><span style="color: #666; font-size: 14px;"><?php echo htmlspecialchars($attendee['role']); ?></span>
-                <?php endif; ?>
-                <?php if ($attendee['title']): ?>
-                <br><span style="color: #999; font-size: 12px;"><?php echo htmlspecialchars($attendee['title']); ?></span>
-                <?php endif; ?>
-            </div>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-
     <div class="agenda-section">
         <h3>Agenda Items</h3>
         

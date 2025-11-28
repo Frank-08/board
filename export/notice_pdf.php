@@ -83,17 +83,25 @@ if ($useTCPDF && class_exists('TCPDF')) {
     $pdf->AddPage();
     
     // Add logo if configured and exists
-    $logoY = 15;
+    $logoHtml = '';
     if (defined('LOGO_PATH') && LOGO_PATH && file_exists(LOGO_PATH)) {
         $logoWidth = defined('LOGO_WIDTH') ? LOGO_WIDTH : 60;
         $logoHeight = defined('LOGO_HEIGHT') ? LOGO_HEIGHT : 0;
         try {
             // Try to add logo as image in PDF
-            $pdf->Image(LOGO_PATH, ($pdf->getPageWidth() - $logoWidth) / 2, $logoY, $logoWidth, $logoHeight, '', '', 'T', false, 300, '', false, false, 0, false, false, false);
-            $logoY = $logoHeight > 0 ? $logoHeight + 5 : 25;
+            // If height is 0, TCPDF will auto-calculate to maintain aspect ratio
+            if ($logoHeight > 0) {
+                $pdf->Image(LOGO_PATH, ($pdf->getPageWidth() - $logoWidth) / 2, 15, $logoWidth, $logoHeight, '', '', 'T', false, 300, '', false, false, 0, false, false, false);
+                $logoY = $logoHeight + 5;
+            } else {
+                // Auto-calculate height by passing empty string or 0
+                $pdf->Image(LOGO_PATH, ($pdf->getPageWidth() - $logoWidth) / 2, 15, $logoWidth, 0, '', '', 'T', false, 300, '', false, false, 0, false, false, false);
+                $logoY = 25; // Default spacing after logo
+            }
             $pdf->SetY($logoY + 10);
         } catch (Exception $e) {
-            // If image fails, continue without logo
+            // If image fails, add to HTML instead
+            $logoHtml = '<div style="text-align:center; margin-bottom:15px;"><img src="file://' . str_replace('\\', '/', realpath(LOGO_PATH)) . '" style="max-width:' . $logoWidth . 'mm; height:auto;" alt="Logo"></div>';
             $pdf->SetY(15);
         }
     } else {
@@ -101,7 +109,8 @@ if ($useTCPDF && class_exists('TCPDF')) {
     }
     
     // Build HTML content for notice
-    $html = '<h1 style="text-align:center; color:#667eea; font-size:24px; text-transform:uppercase; letter-spacing:2px;">NOTICE OF MEETING</h1>';
+    $html = $logoHtml;
+    $html .= '<h1 style="text-align:center; color:#667eea; font-size:24px; text-transform:uppercase; letter-spacing:2px;">NOTICE OF MEETING</h1>';
     $html .= '<div style="text-align:center; margin-bottom:20px; color:#666; font-size:14px;">' . htmlspecialchars(APP_NAME) . '</div>';
     
     $html .= '<div style="border:2px solid #667eea; padding:20px; margin-bottom:20px; border-radius:5px;">';
