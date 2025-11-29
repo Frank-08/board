@@ -1292,13 +1292,24 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({id: id})
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Delete failed');
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
-                loadMeetingAttendees(currentMeetingId);
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    loadMeetingAttendees(currentMeetingId);
+                }
             })
             .catch(error => {
                 console.error('Error deleting attendee:', error);
-                alert('Error deleting attendee');
+                alert('Error deleting attendee: ' + error.message);
             });
         }
 

@@ -83,6 +83,7 @@
     <script>
         let allMeetingTypes = [];
         let currentMeetingTypeId = null;
+        let deletedMembershipIds = []; // Track memberships to delete
 
         window.addEventListener('DOMContentLoaded', function() {
             loadMeetingTypes();
@@ -172,6 +173,9 @@
             const form = document.getElementById('memberForm');
             const title = document.getElementById('modalTitle');
             
+            // Reset deleted memberships tracking
+            deletedMembershipIds = [];
+            
             // Clear meeting types container
             document.getElementById('meetingTypesContainer').innerHTML = '';
             
@@ -247,7 +251,13 @@
         }
 
         function removeMeetingTypeRow(rowId) {
-            document.getElementById(rowId).remove();
+            const row = document.getElementById(rowId);
+            const membershipId = row.querySelector('.membership-id')?.value;
+            // If this was an existing membership (has an ID), track it for deletion
+            if (membershipId) {
+                deletedMembershipIds.push(membershipId);
+            }
+            row.remove();
         }
 
         function closeMemberModal() {
@@ -320,7 +330,23 @@
                 
                 const actualMemberId = memberId || savedMember.id;
                 
-                // Save meeting type memberships
+                // Delete removed memberships first
+                const deletePromises = deletedMembershipIds.map(id => {
+                    return fetch('api/meeting_type_members.php', {
+                        method: 'DELETE',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({id: parseInt(id)})
+                    }).then(response => {
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.error || 'Failed to delete membership');
+                            });
+                        }
+                        return response.json();
+                    });
+                });
+                
+                // Save meeting type memberships (create/update)
                 const membershipPromises = meetingTypeIds.map(mt => {
                     if (mt.membership_id) {
                         // Update existing membership
@@ -364,7 +390,8 @@
                     }
                 });
                 
-                return Promise.all(membershipPromises).then((results) => {
+                // Execute deletes first, then creates/updates
+                return Promise.all(deletePromises).then(() => Promise.all(membershipPromises)).then((results) => {
                     // Check for any errors in the results
                     results.forEach(result => {
                         if (result && result.error) {
