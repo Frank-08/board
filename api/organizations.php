@@ -1,6 +1,6 @@
 <?php
 /**
- * Organizations API Endpoint
+ * Organizations API Endpoint (Legacy - use meeting_types.php instead)
  */
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -12,10 +12,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+
+// Require authentication
+requireAuth();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDBConnection();
+
+// Check permissions for write operations
+if (in_array($method, ['POST', 'PUT', 'DELETE'])) {
+    requireRole('Admin');
+}
 
 switch ($method) {
     case 'GET':

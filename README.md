@@ -338,15 +338,53 @@ define('ALLOWED_FILE_TYPES', ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']);
 
 **Note**: When attaching documents to agenda items, only PDF files are allowed.
 
+## Authentication
+
+The system includes session-based authentication with role-based access control.
+
+### Default Admin Account
+
+After installation, log in with:
+- **Username:** `admin`
+- **Password:** `changeme123`
+
+**IMPORTANT:** Change the default admin password immediately after first login!
+
+### User Roles
+
+| Role | Permissions |
+|------|-------------|
+| **Admin** | Full access: manage users, members, meeting types, delete anything |
+| **Clerk** | Manage meetings, agendas, minutes, attendees, documents, resolutions |
+| **Member** | View all, edit own attendance, limited writes |
+| **Viewer** | Read-only access to all data |
+
+### Adding Users
+
+1. Log in as Admin
+2. Navigate to Users page
+3. Click "+ Add User"
+4. Fill in username, password, email, and select a role
+5. Optionally link the user to a board member
+
+### Authentication Endpoints
+
+- `login.php` - Login page
+- `logout.php` - Logout and redirect to login
+- `api/users.php` - User management API (Admin only)
+
 ## Security Considerations
 
-1. **Change Default Passwords**: Update database credentials in `config/database.php`
-2. **File Permissions**: Ensure sensitive files are not publicly accessible
-3. **HTTPS**: Use HTTPS in production environments
-4. **Input Validation**: All user inputs are sanitized through PDO prepared statements
-5. **SQL Injection**: Protected by PDO prepared statements
-6. **XSS Protection**: Output is escaped in the frontend
-7. **File Upload Security**: File types are validated, and agenda item attachments are restricted to PDFs
+1. **Change Default Admin Password**: Log in and change the default admin password immediately
+2. **Change Database Passwords**: Update database credentials in `config/database.php`
+3. **File Permissions**: Ensure sensitive files are not publicly accessible
+4. **HTTPS**: Use HTTPS in production environments
+5. **Input Validation**: All user inputs are sanitized through PDO prepared statements
+6. **SQL Injection**: Protected by PDO prepared statements
+7. **XSS Protection**: Output is escaped in the frontend
+8. **File Upload Security**: File types are validated, and agenda item attachments are restricted to PDFs
+9. **Session Security**: Sessions use httponly cookies and regenerate IDs on login
+10. **CSRF Protection**: Login form includes CSRF token validation
 
 ## Troubleshooting
 

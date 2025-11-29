@@ -20,12 +20,35 @@ async function apiCall(endpoint, method = 'GET', data = null) {
     
     const response = await fetch(`${API_BASE}/${endpoint}`, options);
     
+    // Handle authentication errors - redirect to login
+    if (response.status === 401) {
+        window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.pathname);
+        throw new Error('Authentication required');
+    }
+    
+    // Handle permission errors
+    if (response.status === 403) {
+        const error = await response.json();
+        throw new Error(error.error || 'You do not have permission to perform this action');
+    }
+    
     if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'API request failed');
     }
     
     return response.json();
+}
+
+// Check if user has permission (uses authData from page)
+function hasPermission(permission) {
+    if (typeof authData === 'undefined') return false;
+    return authData.permissions && authData.permissions[permission] === true;
+}
+
+// Check if user is admin
+function isAdmin() {
+    return hasPermission('isAdmin');
 }
 
 // Format date for display

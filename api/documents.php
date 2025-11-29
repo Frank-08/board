@@ -12,11 +12,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 
+// Require authentication for all requests
+requireAuth();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDBConnection();
+
+// Check permissions for write operations
+if ($method === 'POST') {
+    requirePermission('upload_documents');
+}
+if ($method === 'DELETE') {
+    requirePermission('delete_document');
+}
 
 // Ensure uploads directory exists and is writable
 if (!file_exists(UPLOAD_DIR)) {

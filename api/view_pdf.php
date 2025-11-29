@@ -2,8 +2,12 @@
 /**
  * PDF Viewer Endpoint - Serves PDFs inline for embedding
  */
+require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
+
+// Require authentication for PDF viewing
+requireAuth();
 
 $documentId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
