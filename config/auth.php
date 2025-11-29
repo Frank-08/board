@@ -101,7 +101,8 @@ function hasRole(string $role): bool {
         return false;
     }
     
-    $currentRole = getCurrentRole();
+    $currentRole = ucfirst(strtolower(getCurrentRole())); // Normalize to "Admin", "Clerk", etc.
+    $role = ucfirst(strtolower($role)); // Normalize the requested role too
     $currentLevel = ROLE_HIERARCHY[$currentRole] ?? 0;
     $requiredLevel = ROLE_HIERARCHY[$role] ?? 999;
     
@@ -119,7 +120,7 @@ function hasPermission(string $action): bool {
         return false;
     }
     
-    $currentRole = getCurrentRole();
+    $currentRole = ucfirst(strtolower(getCurrentRole())); // Normalize to "Admin", "Clerk", etc.
     $allowedRoles = PERMISSIONS[$action] ?? [];
     
     return in_array($currentRole, $allowedRoles);
