@@ -107,6 +107,40 @@ switch ($method) {
         ]);
         
         $meetingId = $db->lastInsertId();
+        
+        // Apply agenda template if requested
+        if (!empty($data['apply_template'])) {
+            // Get templates for this meeting type
+            $stmt = $db->prepare("SELECT * FROM agenda_templates WHERE meeting_type_id = ? ORDER BY position ASC");
+            $stmt->execute([$meetingTypeId]);
+            $templates = $stmt->fetchAll();
+            
+            if (!empty($templates)) {
+                // Get meeting date for item number format
+                $meetingDate = new DateTime($scheduledDate);
+                $year = $meetingDate->format('y');
+                $month = $meetingDate->format('n');
+                
+                // Create agenda items from templates
+                $insertStmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                
+                foreach ($templates as $index => $template) {
+                    $sequence = $index + 1;
+                    $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                    
+                    $insertStmt->execute([
+                        $meetingId,
+                        $template['title'],
+                        $template['description'],
+                        $template['item_type'],
+                        $template['duration_minutes'],
+                        $index,
+                        $itemNumber
+                    ]);
+                }
+            }
+        }
+        
         $stmt = $db->prepare("SELECT * FROM meetings WHERE id = ?");
         $stmt->execute([$meetingId]);
         echo json_encode($stmt->fetch());

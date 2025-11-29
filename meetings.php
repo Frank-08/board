@@ -32,6 +32,7 @@
                 <select id="meetingTypeSelect" onchange="loadMeetings()">
                     <option value="">Select meeting type...</option>
                 </select>
+                <button onclick="showTemplateModal()" class="btn btn-secondary" id="manageTemplatesBtn" style="margin-left: 10px; display: none;">Manage Agenda Template</button>
             </div>
 
             <div id="meetings-list" class="meetings-list"></div>
@@ -326,7 +327,65 @@
                     <label for="meetingNotes">Notes</label>
                     <textarea id="meetingNotes" rows="4"></textarea>
                 </div>
+                <div class="form-group" id="applyTemplateGroup">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="applyTemplate" checked>
+                        Apply default agenda template
+                    </label>
+                    <small style="color: #666;">Pre-populate agenda with standard items for this meeting type</small>
+                </div>
                 <button type="submit" class="btn btn-primary">Save Meeting</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Agenda Template Modal -->
+    <div id="templateModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close" onclick="closeTemplateModal()">&times;</span>
+            <h2>Manage Agenda Template</h2>
+            <p style="color: #666; margin-bottom: 20px;">Define default agenda items that will be automatically added when creating new meetings of this type.</p>
+            
+            <div style="margin-bottom: 15px;">
+                <button onclick="showTemplateItemModal()" class="btn btn-primary">+ Add Template Item</button>
+            </div>
+            
+            <div id="template-items-list"></div>
+        </div>
+    </div>
+
+    <!-- Template Item Modal -->
+    <div id="templateItemModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeTemplateItemModal()">&times;</span>
+            <h2 id="modalTemplateItemTitle">New Template Item</h2>
+            <form id="templateItemForm" onsubmit="saveTemplateItem(event)">
+                <input type="hidden" id="templateItemId">
+                <div class="form-group">
+                    <label for="templateItemTitle">Title *</label>
+                    <input type="text" id="templateItemTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="templateItemDescription">Description</label>
+                    <textarea id="templateItemDescription" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="templateItemType">Item Type *</label>
+                        <select id="templateItemType" required>
+                            <option value="Discussion">Discussion</option>
+                            <option value="Action Item">Action Item</option>
+                            <option value="Vote">Vote</option>
+                            <option value="Information">Information</option>
+                            <option value="Presentation">Presentation</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="templateItemDuration">Duration (minutes)</label>
+                        <input type="number" id="templateItemDuration" min="0">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Template Item</button>
             </form>
         </div>
     </div>
@@ -379,6 +438,10 @@
 
         function loadMeetings() {
             currentMeetingTypeId = document.getElementById('meetingTypeSelect').value;
+            const manageTemplatesBtn = document.getElementById('manageTemplatesBtn');
+            if (manageTemplatesBtn) {
+                manageTemplatesBtn.style.display = currentMeetingTypeId ? 'inline-block' : 'none';
+            }
             if (!currentMeetingTypeId) return;
 
             fetch(`api/meetings.php?meeting_type_id=${currentMeetingTypeId}`)
@@ -639,6 +702,7 @@
                                     ${item.item_number ? item.item_number + '. ' : ''}${item.title}
                                     ${item.resolution_number ? `<span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #${item.resolution_number})</span>` : ''}
                                     ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase().replace(' ', '-')}" style="margin-left: 8px; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;">${item.resolution_status}</span>` : ''}
+                                    ${item.resolution_id && minutes.status !== 'Approved' ? `<button onclick="editResolution(${item.resolution_id})" class="btn btn-sm" style="margin-left: 8px;">Edit Resolution</button>` : ''}
                                 </h4>
                                 ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
                                 <div style="margin-top: 10px;">
@@ -746,6 +810,8 @@
             const form = document.getElementById('meetingForm');
             const title = document.getElementById('modalTitle');
             
+            const applyTemplateGroup = document.getElementById('applyTemplateGroup');
+            
             if (meeting) {
                 title.textContent = 'Edit Meeting';
                 document.getElementById('meetingId').value = meeting.id;
@@ -757,11 +823,16 @@
                 document.getElementById('quorumRequired').value = meeting.quorum_required || 0;
                 document.getElementById('meetingStatus').value = meeting.status;
                 document.getElementById('meetingNotes').value = meeting.notes || '';
+                // Hide template option for editing existing meetings
+                if (applyTemplateGroup) applyTemplateGroup.style.display = 'none';
             } else {
                 title.textContent = 'New Meeting';
                 form.reset();
                 document.getElementById('meetingId').value = '';
                 document.getElementById('meetingTypeId').value = currentMeetingTypeId;
+                // Show template option for new meetings
+                if (applyTemplateGroup) applyTemplateGroup.style.display = 'block';
+                document.getElementById('applyTemplate').checked = true;
             }
             modal.style.display = 'block';
         }
@@ -792,6 +863,9 @@
             
             if (meetingId) {
                 data.id = meetingId;
+            } else {
+                // Only apply template on new meetings
+                data.apply_template = document.getElementById('applyTemplate').checked;
             }
 
             fetch(url, {
@@ -1602,8 +1676,198 @@
             return `${year}-${month}-${day}T${hours}:${minutes}`;
         }
 
+        // Template Management Functions
+        function showTemplateModal() {
+            if (!currentMeetingTypeId) {
+                alert('Please select a meeting type first');
+                return;
+            }
+            document.getElementById('templateModal').style.display = 'block';
+            loadTemplateItems();
+        }
+
+        function closeTemplateModal() {
+            document.getElementById('templateModal').style.display = 'none';
+        }
+
+        function loadTemplateItems() {
+            if (!currentMeetingTypeId) return;
+            
+            fetch(`api/agenda_templates.php?meeting_type_id=${currentMeetingTypeId}`)
+                .then(response => response.json())
+                .then(items => {
+                    const list = document.getElementById('template-items-list');
+                    if (items.length === 0) {
+                        list.innerHTML = '<p style="color: #666;">No template items defined. Add items to create a default agenda for new meetings.</p>';
+                        return;
+                    }
+                    
+                    list.innerHTML = items.map((item, index) => {
+                        const isFirst = index === 0;
+                        const isLast = index === items.length - 1;
+                        return `
+                            <div class="agenda-item" style="margin-bottom: 10px;">
+                                <div class="item-header">
+                                    <h4>${index + 1}. ${item.title}</h4>
+                                    <div class="item-actions">
+                                        <button onclick="moveTemplateItemUp(${item.id})" 
+                                                class="btn btn-sm" 
+                                                title="Move up"
+                                                ${isFirst ? 'disabled' : ''}
+                                                style="padding: 4px 8px; min-width: auto;">↑</button>
+                                        <button onclick="moveTemplateItemDown(${item.id})" 
+                                                class="btn btn-sm" 
+                                                title="Move down"
+                                                ${isLast ? 'disabled' : ''}
+                                                style="padding: 4px 8px; min-width: auto;">↓</button>
+                                        <button onclick="editTemplateItem(${item.id})" class="btn btn-sm">Edit</button>
+                                        <button onclick="deleteTemplateItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
+                                    </div>
+                                </div>
+                                ${item.description ? `<p style="margin: 5px 0; color: #666;">${item.description}</p>` : ''}
+                                <div class="agenda-meta">
+                                    <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
+                                    ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                })
+                .catch(error => {
+                    console.error('Error loading template items:', error);
+                    document.getElementById('template-items-list').innerHTML = '<p style="color: red;">Error loading template items.</p>';
+                });
+        }
+
+        function showTemplateItemModal(item = null) {
+            const modal = document.getElementById('templateItemModal');
+            const form = document.getElementById('templateItemForm');
+            
+            if (item) {
+                document.getElementById('templateItemId').value = item.id;
+                document.getElementById('templateItemTitle').value = item.title;
+                document.getElementById('templateItemDescription').value = item.description || '';
+                document.getElementById('templateItemType').value = item.item_type;
+                document.getElementById('templateItemDuration').value = item.duration_minutes || '';
+                document.getElementById('modalTemplateItemTitle').textContent = 'Edit Template Item';
+            } else {
+                form.reset();
+                document.getElementById('templateItemId').value = '';
+                document.getElementById('modalTemplateItemTitle').textContent = 'New Template Item';
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        function closeTemplateItemModal() {
+            document.getElementById('templateItemModal').style.display = 'none';
+            document.getElementById('templateItemForm').reset();
+        }
+
+        function saveTemplateItem(event) {
+            event.preventDefault();
+            const itemId = document.getElementById('templateItemId').value;
+            
+            const data = {
+                meeting_type_id: currentMeetingTypeId,
+                title: document.getElementById('templateItemTitle').value,
+                description: document.getElementById('templateItemDescription').value || null,
+                item_type: document.getElementById('templateItemType').value,
+                duration_minutes: document.getElementById('templateItemDuration').value || null
+            };
+
+            const method = itemId ? 'PUT' : 'POST';
+            if (itemId) data.id = itemId;
+
+            fetch('api/agenda_templates.php', {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                closeTemplateItemModal();
+                loadTemplateItems();
+            })
+            .catch(error => {
+                console.error('Error saving template item:', error);
+                alert('Error saving template item');
+            });
+        }
+
+        function editTemplateItem(id) {
+            fetch(`api/agenda_templates.php?id=${id}`)
+                .then(response => response.json())
+                .then(item => showTemplateItemModal(item))
+                .catch(error => {
+                    console.error('Error loading template item:', error);
+                    alert('Error loading template item');
+                });
+        }
+
+        function deleteTemplateItem(id) {
+            if (!confirm('Are you sure you want to delete this template item?')) return;
+            
+            fetch('api/agenda_templates.php', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(response => response.json())
+            .then(result => {
+                loadTemplateItems();
+            })
+            .catch(error => {
+                console.error('Error deleting template item:', error);
+                alert('Error deleting template item');
+            });
+        }
+
+        function moveTemplateItemUp(itemId) {
+            reorderTemplateItem(itemId, 'up');
+        }
+
+        function moveTemplateItemDown(itemId) {
+            reorderTemplateItem(itemId, 'down');
+        }
+
+        function reorderTemplateItem(itemId, direction) {
+            // Get current order
+            fetch(`api/agenda_templates.php?meeting_type_id=${currentMeetingTypeId}`)
+                .then(response => response.json())
+                .then(items => {
+                    const currentIndex = items.findIndex(item => item.id == itemId);
+                    if (currentIndex === -1) return;
+                    
+                    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+                    if (newIndex < 0 || newIndex >= items.length) return;
+                    
+                    // Swap items
+                    const order = items.map(item => item.id);
+                    [order[currentIndex], order[newIndex]] = [order[newIndex], order[currentIndex]];
+                    
+                    // Save new order
+                    fetch('api/agenda_templates.php', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            action: 'reorder',
+                            meeting_type_id: currentMeetingTypeId,
+                            order: order
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        loadTemplateItems();
+                    })
+                    .catch(error => {
+                        console.error('Error reordering template items:', error);
+                    });
+                });
+        }
+
         window.onclick = function(event) {
-            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'minutesModal', 'documentUploadModal'];
+            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'minutesModal', 'documentUploadModal', 'templateModal', 'templateItemModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target == modal) {
@@ -1613,6 +1877,8 @@
                     else if (modalId === 'attendeeModal') closeAttendeeModal();
                     else if (modalId === 'resolutionModal') closeResolutionModal();
                     else if (modalId === 'minutesModal') closeMinutesModal();
+                    else if (modalId === 'templateModal') closeTemplateModal();
+                    else if (modalId === 'templateItemModal') closeTemplateItemModal();
                 }
             });
         }
