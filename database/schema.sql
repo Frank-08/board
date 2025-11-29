@@ -1,4 +1,4 @@
--- Governance Board Management Database Schema
+-- PYY Meeting Management Database Schema
 CREATE DATABASE IF NOT EXISTS governance_board CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 USE governance_board;

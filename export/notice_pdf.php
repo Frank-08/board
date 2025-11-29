@@ -66,7 +66,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
     
     // Set document information
-    $pdf->SetCreator('Governance Board Management System');
+    $pdf->SetCreator('PYY Meeting Management System');
     $pdf->SetAuthor($meeting['meeting_type_name']);
     $pdf->SetTitle('Notice of Meeting - ' . $meeting['title']);
     $pdf->SetSubject('Meeting Notice');

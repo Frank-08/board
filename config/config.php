@@ -2,7 +2,7 @@
 /**
  * Application Configuration
  */
-define('APP_NAME', 'Governance Board Management System');
+define('APP_NAME', 'PYY Meeting Management System');
 define('APP_VERSION', '1.0.0');
 define('BASE_URL', 'http://localhost/board');
 

@@ -1,5 +1,5 @@
 /**
- * Governance Board Management System - Main JavaScript
+ * PYY Meeting Management System - Main JavaScript
  */
 
 // API Base URL

@@ -1,4 +1,4 @@
-# Governance Board Management System
+# PYY Meeting Management System
 
 A comprehensive LAMP (Linux, Apache, MySQL, PHP) stack application for managing governance boards, board members, meetings, agendas, minutes, and resolutions.
 

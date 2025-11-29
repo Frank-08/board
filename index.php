@@ -13,7 +13,7 @@
             <nav>
                 <ul>
                     <li><a href="index.php" class="active">Dashboard</a></li>
-                    <li><a href="members.php">PYY Members</a></li>
+                    <li><a href="members.php">Board Members</a></li>
                     <li><a href="meetings.php">Meetings</a></li>
                     <li><a href="resolutions.php">Resolutions</a></li>
                     <li><a href="documents.php">Documents</a></li>
