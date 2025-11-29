@@ -21,104 +21,123 @@ require_once __DIR__ . '/../config/database.php';
 requireRole('Admin');
 
 $method = $_SERVER['REQUEST_METHOD'];
-$db = getDBConnection();
+
+try {
+    $db = getDBConnection();
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+    exit;
+}
 
 switch ($method) {
     case 'GET':
-        if (isset($_GET['id'])) {
-            $id = (int)$_GET['id'];
+        try {
+            if (isset($_GET['id'])) {
+                $id = (int)$_GET['id'];
+                $stmt = $db->prepare("
+                    SELECT u.id, u.username, u.email, u.role, u.board_member_id, u.is_active, u.last_login, u.created_at,
+                           CONCAT(bm.first_name, ' ', bm.last_name) as board_member_name
+                    FROM users u
+                    LEFT JOIN board_members bm ON u.board_member_id = bm.id
+                    WHERE u.id = ?
+                ");
+                $stmt->execute([$id]);
+                $user = $stmt->fetch();
+                
+                if (!$user) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'User not found']);
+                    exit;
+                }
+                
+                echo json_encode($user);
+            } else {
+                // List all users
+                $stmt = $db->query("
+                    SELECT u.id, u.username, u.email, u.role, u.board_member_id, u.is_active, u.last_login, u.created_at,
+                           CONCAT(bm.first_name, ' ', bm.last_name) as board_member_name
+                    FROM users u
+                    LEFT JOIN board_members bm ON u.board_member_id = bm.id
+                    ORDER BY u.username
+                ");
+                echo json_encode($stmt->fetchAll());
+            }
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+            exit;
+        }
+        break;
+        
+    case 'POST':
+        try {
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            $username = trim($data['username'] ?? '');
+            $password = $data['password'] ?? '';
+            $email = trim($data['email'] ?? '');
+            $role = $data['role'] ?? 'Viewer';
+            $boardMemberId = !empty($data['board_member_id']) ? (int)$data['board_member_id'] : null;
+            $isActive = isset($data['is_active']) ? (bool)$data['is_active'] : true;
+            
+            // Validation
+            if (empty($username) || empty($password) || empty($email)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Username, password, and email are required']);
+                exit;
+            }
+            
+            // Validate role
+            $validRoles = ['Admin', 'Clerk', 'Member', 'Viewer'];
+            if (!in_array($role, $validRoles)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid role']);
+                exit;
+            }
+            
+            // Check if username already exists
+            $stmt = $db->prepare("SELECT id FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            if ($stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Username already exists']);
+                exit;
+            }
+            
+            // Check if email already exists
+            $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            if ($stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Email already exists']);
+                exit;
+            }
+            
+            // Hash password
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            
+            // Insert user
+            $stmt = $db->prepare("INSERT INTO users (username, password_hash, email, role, board_member_id, is_active) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$username, $passwordHash, $email, $role, $boardMemberId, $isActive]);
+            
+            $userId = $db->lastInsertId();
+            
+            // Return created user
             $stmt = $db->prepare("
-                SELECT u.id, u.username, u.email, u.role, u.board_member_id, u.is_active, u.last_login, u.created_at,
+                SELECT u.id, u.username, u.email, u.role, u.board_member_id, u.is_active, u.created_at,
                        CONCAT(bm.first_name, ' ', bm.last_name) as board_member_name
                 FROM users u
                 LEFT JOIN board_members bm ON u.board_member_id = bm.id
                 WHERE u.id = ?
             ");
-            $stmt->execute([$id]);
-            $user = $stmt->fetch();
-            
-            if (!$user) {
-                http_response_code(404);
-                echo json_encode(['error' => 'User not found']);
-                exit;
-            }
-            
-            echo json_encode($user);
-        } else {
-            // List all users
-            $stmt = $db->query("
-                SELECT u.id, u.username, u.email, u.role, u.board_member_id, u.is_active, u.last_login, u.created_at,
-                       CONCAT(bm.first_name, ' ', bm.last_name) as board_member_name
-                FROM users u
-                LEFT JOIN board_members bm ON u.board_member_id = bm.id
-                ORDER BY u.username
-            ");
-            echo json_encode($stmt->fetchAll());
-        }
-        break;
-        
-    case 'POST':
-        $data = json_decode(file_get_contents('php://input'), true);
-        
-        $username = trim($data['username'] ?? '');
-        $password = $data['password'] ?? '';
-        $email = trim($data['email'] ?? '');
-        $role = $data['role'] ?? 'Viewer';
-        $boardMemberId = !empty($data['board_member_id']) ? (int)$data['board_member_id'] : null;
-        $isActive = isset($data['is_active']) ? (bool)$data['is_active'] : true;
-        
-        // Validation
-        if (empty($username) || empty($password) || empty($email)) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Username, password, and email are required']);
+            $stmt->execute([$userId]);
+            echo json_encode($stmt->fetch());
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
             exit;
         }
-        
-        // Validate role
-        $validRoles = ['Admin', 'Clerk', 'Member', 'Viewer'];
-        if (!in_array($role, $validRoles)) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid role']);
-            exit;
-        }
-        
-        // Check if username already exists
-        $stmt = $db->prepare("SELECT id FROM users WHERE username = ?");
-        $stmt->execute([$username]);
-        if ($stmt->fetch()) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Username already exists']);
-            exit;
-        }
-        
-        // Check if email already exists
-        $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
-        $stmt->execute([$email]);
-        if ($stmt->fetch()) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Email already exists']);
-            exit;
-        }
-        
-        // Hash password
-        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-        
-        // Insert user
-        $stmt = $db->prepare("INSERT INTO users (username, password_hash, email, role, board_member_id, is_active) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$username, $passwordHash, $email, $role, $boardMemberId, $isActive]);
-        
-        $userId = $db->lastInsertId();
-        
-        // Return created user
-        $stmt = $db->prepare("
-            SELECT u.id, u.username, u.email, u.role, u.board_member_id, u.is_active, u.created_at,
-                   CONCAT(bm.first_name, ' ', bm.last_name) as board_member_name
-            FROM users u
-            LEFT JOIN board_members bm ON u.board_member_id = bm.id
-            WHERE u.id = ?
-        ");
-        $stmt->execute([$userId]);
-        echo json_encode($stmt->fetch());
         break;
         
     case 'PUT':
