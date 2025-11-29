@@ -259,7 +259,7 @@ function formatDateTime($dateString) {
 
     <div class="footer">
         <p>This notice was generated on <?php echo date('F j, Y \a\t g:i A'); ?></p>
-        <p><?php echo htmlspecialchars(APP_NAME); ?> - Meeting Management System</p>
+        <p><?php echo htmlspecialchars(APP_NAME); ?></p>
     </div>
 </body>
 </html>

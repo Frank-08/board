@@ -162,7 +162,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     // Footer
     $html .= '<div style="text-align:center; margin-top:30px; padding-top:15px; border-top:1px solid #ddd; color:#666; font-size:10px;">';
     $html .= '<p>This notice was generated on ' . date('F j, Y \a\t g:i A') . '</p>';
-    $html .= '<p>' . htmlspecialchars(APP_NAME) . ' - Meeting Management System</p>';
+    $html .= '<p>' . htmlspecialchars(APP_NAME) . '</p>';
     $html .= '</div>';
     
     // Write HTML content
