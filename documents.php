@@ -1,25 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documents - PYY Meeting Management</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>PYY Meeting Management System</h1>
-            <nav>
-                <ul>
-                    <li><a href="index.php">Dashboard</a></li>
-                    <li><a href="members.php">Board Members</a></li>
-                    <li><a href="meetings.php">Meetings</a></li>
-                    <li><a href="resolutions.php">Resolutions</a></li>
-                    <li><a href="documents.php" class="active">Documents</a></li>
-                </ul>
-            </nav>
-        </header>
+<?php
+require_once __DIR__ . '/includes/header.php';
+outputHeader('Documents', 'documents.php');
+?>
 
         <main>
             <div class="page-header">
@@ -118,6 +100,9 @@
 
     <script src="assets/js/app.js"></script>
     <script>
+        // Auth permissions from server
+        const authData = <?php echo getAuthJsVars(); ?>;
+        
         let allMeetingTypes = [];
         let allMeetings = [];
 

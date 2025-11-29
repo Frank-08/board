@@ -12,10 +12,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+
+// Require authentication for all requests
+requireAuth();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDBConnection();
+
+// Check permissions for write operations
+if (in_array($method, ['POST', 'PUT'])) {
+    requirePermission('create_meeting');
+}
+if ($method === 'DELETE') {
+    requirePermission('delete_meeting');
+}
 
 switch ($method) {
     case 'GET':

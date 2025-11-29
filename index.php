@@ -1,25 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PYY Meeting Management System</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>PYY Meeting Management System</h1>
-            <nav>
-                <ul>
-                    <li><a href="index.php" class="active">Dashboard</a></li>
-                    <li><a href="members.php">Board Members</a></li>
-                    <li><a href="meetings.php">Meetings</a></li>
-                    <li><a href="resolutions.php">Resolutions</a></li>
-                    <li><a href="documents.php">Documents</a></li>
-                </ul>
-            </nav>
-        </header>
+<?php
+require_once __DIR__ . '/includes/header.php';
+outputHeader('Dashboard', 'index.php');
+?>
 
         <main>
             <div class="organization-selector">
@@ -94,6 +76,9 @@
 
     <script src="assets/js/app.js"></script>
     <script>
+        // Auth permissions from server
+        const authData = <?php echo getAuthJsVars(); ?>;
+        
         // Load meeting types on page load
         window.addEventListener('DOMContentLoaded', function() {
             loadMeetingTypes();

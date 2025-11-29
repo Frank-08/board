@@ -28,8 +28,20 @@ define('DATETIME_FORMAT', 'Y-m-d H:i:s');
 define('DISPLAY_DATE_FORMAT', 'M d, Y');
 define('DISPLAY_DATETIME_FORMAT', 'M d, Y h:i A');
 
-// Session settings
+// Authentication settings
+define('AUTH_SESSION_LIFETIME', 3600 * 8); // 8 hours
+define('AUTH_COOKIE_NAME', 'board_session');
+
+// Session settings (auth.php handles session_start)
 if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.use_strict_mode', 1);
+    session_set_cookie_params([
+        'lifetime' => AUTH_SESSION_LIFETIME,
+        'path' => '/',
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
     session_start();
 }
 
