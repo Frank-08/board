@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Governance Board Management System</title>
+    <title>PYY Meeting Management System</title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Governance Board Management System</h1>
+            <h1>PYY Meeting Management System</h1>
             <nav>
                 <ul>
                     <li><a href="index.php" class="active">Dashboard</a></li>
-                    <li><a href="members.php">Board Members</a></li>
+                    <li><a href="members.php">PYY Members</a></li>
                     <li><a href="meetings.php">Meetings</a></li>
                     <li><a href="resolutions.php">Resolutions</a></li>
                     <li><a href="documents.php">Documents</a></li>
