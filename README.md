@@ -9,6 +9,7 @@ A comprehensive LAMP (Linux, Apache, MySQL, PHP) stack application for managing 
 - **Meetings**: Schedule and manage board meetings with various meeting types
 - **Agendas**: 
   - Create and manage meeting agendas with items, presenters, and duration
+  - **Agenda Templates**: Define default agenda items per meeting type that auto-populate new meetings
   - **Drag-and-drop reordering**: Reorder agenda items by dragging or using up/down arrow buttons
   - **Automatic item numbering**: Items are automatically numbered in YY.MM.SEQ format
   - **PDF document attachments**: Attach PDF documents to agenda items (PDF-only for agenda items)
@@ -200,6 +201,7 @@ board/
 │   ├── members.php         # Board members CRUD
 │   ├── meetings.php        # Meetings CRUD
 │   ├── agenda.php          # Agenda items CRUD (includes reordering)
+│   ├── agenda_templates.php # Agenda templates for meeting types
 │   ├── attendees.php       # Meeting attendees CRUD
 │   ├── minutes.php         # Meeting minutes CRUD
 │   ├── resolutions.php     # Resolutions CRUD
@@ -221,7 +223,9 @@ board/
 ├── export/                 # Export functionality
 │   ├── agenda.php          # HTML agenda export
 │   ├── agenda_pdf.php      # Combined PDF agenda export
-│   └── minutes.php         # Minutes export
+│   ├── minutes.php         # Minutes export
+│   ├── notice.php          # Meeting notice HTML export
+│   └── notice_pdf.php      # Meeting notice PDF export
 ├── uploads/                # File uploads directory
 ├── assets/                 # Frontend assets
 │   ├── images/             # Images (logo, etc.)
@@ -242,15 +246,16 @@ board/
 
 1. **Select or Create a Meeting Type**: Use the meeting type selector on the dashboard
 2. **Add Board Members**: Navigate to Board Members and add your board members. You can assign members to multiple meeting types, each with their own role.
-3. **Schedule Meetings**: Go to Meetings and create your first board meeting
-4. **Create Agenda**: 
+3. **Set Up Agenda Templates** (Optional): Click "Manage Agenda Template" to define default agenda items (e.g., Call to Order, Approval of Minutes) that auto-populate new meetings
+4. **Schedule Meetings**: Go to Meetings and create your first board meeting (check "Apply default agenda template" to use your template)
+5. **Create Agenda**: 
    - Add agenda items to your meetings
    - Reorder items by dragging them or using the up/down arrow buttons
    - Attach PDF documents to agenda items (PDF-only for agenda attachments)
-5. **Track Attendance**: Add attendees and mark their attendance status
-6. **Record Minutes**: Create meeting minutes after the meeting
-7. **Manage Resolutions**: Record resolutions and voting outcomes
-8. **Export Documents**: Export agendas as HTML or combined PDF (with attached PDFs merged)
+6. **Track Attendance**: Add attendees and mark their attendance status
+7. **Record Minutes**: Create meeting minutes after the meeting
+8. **Manage Resolutions**: Record resolutions and voting outcomes
+9. **Export Documents**: Export agendas, notices, and minutes as HTML or PDF
 
 ### Key Features
 
@@ -259,6 +264,7 @@ board/
 - **Meetings**: Full meeting lifecycle management from scheduling to completion
 - **Agenda Management**: 
   - Organize meeting agendas with items, presenters, and time allocations
+  - **Agenda Templates**: Define default agenda items per meeting type for quick meeting setup
   - Drag-and-drop or button-based reordering of agenda items
   - Automatic item numbering (YY.MM.SEQ format)
   - PDF document attachments (PDF-only for agenda items)
@@ -290,6 +296,12 @@ All API endpoints return JSON and support standard HTTP methods:
 - `POST /api/agenda.php` (action=reorder) - Reorder agenda items (bulk update)
 - `PUT /api/agenda.php` - Update agenda item
 - `DELETE /api/agenda.php` - Delete agenda item
+
+- `GET /api/agenda_templates.php?meeting_type_id={id}` - Get agenda templates for a meeting type
+- `POST /api/agenda_templates.php` - Create agenda template item
+- `POST /api/agenda_templates.php` (action=reorder) - Reorder template items
+- `PUT /api/agenda_templates.php` - Update template item
+- `DELETE /api/agenda_templates.php` - Delete template item
 
 - `GET /api/documents.php?agenda_item_id={id}` - Get documents for an agenda item
 - `POST /api/documents.php` - Upload document (PDF-only for agenda items)
@@ -403,6 +415,7 @@ When making schema changes:
 - `migration_committees_to_meeting_types.sql` - Migrates from committees to meeting types
 - `migration_add_deputy_chair.sql` - Adds "Deputy Chair" role option
 - `migration_add_item_number.sql` - Adds item numbering to agenda items
+- `migration_add_agenda_templates.sql` - Adds agenda templates for meeting types
 - And more in the `database/` directory
 
 To apply a migration:
@@ -419,6 +432,11 @@ This project is open source and available for use and modification.
 For issues, questions, or contributions, please refer to the project repository.
 
 ## Changelog
+
+### Version 1.2.0
+- **Agenda Templates**: Define default agenda items per meeting type that auto-populate when creating new meetings
+- **Edit Resolutions from Minutes**: Edit resolutions directly from the Minutes tab
+- **Meeting Notice Exports**: Generate meeting notices as HTML or PDF
 
 ### Version 1.1.0
 - **Agenda Item Reordering**: Drag-and-drop and up/down arrow buttons for reordering agenda items
