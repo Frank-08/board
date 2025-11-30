@@ -34,12 +34,8 @@ switch ($method) {
         if (isset($_GET['id'])) {
             $id = (int)$_GET['id'];
             $stmt = $db->prepare("
-                SELECT r.*,
-                    mb.first_name as moved_first_name, mb.last_name as moved_last_name,
-                    sb.first_name as seconded_first_name, sb.last_name as seconded_last_name
+                SELECT r.*
                 FROM resolutions r
-                LEFT JOIN board_members mb ON r.motion_moved_by = mb.id
-                LEFT JOIN board_members sb ON r.motion_seconded_by = sb.id
                 WHERE r.id = ?
             ");
             $stmt->execute([$id]);
@@ -55,12 +51,8 @@ switch ($method) {
         } elseif (isset($_GET['meeting_id'])) {
             $meetingId = (int)$_GET['meeting_id'];
             $stmt = $db->prepare("
-                SELECT r.*,
-                    mb.first_name as moved_first_name, mb.last_name as moved_last_name,
-                    sb.first_name as seconded_first_name, sb.last_name as seconded_last_name
+                SELECT r.*
                 FROM resolutions r
-                LEFT JOIN board_members mb ON r.motion_moved_by = mb.id
-                LEFT JOIN board_members sb ON r.motion_seconded_by = sb.id
                 WHERE r.meeting_id = ?
                 ORDER BY r.created_at ASC
             ");
@@ -119,7 +111,7 @@ switch ($method) {
                 $title,
                 $description,
                 'Vote', // Resolutions are typically vote items
-                !empty($data['motion_moved_by']) ? (int)$data['motion_moved_by'] : null,
+                null, // presenter_id
                 null, // duration
                 $position,
                 $itemNumber
@@ -130,31 +122,22 @@ switch ($method) {
             $agendaItemId = (int)$data['agenda_item_id'];
         }
         
-        $stmt = $db->prepare("INSERT INTO resolutions (meeting_id, agenda_item_id, resolution_number, title, description, motion_moved_by, motion_seconded_by, vote_type, votes_for, votes_against, votes_abstain, status, effective_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO resolutions (meeting_id, agenda_item_id, resolution_number, title, description, vote_type, status, effective_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $meetingId,
             $agendaItemId,
             $data['resolution_number'] ?? null,
             $title,
             $description,
-            !empty($data['motion_moved_by']) ? (int)$data['motion_moved_by'] : null,
-            !empty($data['motion_seconded_by']) ? (int)$data['motion_seconded_by'] : null,
             $data['vote_type'] ?? null,
-            $data['votes_for'] ?? 0,
-            $data['votes_against'] ?? 0,
-            $data['votes_abstain'] ?? 0,
             $data['status'] ?? 'Proposed',
             $data['effective_date'] ?? null
         ]);
         
         $resolutionId = $db->lastInsertId();
         $stmt = $db->prepare("
-            SELECT r.*,
-                mb.first_name as moved_first_name, mb.last_name as moved_last_name,
-                sb.first_name as seconded_first_name, sb.last_name as seconded_last_name
+            SELECT r.*
             FROM resolutions r
-            LEFT JOIN board_members mb ON r.motion_moved_by = mb.id
-            LEFT JOIN board_members sb ON r.motion_seconded_by = sb.id
             WHERE r.id = ?
         ");
         $stmt->execute([$resolutionId]);
@@ -174,8 +157,8 @@ switch ($method) {
         $updates = [];
         $params = [];
         
-        $fields = ['title', 'description', 'resolution_number', 'motion_moved_by', 'motion_seconded_by', 
-                   'vote_type', 'votes_for', 'votes_against', 'votes_abstain', 'status', 'effective_date', 'agenda_item_id'];
+        $fields = ['title', 'description', 'resolution_number', 
+                   'vote_type', 'status', 'effective_date', 'agenda_item_id'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {
                 $updates[] = "$field = ?";
@@ -195,12 +178,8 @@ switch ($method) {
         $stmt->execute($params);
         
         $stmt = $db->prepare("
-            SELECT r.*,
-                mb.first_name as moved_first_name, mb.last_name as moved_last_name,
-                sb.first_name as seconded_first_name, sb.last_name as seconded_last_name
+            SELECT r.*
             FROM resolutions r
-            LEFT JOIN board_members mb ON r.motion_moved_by = mb.id
-            LEFT JOIN board_members sb ON r.motion_seconded_by = sb.id
             WHERE r.id = ?
         ");
         $stmt->execute([$id]);

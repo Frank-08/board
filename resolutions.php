@@ -73,8 +73,7 @@ outputHeader('Resolutions', 'resolutions.php');
                     </div>
                     <p>${res.description}</p>
                     ${res.resolution_number ? `<p><strong>Resolution #:</strong> ${res.resolution_number}</p>` : ''}
-                    ${res.moved_first_name ? `<p><strong>Moved by:</strong> ${res.moved_first_name} ${res.moved_last_name}</p>` : ''}
-                    ${res.vote_type ? `<p><strong>Vote:</strong> ${res.votes_for} for, ${res.votes_against} against, ${res.votes_abstain} abstain (${res.vote_type})</p>` : ''}
+                    ${res.vote_type ? `<p><strong>Vote Type:</strong> ${res.vote_type}</p>` : ''}
                 </div>
             `).join('');
         }

@@ -128,50 +128,19 @@ outputHeader('Meetings', 'meetings.php');
                         <label for="resolutionStatus">Status</label>
                         <select id="resolutionStatus">
                             <option value="Proposed">Proposed</option>
-                            <option value="Passed">Passed</option>
+                            <option value="Consensus">Consensus</option>
+                            <option value="Agreement">Agreement</option>
                             <option value="Failed">Failed</option>
-                            <option value="Tabled">Tabled</option>
-                            <option value="Withdrawn">Withdrawn</option>
                         </select>
                     </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="resolutionMovedBy">Moved By</label>
-                        <select id="resolutionMovedBy">
-                            <option value="">Select member...</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="resolutionSecondedBy">Seconded By</label>
-                        <select id="resolutionSecondedBy">
-                            <option value="">Select member...</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
                     <div class="form-group">
                         <label for="resolutionVoteType">Vote Type</label>
                         <select id="resolutionVoteType">
                             <option value="">Select vote type...</option>
-                            <option value="Unanimous">Unanimous</option>
-                            <option value="Majority">Majority</option>
-                            <option value="Split">Split</option>
-                            <option value="Tabled">Tabled</option>
-                            <option value="Withdrawn">Withdrawn</option>
+                            <option value="Cards">Cards</option>
+                            <option value="Formal Procedures">Formal Procedures</option>
+                            <option value="Show of Hands">Show of Hands</option>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="resolutionVotesFor">Votes For</label>
-                        <input type="number" id="resolutionVotesFor" min="0" value="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="resolutionVotesAgainst">Votes Against</label>
-                        <input type="number" id="resolutionVotesAgainst" min="0" value="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="resolutionVotesAbstain">Votes Abstain</label>
-                        <input type="number" id="resolutionVotesAbstain" min="0" value="0">
                     </div>
                 </div>
                 <div class="form-group">
@@ -776,9 +745,7 @@ outputHeader('Meetings', 'meetings.php');
                             </div>
                             <p>${res.description}</p>
                             ${res.resolution_number ? `<p><strong>Resolution #:</strong> ${res.resolution_number}</p>` : ''}
-                            ${res.moved_first_name ? `<p><strong>Moved by:</strong> ${res.moved_first_name} ${res.moved_last_name}</p>` : ''}
-                            ${res.seconded_first_name ? `<p><strong>Seconded by:</strong> ${res.seconded_first_name} ${res.seconded_last_name}</p>` : ''}
-                            ${res.vote_type ? `<p><strong>Vote:</strong> ${res.votes_for} for, ${res.votes_against} against, ${res.votes_abstain} abstain (${res.vote_type})</p>` : ''}
+                            ${res.vote_type ? `<p><strong>Vote Type:</strong> ${res.vote_type}</p>` : ''}
                             <p><strong>Status:</strong> <span class="badge badge-${res.status.toLowerCase()}">${res.status}</span></p>
                         </div>
                     `).join('');
@@ -1311,52 +1278,25 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         function showResolutionModal(resolution = null) {
-            loadBoardMembers().then(members => {
-                const modal = document.getElementById('resolutionModal');
-                const form = document.getElementById('resolutionForm');
-                
-                if (resolution) {
-                    document.getElementById('resolutionId').value = resolution.id;
-                    document.getElementById('resolutionTitle').value = resolution.title;
-                    document.getElementById('resolutionDescription').value = resolution.description;
-                    document.getElementById('resolutionNumber').value = resolution.resolution_number || '';
-                    document.getElementById('resolutionMovedBy').value = resolution.motion_moved_by || '';
-                    document.getElementById('resolutionSecondedBy').value = resolution.motion_seconded_by || '';
-                    document.getElementById('resolutionVoteType').value = resolution.vote_type || '';
-                    document.getElementById('resolutionVotesFor').value = resolution.votes_for || 0;
-                    document.getElementById('resolutionVotesAgainst').value = resolution.votes_against || 0;
-                    document.getElementById('resolutionVotesAbstain').value = resolution.votes_abstain || 0;
-                    document.getElementById('resolutionStatus').value = resolution.status;
-                    document.getElementById('resolutionEffectiveDate').value = resolution.effective_date || '';
-                    document.getElementById('modalResolutionTitle').textContent = 'Edit Resolution';
-                } else {
-                    form.reset();
-                    document.getElementById('resolutionId').value = '';
-                    document.getElementById('modalResolutionTitle').textContent = 'New Resolution';
-                }
-                
-                // Populate member dropdowns
-                const movedBySelect = document.getElementById('resolutionMovedBy');
-                const secondedBySelect = document.getElementById('resolutionSecondedBy');
-                
-                movedBySelect.innerHTML = '<option value="">Select member...</option>';
-                secondedBySelect.innerHTML = '<option value="">Select member...</option>';
-                
-                members.forEach(member => {
-                    const option1 = document.createElement('option');
-                    option1.value = member.id;
-                    option1.textContent = `${member.first_name} ${member.last_name} (${member.role})`;
-                    movedBySelect.appendChild(option1.cloneNode(true));
-                    secondedBySelect.appendChild(option1);
-                });
-                
-                if (resolution) {
-                    if (resolution.motion_moved_by) movedBySelect.value = resolution.motion_moved_by;
-                    if (resolution.motion_seconded_by) secondedBySelect.value = resolution.motion_seconded_by;
-                }
-                
-                modal.style.display = 'block';
-            });
+            const modal = document.getElementById('resolutionModal');
+            const form = document.getElementById('resolutionForm');
+            
+            if (resolution) {
+                document.getElementById('resolutionId').value = resolution.id;
+                document.getElementById('resolutionTitle').value = resolution.title;
+                document.getElementById('resolutionDescription').value = resolution.description;
+                document.getElementById('resolutionNumber').value = resolution.resolution_number || '';
+                document.getElementById('resolutionVoteType').value = resolution.vote_type || '';
+                document.getElementById('resolutionStatus').value = resolution.status;
+                document.getElementById('resolutionEffectiveDate').value = resolution.effective_date || '';
+                document.getElementById('modalResolutionTitle').textContent = 'Edit Resolution';
+            } else {
+                form.reset();
+                document.getElementById('resolutionId').value = '';
+                document.getElementById('modalResolutionTitle').textContent = 'New Resolution';
+            }
+            
+            modal.style.display = 'block';
         }
 
         function closeResolutionModal() {
@@ -1372,12 +1312,7 @@ outputHeader('Meetings', 'meetings.php');
                 title: document.getElementById('resolutionTitle').value,
                 description: document.getElementById('resolutionDescription').value,
                 resolution_number: document.getElementById('resolutionNumber').value || null,
-                motion_moved_by: document.getElementById('resolutionMovedBy').value || null,
-                motion_seconded_by: document.getElementById('resolutionSecondedBy').value || null,
                 vote_type: document.getElementById('resolutionVoteType').value || null,
-                votes_for: parseInt(document.getElementById('resolutionVotesFor').value) || 0,
-                votes_against: parseInt(document.getElementById('resolutionVotesAgainst').value) || 0,
-                votes_abstain: parseInt(document.getElementById('resolutionVotesAbstain').value) || 0,
                 status: document.getElementById('resolutionStatus').value,
                 effective_date: document.getElementById('resolutionEffectiveDate').value || null
             };

@@ -35,7 +35,7 @@ $stmt = $db->prepare("
         bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
         mtm.role as presenter_role,
         r.id as resolution_id, r.title as resolution_title, r.resolution_number, r.description as resolution_description,
-        r.status as resolution_status, r.vote_type, r.votes_for, r.votes_against, r.votes_abstain
+        r.status as resolution_status, r.vote_type
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
     LEFT JOIN meetings m ON ai.meeting_id = m.id

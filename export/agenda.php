@@ -28,7 +28,7 @@ $stmt = $db->prepare("
         bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
         mtm.role as presenter_role,
         r.id as resolution_id, r.title as resolution_title, r.resolution_number, r.description as resolution_description,
-        r.status as resolution_status, r.vote_type, r.votes_for, r.votes_against, r.votes_abstain
+        r.status as resolution_status, r.vote_type
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
     LEFT JOIN meetings m ON ai.meeting_id = m.id
@@ -421,11 +421,7 @@ function formatTime($dateString) {
                         <p style="margin: 3px 0;"><strong>Resolution Status:</strong> <?php echo htmlspecialchars($item['resolution_status']); ?></p>
                         <?php endif; ?>
                         <?php if ($item['vote_type']): ?>
-                        <p style="margin: 3px 0;"><strong>Vote:</strong> <?php echo htmlspecialchars($item['vote_type']); ?>
-                            <?php if ($item['votes_for'] > 0 || $item['votes_against'] > 0 || $item['votes_abstain'] > 0): ?>
-                            (<?php echo $item['votes_for']; ?> for, <?php echo $item['votes_against']; ?> against, <?php echo $item['votes_abstain']; ?> abstain)
-                            <?php endif; ?>
-                        </p>
+                        <p style="margin: 3px 0;"><strong>Vote Type:</strong> <?php echo htmlspecialchars($item['vote_type']); ?></p>
                         <?php endif; ?>
                     </div>
                     <?php endif; ?>
