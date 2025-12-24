@@ -1591,7 +1591,7 @@ outputHeader('Meetings', 'meetings.php');
                     }));
                 })
                 .catch(error => {
-                    console.error('Error loading board members:', error);
+                    console.error('Error loading council members:', error);
                     return [];
                 });
         }

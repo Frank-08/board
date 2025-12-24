@@ -4,15 +4,19 @@ outputHeader('Dashboard', 'index.php');
 ?>
 
         <main>
-            <div class="organization-selector">
-                <label for="meetingTypeSelect">Select Meeting Type:</label>
-                <select id="meetingTypeSelect" onchange="loadDashboard()">
-                    <option value="">Loading...</option>
-                </select>
-                <button onclick="showMeetingTypeModal()">+ New Meeting Type</button>
+            <div class="page-header">
+                <h2>System Overview</h2>
+                <button onclick="showMeetingTypeModal()" class="btn btn-primary">+ New Meeting Type</button>
             </div>
 
-            <div id="dashboard" style="display:none;">
+            <div class="organization-selector">
+                <label for="meetingTypeSelect">Filter by Meeting Type (optional):</label>
+                <select id="meetingTypeSelect" onchange="loadDashboard()">
+                    <option value="">All Meeting Types</option>
+                </select>
+            </div>
+
+            <div id="dashboard">
                 <div class="stats-grid">
                     <div class="stat-card">
                         <h3>Active Members</h3>
@@ -108,17 +112,18 @@ outputHeader('Dashboard', 'index.php');
 
         function loadDashboard() {
             const meetingTypeId = document.getElementById('meetingTypeSelect').value;
-            if (!meetingTypeId) {
-                document.getElementById('dashboard').style.display = 'none';
-                document.getElementById('no-meeting-type').style.display = 'block';
-                return;
+            
+            // Always show dashboard, load all data or filtered data
+            document.getElementById('dashboard').style.display = 'block';
+
+            // Build API URL - no meeting_type_id parameter means system-wide
+            let apiUrl = 'api/dashboard.php';
+            if (meetingTypeId) {
+                apiUrl += `?meeting_type_id=${meetingTypeId}`;
             }
 
-            document.getElementById('dashboard').style.display = 'block';
-            document.getElementById('no-meeting-type').style.display = 'none';
-
             // Load dashboard stats
-            fetch(`api/dashboard.php?meeting_type_id=${meetingTypeId}`)
+            fetch(apiUrl)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('stat-members').textContent = data.active_members || 0;
@@ -133,7 +138,7 @@ outputHeader('Dashboard', 'index.php');
                         upcomingList.innerHTML = data.upcoming_meetings_list.map(meeting => 
                             `<div class="meeting-item">
                                 <h4><a href="meetings.php?id=${meeting.id}">${meeting.title}</a></h4>
-                                <p>${formatDateTime(meeting.scheduled_date)}</p>
+                                <p><strong>${meeting.meeting_type_name}</strong> - ${formatDateTime(meeting.scheduled_date)}</p>
                                 <span class="badge badge-${meeting.status.toLowerCase()}">${meeting.status}</span>
                             </div>`
                         ).join('');
@@ -147,7 +152,7 @@ outputHeader('Dashboard', 'index.php');
                         recentList.innerHTML = data.recent_meetings_list.map(meeting => 
                             `<div class="meeting-item">
                                 <h4><a href="meetings.php?id=${meeting.id}">${meeting.title}</a></h4>
-                                <p>${formatDateTime(meeting.scheduled_date)}</p>
+                                <p><strong>${meeting.meeting_type_name}</strong> - ${formatDateTime(meeting.scheduled_date)}</p>
                                 <span class="badge badge-${meeting.status.toLowerCase()}">${meeting.status}</span>
                             </div>`
                         ).join('');
