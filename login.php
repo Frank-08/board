@@ -109,6 +109,7 @@
         <div class="login-box">
             <div class="login-header">
                 <h1>Together in Council</h1>
+                <h3>One Church, many councils, discerning together</h3>
                 <p>Sign in to access the system</p>
             </div>
             
