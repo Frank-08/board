@@ -104,7 +104,7 @@ outputHeader('Members', 'members.php');
                 .then(data => {
                     const list = document.getElementById('members-list');
                     if (data.length === 0) {
-                        list.innerHTML = '<p>No members found. Add your first board member.</p>';
+                        list.innerHTML = '<p>No members found. Add your first member.</p>';
                         return;
                     }
                     // Load meeting type memberships for each member
@@ -165,7 +165,7 @@ outputHeader('Members', 'members.php');
             document.getElementById('meetingTypesContainer').innerHTML = '';
             
             if (member) {
-                title.textContent = 'Edit Board Member';
+                title.textContent = 'Edit Member';
                 document.getElementById('memberId').value = member.id;
                 document.getElementById('firstName').value = member.first_name;
                 document.getElementById('lastName').value = member.last_name;
@@ -191,7 +191,7 @@ outputHeader('Members', 'members.php');
                         addMeetingTypeRow(); // Add empty row if error
                     });
             } else {
-                title.textContent = 'New Board Member';
+                title.textContent = 'New Member';
                 form.reset();
                 document.getElementById('memberId').value = '';
                 addMeetingTypeRow(); // Add one empty row
