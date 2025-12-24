@@ -29,9 +29,14 @@ header {
 }
 
 header h1 {
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     font-size: 28px;
-    text-align: center;
+}
+
+header h3 {
+    margin-bottom: 15px;
+    font-size: 18px;
+    opacity: 0.9;
 }
 
 nav ul {
