@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - PYY Meeting Management System</title>
+    <title>Login - Together in Council</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
         .login-container {
@@ -108,7 +108,7 @@
     <div class="login-container">
         <div class="login-box">
             <div class="login-header">
-                <h1>PYY Meeting Management</h1>
+                <h1>Together in Council</h1>
                 <p>Sign in to access the system</p>
             </div>
             
@@ -171,7 +171,7 @@
             </form>
             
             <div class="login-footer">
-                <p>&copy; <?php echo date('Y'); ?> PYY Meeting Management System</p>
+                <p>&copy; <?php echo date('Y'); ?> Together in Council</p>
             </div>
         </div>
     </div>
@@ -184,7 +184,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - PYY Meeting Management System</title>
+    <title>Login - Together in Council</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
         .login-container {
@@ -289,7 +289,7 @@
     <div class="login-container">
         <div class="login-box">
             <div class="login-header">
-                <h1>PYY Meeting Management</h1>
+                <h1>Together in Council</h1>
                 <p>Sign in to access the system</p>
             </div>
             
@@ -360,7 +360,7 @@
             </form>
             
             <div class="login-footer">
-                <p>&copy; <?php echo date('Y'); ?> PYY Meeting Management System</p>
+                <p>&copy; <?php echo date('Y'); ?> Together in Council</p>
             </div>
         </div>
     </div>

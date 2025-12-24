@@ -21,7 +21,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
  * @param string $pageTitle The title for the page
  * @param string $activePage The filename of the current page (e.g., 'index.php')
  */
-function outputHeader($pageTitle = 'PYY Meeting Management', $activePage = '') {
+function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
     global $currentUser;
     $activePage = $activePage ?: basename($_SERVER['PHP_SELF']);
     
@@ -34,7 +34,7 @@ function outputHeader($pageTitle = 'PYY Meeting Management', $activePage = '') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle); ?> - PYY Meeting Management</title>
+    <title><?php echo htmlspecialchars($pageTitle); ?> - Together in Council</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
         .user-info {
@@ -79,7 +79,7 @@ function outputHeader($pageTitle = 'PYY Meeting Management', $activePage = '') {
 <body>
     <div class="container">
         <header>
-            <h1>PYY Meeting Management System</h1>
+            <h1>Together in Council</h1>
             <nav>
                 <ul>
                     <li><a href="index.php" <?php echo $activePage === 'index.php' ? 'class="active"' : ''; ?>>Dashboard</a></li>

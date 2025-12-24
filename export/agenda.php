@@ -502,7 +502,7 @@ function formatTime($dateString) {
 
     <div class="footer">
         <p>Generated on <?php echo date('F j, Y \a\t g:i A'); ?></p>
-        <p><?php echo htmlspecialchars($meeting['meeting_type_name']); ?> - PYY Meeting Management System</p>
+        <p><?php echo htmlspecialchars($meeting['meeting_type_name']); ?> - Together in Council</p>
     </div>
 </body>
 </html>
