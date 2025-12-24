@@ -52,9 +52,9 @@ outputHeader('User Management', 'users.php');
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="boardMemberId">Link to Board Member (Optional)</label>
+                    <label for="boardMemberId">Link to Member (Optional)</label>
                     <select id="boardMemberId">
-                        <option value="">Not linked to a board member</option>
+                        <option value="">Not linked to a member</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -101,7 +101,7 @@ outputHeader('User Management', 'users.php');
                                     <th style="padding: 12px; text-align: left;">Username</th>
                                     <th style="padding: 12px; text-align: left;">Email</th>
                                     <th style="padding: 12px; text-align: left;">Role</th>
-                                    <th style="padding: 12px; text-align: left;">Board Member</th>
+                                    <th style="padding: 12px; text-align: left;">Member</th>
                                     <th style="padding: 12px; text-align: left;">Status</th>
                                     <th style="padding: 12px; text-align: left;">Last Login</th>
                                     <th style="padding: 12px; text-align: left;">Actions</th>

@@ -5,7 +5,7 @@ outputHeader('Meetings', 'meetings.php');
 
         <main>
             <div class="page-header">
-                <h2>Board Meetings</h2>
+                <h2>Meetings</h2>
                 <button onclick="showMeetingModal()" class="btn btn-primary">+ New Meeting</button>
             </div>
 
@@ -77,7 +77,7 @@ outputHeader('Meetings', 'meetings.php');
             <form id="attendeeForm" onsubmit="saveAttendee(event)">
                 <input type="hidden" id="attendeeId">
                 <div class="form-group">
-                    <label for="attendeeMember">Board Member *</label>
+                    <label for="attendeeMember">Member *</label>
                     <select id="attendeeMember" required>
                         <option value="">Select member...</option>
                     </select>

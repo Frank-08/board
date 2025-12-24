@@ -84,7 +84,7 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
             <nav>
                 <ul>
                     <li><a href="index.php" <?php echo $activePage === 'index.php' ? 'class="active"' : ''; ?>>Dashboard</a></li>
-                    <li><a href="members.php" <?php echo $activePage === 'members.php' ? 'class="active"' : ''; ?>>Board Members</a></li>
+                    <li><a href="members.php" <?php echo $activePage === 'members.php' ? 'class="active"' : ''; ?>>Members</a></li>
                     <li><a href="meetings.php" <?php echo $activePage === 'meetings.php' ? 'class="active"' : ''; ?>>Meetings</a></li>
                     <!-- <li><a href="resolutions.php" <?php echo $activePage === 'resolutions.php' ? 'class="active"' : ''; ?>>Resolutions</a></li> -->
                     <li><a href="documents.php" <?php echo $activePage === 'documents.php' ? 'class="active"' : ''; ?>>Documents</a></li>

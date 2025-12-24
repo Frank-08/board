@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/includes/header.php';
-outputHeader('Board Members', 'members.php');
+outputHeader('Members', 'members.php');
 ?>
 
         <main>
             <div class="page-header">
-                <h2>Board Members</h2>
+                <h2>Members</h2>
                 <button onclick="showMemberModal()" class="btn btn-primary">+ Add Member</button>
             </div>
 
@@ -24,7 +24,7 @@ outputHeader('Board Members', 'members.php');
     <div id="memberModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeMemberModal()">&times;</span>
-            <h2 id="modalTitle">New Board Member</h2>
+            <h2 id="modalTitle">New Member</h2>
             <form id="memberForm" onsubmit="saveMember(event)">
                 <input type="hidden" id="memberId">
                 <div class="form-group">
