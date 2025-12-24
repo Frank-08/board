@@ -80,12 +80,13 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
     <div class="container">
         <header>
             <h1>Together in Council</h1>
+            <h3>One Church, many councils, discerning together</h3>
             <nav>
                 <ul>
                     <li><a href="index.php" <?php echo $activePage === 'index.php' ? 'class="active"' : ''; ?>>Dashboard</a></li>
                     <li><a href="members.php" <?php echo $activePage === 'members.php' ? 'class="active"' : ''; ?>>Board Members</a></li>
                     <li><a href="meetings.php" <?php echo $activePage === 'meetings.php' ? 'class="active"' : ''; ?>>Meetings</a></li>
-                    <li><a href="resolutions.php" <?php echo $activePage === 'resolutions.php' ? 'class="active"' : ''; ?>>Resolutions</a></li>
+                    <!-- <li><a href="resolutions.php" <?php echo $activePage === 'resolutions.php' ? 'class="active"' : ''; ?>>Resolutions</a></li> -->
                     <li><a href="documents.php" <?php echo $activePage === 'documents.php' ? 'class="active"' : ''; ?>>Documents</a></li>
                     <?php if ($canManageUsers): ?>
                     <li><a href="users.php" <?php echo $activePage === 'users.php' ? 'class="active"' : ''; ?>>Users</a></li>
