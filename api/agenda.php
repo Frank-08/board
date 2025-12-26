@@ -81,8 +81,13 @@ switch ($method) {
                 exit;
             }
             
-            // Get meeting date for item number format
-            $stmt = $db->prepare("SELECT scheduled_date FROM meetings WHERE id = ?");
+            // Get meeting date and shortcode for item number format
+            $stmt = $db->prepare("
+                SELECT m.scheduled_date, mt.shortcode 
+                FROM meetings m
+                JOIN meeting_types mt ON m.meeting_type_id = mt.id
+                WHERE m.id = ?
+            ");
             $stmt->execute([$meetingId]);
             $meeting = $stmt->fetch();
             
@@ -114,6 +119,7 @@ switch ($method) {
                 $meetingDate = new DateTime($meeting['scheduled_date']);
                 $year = $meetingDate->format('y');
                 $month = $meetingDate->format('n');
+                $shortcode = $meeting['shortcode'] ?? '';
                 
                 // Update positions and item numbers
                 $updateStmt = $db->prepare("
@@ -125,7 +131,11 @@ switch ($method) {
                 foreach ($order as $index => $itemId) {
                     $position = $index; // 0-based position
                     $sequence = $position + 1; // 1-based sequence for item number
-                    $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                    if (!empty($shortcode)) {
+                        $itemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                    } else {
+                        $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                    }
                     
                     $updateStmt->execute([$position, $itemNumber, (int)$itemId]);
                 }
@@ -150,8 +160,13 @@ switch ($method) {
             exit;
         }
         
-        // Get meeting date for item number format
-        $stmt = $db->prepare("SELECT scheduled_date FROM meetings WHERE id = ?");
+        // Get meeting date and shortcode for item number format
+        $stmt = $db->prepare("
+            SELECT m.scheduled_date, mt.shortcode 
+            FROM meetings m
+            JOIN meeting_types mt ON m.meeting_type_id = mt.id
+            WHERE m.id = ?
+        ");
         $stmt->execute([$meetingId]);
         $meeting = $stmt->fetch();
         
@@ -167,13 +182,17 @@ switch ($method) {
         $result = $stmt->fetch();
         $position = (int)$result['new_position'];
         
-        // Generate item number in format: SHORTCODE.YY.MM.SEQ
+        // Generate item number in format: SHORTCODE.YY.MM.SEQ (or YY.MM.SEQ if no shortcode)
         $meetingDate = new DateTime($meeting['scheduled_date']);
         $year = $meetingDate->format('y'); // Last 2 digits of year
         $month = $meetingDate->format('n'); // Month without leading zero (1-12)
         $sequence = $position + 1; // Position is 0-based, sequence is 1-based
-        $shortcode = $data['shortcode'] ?? ''; // Get shortcode from request
-        $itemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+        $shortcode = $meeting['shortcode'] ?? ''; // Get shortcode from meeting_type
+        if (!empty($shortcode)) {
+            $itemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+        } else {
+            $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+        }
         
 
         $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
@@ -251,11 +270,12 @@ switch ($method) {
             exit;
         }
         
-        // Get the meeting_id, position, and meeting date of the item being deleted
+        // Get the meeting_id, position, meeting date, and shortcode of the item being deleted
         $stmt = $db->prepare("
-            SELECT ai.meeting_id, ai.position, m.scheduled_date 
+            SELECT ai.meeting_id, ai.position, m.scheduled_date, mt.shortcode 
             FROM agenda_items ai
             JOIN meetings m ON ai.meeting_id = m.id
+            JOIN meeting_types mt ON m.meeting_type_id = mt.id
             WHERE ai.id = ?
         ");
         $stmt->execute([$id]);
@@ -285,11 +305,16 @@ switch ($method) {
         $meetingDate = new DateTime($item['scheduled_date']);
         $year = $meetingDate->format('y');
         $month = $meetingDate->format('n');
+        $shortcode = $item['shortcode'] ?? '';
         
         foreach ($remainingItems as $remainingItem) {
             $newPosition = $remainingItem['position'] - 1;
             $newSequence = $newPosition + 1;
-            $newItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $newSequence);
+            if (!empty($shortcode)) {
+                $newItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $newSequence);
+            } else {
+                $newItemNumber = sprintf('%s.%s.%d', $year, $month, $newSequence);
+            }
             
             $updateStmt = $db->prepare("
                 UPDATE agenda_items 
