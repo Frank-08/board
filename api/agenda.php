@@ -167,13 +167,15 @@ switch ($method) {
         $result = $stmt->fetch();
         $position = (int)$result['new_position'];
         
-        // Generate item number in format: YY.MM.SEQ
+        // Generate item number in format: SHORTCODE.YY.MM.SEQ
         $meetingDate = new DateTime($meeting['scheduled_date']);
         $year = $meetingDate->format('y'); // Last 2 digits of year
         $month = $meetingDate->format('n'); // Month without leading zero (1-12)
         $sequence = $position + 1; // Position is 0-based, sequence is 1-based
-        $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+        $shortcode = $data['shortcode'] ?? ''; // Get shortcode from request
+        $itemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
         
+
         $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $meetingId,
@@ -287,7 +289,7 @@ switch ($method) {
         foreach ($remainingItems as $remainingItem) {
             $newPosition = $remainingItem['position'] - 1;
             $newSequence = $newPosition + 1;
-            $newItemNumber = sprintf('%s.%s.%d', $year, $month, $newSequence);
+            $newItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $newSequence);
             
             $updateStmt = $db->prepare("
                 UPDATE agenda_items 

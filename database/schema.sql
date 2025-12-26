@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS meeting_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    shortcode VARCHAR(3),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -213,8 +214,8 @@ CREATE TABLE IF NOT EXISTS documents (
 INSERT INTO meeting_types (name, description) VALUES 
 ('Standing Committee', 'Regular standing committee meetings'),
 ('Presbytery in Council', 'Presbytery in Council meeting type'),
-('PRC', 'PRC meeting type'),
-('RPC', 'RPC meeting type'),
+('Parstral Relations Committee', 'PRC meeting type'),
+('Resourse and Property Committee', 'RPC meeting type'),
 ('Workshop', 'Workshop meetings');
 
 -- Insert sample board members
