@@ -45,3 +45,16 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Password reset settings
+define('PASSWORD_RESET_EXPIRE_SECONDS', 3600); // 1 hour
+
+// Email settings (simple fallback). For production, populate these from environment
+// or integrate PHPMailer / external provider and keep credentials out of repo.
+define('EMAIL_FROM_ADDRESS', 'no-reply@example.com');
+define('EMAIL_FROM_NAME', 'Together in Council');
+// Optional SMTP settings (used if you replace sendMail() to use SMTP)
+define('SMTP_HOST', getenv('SMTP_HOST') ?: '');
+define('SMTP_PORT', getenv('SMTP_PORT') ?: '');
+define('SMTP_USER', getenv('SMTP_USER') ?: '');
+define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
+

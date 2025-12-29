@@ -170,6 +170,10 @@
                 
                 <button type="submit" class="btn btn-primary">Sign In</button>
             </form>
+
+            <div style="text-align:center; margin-top:12px;">
+                <a href="forgot_password.php">Forgot your password?</a>
+            </div>
             
             <div class="login-footer">
                 <p>&copy; <?php echo date('Y'); ?> Together in Council</p>
