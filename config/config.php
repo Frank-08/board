@@ -32,6 +32,19 @@ define('DISPLAY_DATETIME_FORMAT', 'M d, Y h:i A');
 define('AUTH_SESSION_LIFETIME', 3600 * 8); // 8 hours
 define('AUTH_COOKIE_NAME', 'board_session');
 
+// Password reset settings
+define('PASSWORD_RESET_TOKEN_EXPIRY', 3600); // 1 hour in seconds
+
+// Zoho SMTP Configuration
+// Configure these with your Zoho SMTP credentials
+define('SMTP_HOST', 'smtp.zoho.com');
+define('SMTP_PORT', 587); // 587 for TLS, 465 for SSL
+define('SMTP_USERNAME', ''); // Your Zoho email address
+define('SMTP_PASSWORD', ''); // Your Zoho app password (not your regular password)
+define('SMTP_FROM_EMAIL', ''); // From email address (usually same as SMTP_USERNAME)
+define('SMTP_FROM_NAME', APP_NAME); // From name for emails
+define('SMTP_ENCRYPTION', 'tls'); // 'tls' or 'ssl'
+
 // Session settings (auth.php handles session_start)
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_httponly', 1);
