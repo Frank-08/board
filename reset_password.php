@@ -220,8 +220,19 @@
                     $token = $postToken;
                 }
                 
-                // Validate CSRF token first
-                if (!verifyCsrfToken($csrfToken)) {
+                // Validate CSRF token first (use password reset specific CSRF if token is available)
+                $csrfValid = false;
+                if (!empty($token)) {
+                    // Use password reset specific CSRF verification
+                    $csrfValid = verifyPasswordResetCsrfToken($csrfToken, $token);
+                }
+                
+                // Fallback to regular CSRF if password reset CSRF fails
+                if (!$csrfValid) {
+                    $csrfValid = verifyCsrfToken($csrfToken);
+                }
+                
+                if (!$csrfValid) {
                     $error = 'Invalid request. Please try again.';
                     // Still validate the reset token so form can be shown again
                     if (!empty($token)) {
@@ -279,8 +290,6 @@
                     }
                 }
             }
-            
-            $csrfToken = generateCsrfToken();
             ?>
             
             <?php if ($error): ?>
@@ -293,6 +302,10 @@
                     <a href="login.php" class="btn btn-primary" style="display: inline-block; text-decoration: none;">Go to Login</a>
                 </div>
             <?php elseif ($validToken): ?>
+                <?php
+                // Generate CSRF token for password reset (tied to reset token)
+                $csrfToken = generatePasswordResetCsrfToken($token);
+                ?>
                 <form class="login-form" method="POST" action="" onsubmit="return validatePasswords();">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                     <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">

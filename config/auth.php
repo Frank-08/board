@@ -297,6 +297,37 @@ function verifyCsrfToken(string $token): bool {
 }
 
 /**
+ * Generate a CSRF token for password reset (tied to reset token)
+ * This avoids session dependency issues when users arrive via email link
+ * 
+ * @param string $resetToken The password reset token
+ * @return string
+ */
+function generatePasswordResetCsrfToken(string $resetToken): string {
+    // Generate a CSRF token based on the reset token and a session secret
+    // This ensures the token is tied to both the session and the reset token
+    if (empty($_SESSION['csrf_secret'])) {
+        $_SESSION['csrf_secret'] = bin2hex(random_bytes(16));
+    }
+    return hash_hmac('sha256', $resetToken, $_SESSION['csrf_secret']);
+}
+
+/**
+ * Verify a CSRF token for password reset
+ * 
+ * @param string $token Token to verify
+ * @param string $resetToken The password reset token
+ * @return bool
+ */
+function verifyPasswordResetCsrfToken(string $token, string $resetToken): bool {
+    if (empty($_SESSION['csrf_secret'])) {
+        return false;
+    }
+    $expectedToken = hash_hmac('sha256', $resetToken, $_SESSION['csrf_secret']);
+    return hash_equals($expectedToken, $token);
+}
+
+/**
  * Get user by ID
  * 
  * @param int $userId
