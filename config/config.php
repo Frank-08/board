@@ -35,6 +35,11 @@ define('AUTH_COOKIE_NAME', 'board_session');
 // Password reset settings
 define('PASSWORD_RESET_TOKEN_EXPIRY', 3600); // 1 hour in seconds
 
+// CSRF secret for password reset (stateless, works behind Cloudflare)
+// Generate a random secret: php -r "echo bin2hex(random_bytes(32));"
+// Keep this secret secure and don't change it once set
+define('CSRF_SECRET', 'CHANGE_THIS_TO_A_RANDOM_64_CHARACTER_HEX_STRING');
+
 // Zoho SMTP Configuration
 // Configure these with your Zoho SMTP credentials
 define('SMTP_HOST', 'smtp.zoho.com');
@@ -46,12 +51,20 @@ define('SMTP_FROM_NAME', APP_NAME); // From name for emails
 define('SMTP_ENCRYPTION', 'tls'); // 'tls' or 'ssl'
 
 // Session settings (auth.php handles session_start)
+// Cloudflare-compatible session settings
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_strict_mode', 1);
+    ini_set('session.cookie_samesite', 'Lax');
+    // Use secure cookies if HTTPS is detected (Cloudflare handles SSL termination)
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
+                || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+                || (!empty($_SERVER['HTTP_CF_VISITOR']) && strpos($_SERVER['HTTP_CF_VISITOR'], '"scheme":"https"') !== false);
     session_set_cookie_params([
         'lifetime' => AUTH_SESSION_LIFETIME,
         'path' => '/',
+        'domain' => '', // Empty domain works better with Cloudflare
+        'secure' => $isSecure,
         'httponly' => true,
         'samesite' => 'Lax'
     ]);

@@ -297,33 +297,51 @@ function verifyCsrfToken(string $token): bool {
 }
 
 /**
- * Generate a CSRF token for password reset (tied to reset token)
- * This avoids session dependency issues when users arrive via email link
+ * Generate a CSRF token for password reset (stateless, works behind Cloudflare)
+ * Uses a config secret instead of session, so it works even if sessions fail
  * 
  * @param string $resetToken The password reset token
  * @return string
  */
 function generatePasswordResetCsrfToken(string $resetToken): string {
-    // Generate a CSRF token based on the reset token and a session secret
-    // This ensures the token is tied to both the session and the reset token
-    if (empty($_SESSION['csrf_secret'])) {
-        $_SESSION['csrf_secret'] = bin2hex(random_bytes(16));
-    }
-    return hash_hmac('sha256', $resetToken, $_SESSION['csrf_secret']);
+    // Use config secret instead of session - this makes it stateless
+    // The CSRF token is derived from the reset token itself, making it secure
+    $secret = defined('CSRF_SECRET') && CSRF_SECRET !== 'CHANGE_THIS_TO_A_RANDOM_64_CHARACTER_HEX_STRING' 
+        ? CSRF_SECRET 
+        : 'default_secret_change_in_config'; // Fallback if not configured
+    
+    // Generate token based on reset token + secret + timestamp (hourly window)
+    // This ensures the token changes periodically but doesn't require sessions
+    $timeWindow = floor(time() / 3600); // Changes every hour
+    $data = $resetToken . $secret . $timeWindow;
+    return hash_hmac('sha256', $data, $secret);
 }
 
 /**
- * Verify a CSRF token for password reset
+ * Verify a CSRF token for password reset (stateless)
  * 
  * @param string $token Token to verify
  * @param string $resetToken The password reset token
  * @return bool
  */
 function verifyPasswordResetCsrfToken(string $token, string $resetToken): bool {
-    if (empty($_SESSION['csrf_secret'])) {
-        return false;
+    $secret = defined('CSRF_SECRET') && CSRF_SECRET !== 'CHANGE_THIS_TO_A_RANDOM_64_CHARACTER_HEX_STRING' 
+        ? CSRF_SECRET 
+        : 'default_secret_change_in_config'; // Fallback if not configured
+    
+    // Check current hour and previous hour (to handle edge cases)
+    $timeWindow = floor(time() / 3600);
+    
+    // Try current hour
+    $data = $resetToken . $secret . $timeWindow;
+    $expectedToken = hash_hmac('sha256', $data, $secret);
+    if (hash_equals($expectedToken, $token)) {
+        return true;
     }
-    $expectedToken = hash_hmac('sha256', $resetToken, $_SESSION['csrf_secret']);
+    
+    // Try previous hour (in case of clock skew or slow submission)
+    $data = $resetToken . $secret . ($timeWindow - 1);
+    $expectedToken = hash_hmac('sha256', $data, $secret);
     return hash_equals($expectedToken, $token);
 }
 
