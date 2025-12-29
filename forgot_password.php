@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Together in Council</title>
+    <title>Forgot Password - Together in Council</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
         .login-container {
@@ -51,18 +51,17 @@
             color: #333;
         }
         
-        .login-form input[type="text"],
-        .login-form input[type="password"] {
+        .login-form input[type="email"] {
             width: 100%;
             padding: 12px 15px;
             border: 2px solid #e1e1e1;
             border-radius: 6px;
             font-size: 16px;
             transition: border-color 0.3s, box-shadow 0.3s;
+            box-sizing: border-box;
         }
         
-        .login-form input[type="text"]:focus,
-        .login-form input[type="password"]:focus {
+        .login-form input[type="email"]:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -125,37 +124,37 @@
             <div class="login-header">
                 <h1>Together in Council</h1>
                 <h3>One Church, many councils, discerning together</h3>
-                <p>Sign in to access the system</p>
+                <p>Reset your password</p>
             </div>
             
             <?php
             require_once __DIR__ . '/config/auth.php';
             
             $error = '';
-            $redirect = $_GET['redirect'] ?? 'index.php';
+            $success = '';
             
             // If already logged in, redirect
             if (isLoggedIn()) {
-                header('Location: ' . $redirect);
+                header('Location: index.php');
                 exit;
             }
             
-            // Handle login form submission
+            // Handle form submission
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $username = trim($_POST['username'] ?? '');
-                $password = $_POST['password'] ?? '';
+                $email = trim($_POST['email'] ?? '');
                 $csrfToken = $_POST['csrf_token'] ?? '';
                 
                 if (!verifyCsrfToken($csrfToken)) {
                     $error = 'Invalid request. Please try again.';
-                } elseif (empty($username) || empty($password)) {
-                    $error = 'Please enter both username and password.';
+                } elseif (empty($email)) {
+                    $error = 'Please enter your email address.';
+                } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $error = 'Please enter a valid email address.';
                 } else {
-                    $result = login($username, $password);
+                    $result = requestPasswordReset($email);
                     
                     if ($result['success']) {
-                        header('Location: ' . $redirect);
-                        exit;
+                        $success = $result['message'];
                     } else {
                         $error = $result['message'];
                     }
@@ -169,26 +168,29 @@
                 <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
             
-            <form class="login-form" method="POST" action="">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" required autofocus
-                           value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
+            <?php if ($success): ?>
+                <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
+                <div class="forgot-password-link">
+                    <a href="login.php">Back to Login</a>
                 </div>
+            <?php else: ?>
+                <form class="login-form" method="POST" action="">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                    
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" required autofocus
+                               value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
+                               placeholder="Enter your email address">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Send Reset Link</button>
+                </form>
                 
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required>
+                <div class="forgot-password-link">
+                    <a href="login.php">Back to Login</a>
                 </div>
-                
-                <button type="submit" class="btn btn-primary">Sign In</button>
-            </form>
-            
-            <div class="forgot-password-link">
-                <a href="forgot_password.php">Forgot Password?</a>
-            </div>
+            <?php endif; ?>
             
             <div class="login-footer">
                 <p>&copy; <?php echo date('Y'); ?> Together in Council</p>
