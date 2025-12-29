@@ -199,7 +199,7 @@
             
             $error = '';
             $success = '';
-            $token = $_GET['token'] ?? '';
+            $token = $_GET['token'] ?? $_POST['token'] ?? '';
             $validToken = false;
             
             // If already logged in, redirect
@@ -208,41 +208,74 @@
                 exit;
             }
             
-            // Validate token
-            if (empty($token)) {
-                $error = 'Invalid reset link. Please request a new password reset.';
-            } else {
-                $user = validatePasswordResetToken($token);
-                if ($user) {
-                    $validToken = true;
-                } else {
-                    $error = 'Invalid or expired password reset token. Please request a new password reset.';
-                }
-            }
-            
-            // Handle form submission
-            if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validToken) {
-                $token = trim($_POST['token'] ?? '');
+            // Handle form submission first
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $postToken = trim($_POST['token'] ?? '');
                 $password = $_POST['password'] ?? '';
                 $confirmPassword = $_POST['confirm_password'] ?? '';
                 $csrfToken = $_POST['csrf_token'] ?? '';
                 
+                // Use POST token if available, otherwise keep GET token
+                if (!empty($postToken)) {
+                    $token = $postToken;
+                }
+                
+                // Validate CSRF token first
                 if (!verifyCsrfToken($csrfToken)) {
                     $error = 'Invalid request. Please try again.';
+                    // Still validate the reset token so form can be shown again
+                    if (!empty($token)) {
+                        $user = validatePasswordResetToken($token);
+                        if ($user) {
+                            $validToken = true;
+                        }
+                    }
+                } elseif (empty($token)) {
+                    $error = 'Invalid reset link. Please request a new password reset.';
                 } elseif (empty($password) || empty($confirmPassword)) {
                     $error = 'Please enter and confirm your new password.';
+                    // Token is valid, show form again
+                    $validToken = true;
                 } elseif (strlen($password) < 8) {
                     $error = 'Password must be at least 8 characters long.';
+                    // Token is valid, show form again
+                    $validToken = true;
                 } elseif ($password !== $confirmPassword) {
                     $error = 'Passwords do not match.';
+                    // Token is valid, show form again
+                    $validToken = true;
                 } else {
-                    $result = resetPassword($token, $password);
-                    
-                    if ($result['success']) {
-                        $success = $result['message'];
-                        $validToken = false; // Hide form after success
+                    // Validate token before resetting password
+                    $user = validatePasswordResetToken($token);
+                    if (!$user) {
+                        $error = 'Invalid or expired password reset token. Please request a new password reset.';
                     } else {
-                        $error = $result['message'];
+                        $result = resetPassword($token, $password);
+                        
+                        if ($result['success']) {
+                            $success = $result['message'];
+                            $validToken = false; // Hide form after success
+                        } else {
+                            $error = $result['message'];
+                        }
+                    }
+                }
+            }
+            
+            // Validate token for display (only if not POST or if POST failed and token not already validated)
+            if (!$validToken && ($_SERVER['REQUEST_METHOD'] !== 'POST' || !empty($error))) {
+                if (empty($token)) {
+                    if (empty($error)) {
+                        $error = 'Invalid reset link. Please request a new password reset.';
+                    }
+                } else {
+                    $user = validatePasswordResetToken($token);
+                    if ($user) {
+                        $validToken = true;
+                    } else {
+                        if (empty($error)) {
+                            $error = 'Invalid or expired password reset token. Please request a new password reset.';
+                        }
                     }
                 }
             }
