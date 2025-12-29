@@ -16,10 +16,10 @@ Options -Indexes
 </FilesMatch>
 
 # Allow access to API files
-<DirectoryMatch "^.*/api/">
-    AllowOverride None
-    Require all granted
-</DirectoryMatch>
+#<DirectoryMatch "^.*/api/">
+#    AllowOverride None
+#    Require all granted
+#</DirectoryMatch>
 
 # PHP settings
 <IfModule mod_php7.c>
