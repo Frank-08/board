@@ -42,7 +42,7 @@ switch ($method) {
             
             echo json_encode($meetingType);
         } else {
-            $stmt = $db->query("SELECT * FROM meeting_types ORDER BY id ASC");
+            $stmt = $db->query("SELECT * FROM meeting_types ORDER BY display_order ASC");
             echo json_encode($stmt->fetchAll());
         }
         break;
