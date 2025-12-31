@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'start_setup') {
             // Generate new secret for setup
             $secret = generateTwoFactorSecret();
-            $qrUrl = generateTwoFactorQRUrl($secret, $currentUser['email']);
+            $qrUrl = generateTwoFactorQRUrl($secret, $currentUser['username']);
             $setupMode = true;
             $_SESSION['2fa_setup_secret'] = $secret;
         } elseif ($action === 'verify_setup') {
@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // If in setup mode, get the secret from session
 if (isset($_SESSION['2fa_setup_secret']) && !$isEnabled) {
     $secret = $_SESSION['2fa_setup_secret'];
-    $qrUrl = generateTwoFactorQRUrl($secret, $currentUser['email']);
+    $qrUrl = generateTwoFactorQRUrl($secret, $currentUser['username']);
     $setupMode = true;
 }
 
