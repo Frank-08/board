@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/twofactor.php';
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
@@ -203,7 +204,7 @@ function requirePermission(string $action): void {
  * 
  * @param string $username Username
  * @param string $password Plain text password
- * @return array ['success' => bool, 'message' => string, 'user' => array|null]
+ * @return array ['success' => bool, 'message' => string, 'user' => array|null, 'requires_2fa' => bool]
  */
 function login(string $username, string $password): array {
     $db = getDBConnection();
@@ -214,14 +215,39 @@ function login(string $username, string $password): array {
     $user = $stmt->fetch();
     
     if (!$user) {
-        return ['success' => false, 'message' => 'Invalid username or password', 'user' => null];
+        return ['success' => false, 'message' => 'Invalid username or password', 'user' => null, 'requires_2fa' => false];
     }
     
     // Verify password
     if (!password_verify($password, $user['password_hash'])) {
-        return ['success' => false, 'message' => 'Invalid username or password', 'user' => null];
+        return ['success' => false, 'message' => 'Invalid username or password', 'user' => null, 'requires_2fa' => false];
     }
     
+    // Check if 2FA is enabled
+    $twoFactorEnabled = isset($user['two_factor_enabled']) && $user['two_factor_enabled'] == 1;
+    
+    if ($twoFactorEnabled) {
+        // Store temporary session data for 2FA verification
+        // Don't set full session yet - wait for 2FA verification
+        $_SESSION['pending_user_id'] = $user['id'];
+        $_SESSION['pending_username'] = $user['username'];
+        $_SESSION['pending_email'] = $user['email'];
+        $_SESSION['pending_role'] = $user['role'];
+        $_SESSION['pending_board_member_id'] = $user['board_member_id'];
+        $_SESSION['pending_login_time'] = time();
+        
+        // Regenerate session ID
+        session_regenerate_id(true);
+        
+        return [
+            'success' => true,
+            'message' => 'Password verified. Please enter your 2FA code.',
+            'user' => null,
+            'requires_2fa' => true
+        ];
+    }
+    
+    // No 2FA required - complete login
     // Update last login timestamp
     $stmt = $db->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
     $stmt->execute([$user['id']]);
@@ -245,8 +271,52 @@ function login(string $username, string $password): array {
             'email' => $user['email'],
             'role' => $user['role'],
             'board_member_id' => $user['board_member_id']
-        ]
+        ],
+        'requires_2fa' => false
     ];
+}
+
+/**
+ * Complete login after 2FA verification
+ * 
+ * @return bool Success
+ */
+function completeTwoFactorLogin(): bool {
+    if (!isset($_SESSION['pending_user_id'])) {
+        return false;
+    }
+    
+    // Check if pending login is not too old (15 minutes max)
+    if (!isset($_SESSION['pending_login_time']) || (time() - $_SESSION['pending_login_time']) > 900) {
+        // Clear pending session
+        unset($_SESSION['pending_user_id'], $_SESSION['pending_username'], 
+              $_SESSION['pending_email'], $_SESSION['pending_role'], 
+              $_SESSION['pending_board_member_id'], $_SESSION['pending_login_time']);
+        return false;
+    }
+    
+    $db = getDBConnection();
+    
+    // Update last login timestamp
+    $stmt = $db->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
+    $stmt->execute([$_SESSION['pending_user_id']]);
+    
+    // Set session variables
+    $_SESSION['user_id'] = $_SESSION['pending_user_id'];
+    $_SESSION['username'] = $_SESSION['pending_username'];
+    $_SESSION['email'] = $_SESSION['pending_email'];
+    $_SESSION['role'] = $_SESSION['pending_role'];
+    $_SESSION['board_member_id'] = $_SESSION['pending_board_member_id'];
+    
+    // Clear pending session data
+    unset($_SESSION['pending_user_id'], $_SESSION['pending_username'], 
+          $_SESSION['pending_email'], $_SESSION['pending_role'], 
+          $_SESSION['pending_board_member_id'], $_SESSION['pending_login_time']);
+    
+    // Regenerate session ID to prevent session fixation
+    session_regenerate_id(true);
+    
+    return true;
 }
 
 /**

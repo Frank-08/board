@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Together in Council</title>
+    <title>Verify 2FA - Together in Council</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
         .login-container {
@@ -51,18 +51,18 @@
             color: #333;
         }
         
-        .login-form input[type="text"],
-        .login-form input[type="password"] {
+        .login-form input[type="text"] {
             width: 100%;
             padding: 12px 15px;
             border: 2px solid #e1e1e1;
             border-radius: 6px;
-            font-size: 16px;
+            font-size: 20px;
+            text-align: center;
+            letter-spacing: 8px;
             transition: border-color 0.3s, box-shadow 0.3s;
         }
         
-        .login-form input[type="text"]:focus,
-        .login-form input[type="password"]:focus {
+        .login-form input[type="text"]:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -88,33 +88,27 @@
             color: #dc2626;
         }
         
-        .alert-success {
-            background-color: #dcfce7;
-            border: 1px solid #bbf7d0;
-            color: #16a34a;
+        .alert-info {
+            background-color: #dbeafe;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
         }
         
-        .login-footer {
-            text-align: center;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            color: #666;
-            font-size: 12px;
-        }
-        
-        .forgot-password-link {
-            text-align: center;
+        .backup-code-hint {
             margin-top: 15px;
+            padding: 12px;
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #6b7280;
         }
         
-        .forgot-password-link a {
+        .backup-code-hint a {
             color: #667eea;
             text-decoration: none;
-            font-size: 14px;
         }
         
-        .forgot-password-link a:hover {
+        .backup-code-hint a:hover {
             text-decoration: underline;
         }
     </style>
@@ -123,50 +117,52 @@
     <div class="login-container">
         <div class="login-box">
             <div class="login-header">
-                <h1>Together in Council</h1>
-                <h3>One Church, many councils, discerning together</h3>
-                <p>Sign in to access the system</p>
+                <h1>Two-Factor Authentication</h1>
+                <p>Enter the 6-digit code from your authenticator app</p>
             </div>
             
             <?php
             require_once __DIR__ . '/config/auth.php';
+            require_once __DIR__ . '/config/twofactor.php';
             
             $error = '';
             $redirect = $_GET['redirect'] ?? 'index.php';
             
-            // Check for error messages from redirects
-            if (isset($_GET['error']) && $_GET['error'] === 'session_expired') {
-                $error = 'Your 2FA verification session has expired. Please log in again.';
-            }
-            
-            // If already logged in, redirect
-            if (isLoggedIn()) {
-                header('Location: ' . $redirect);
+            // Check if there's a pending login
+            if (!isset($_SESSION['pending_user_id'])) {
+                header('Location: login.php?redirect=' . urlencode($redirect));
                 exit;
             }
             
-            // Handle login form submission
+            // Check if pending login is not too old (15 minutes max)
+            if (!isset($_SESSION['pending_login_time']) || (time() - $_SESSION['pending_login_time']) > 900) {
+                unset($_SESSION['pending_user_id'], $_SESSION['pending_username'], 
+                      $_SESSION['pending_email'], $_SESSION['pending_role'], 
+                      $_SESSION['pending_board_member_id'], $_SESSION['pending_login_time']);
+                header('Location: login.php?redirect=' . urlencode($redirect) . '&error=session_expired');
+                exit;
+            }
+            
+            // Handle form submission
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $username = trim($_POST['username'] ?? '');
-                $password = $_POST['password'] ?? '';
+                $code = trim($_POST['code'] ?? '');
                 $csrfToken = $_POST['csrf_token'] ?? '';
                 
                 if (!verifyCsrfToken($csrfToken)) {
                     $error = 'Invalid request. Please try again.';
-                } elseif (empty($username) || empty($password)) {
-                    $error = 'Please enter both username and password.';
+                } elseif (empty($code)) {
+                    $error = 'Please enter your 2FA code.';
                 } else {
-                    $result = login($username, $password);
+                    $userId = $_SESSION['pending_user_id'];
+                    $result = verifyTwoFactorCode($userId, $code);
                     
                     if ($result['success']) {
-                        if ($result['requires_2fa']) {
-                            // Redirect to 2FA verification
-                            header('Location: verify_2fa.php?redirect=' . urlencode($redirect));
-                            exit;
-                        } else {
-                            // Normal login without 2FA
+                        // Complete login
+                        if (completeTwoFactorLogin()) {
                             header('Location: ' . $redirect);
                             exit;
+                        } else {
+                            $error = 'Session expired. Please log in again.';
                         }
                     } else {
                         $error = $result['message'];
@@ -181,32 +177,47 @@
                 <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
             
-            <form class="login-form" method="POST" action="">
+            <div class="alert alert-info">
+                <strong>Tip:</strong> You can also use a backup code if you don't have access to your authenticator app.
+            </div>
+            
+            <form class="login-form" method="POST" action="" id="verifyForm">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                 
                 <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" required autofocus
-                           value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
+                    <label for="code">Verification Code</label>
+                    <input type="text" id="code" name="code" required autofocus 
+                           maxlength="6" pattern="[0-9]{6}" 
+                           placeholder="000000"
+                           autocomplete="one-time-code">
                 </div>
                 
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                
-                <button type="submit" class="btn btn-primary">Sign In</button>
+                <button type="submit" class="btn btn-primary">Verify</button>
             </form>
             
-            <div class="forgot-password-link">
-                <a href="forgot_password.php">Forgot Password?</a>
-            </div>
-            
-            <div class="login-footer">
-                <p>&copy; <?php echo date('Y'); ?> Together in Council</p>
+            <div class="backup-code-hint">
+                Don't have your device? <a href="login.php">Go back to login</a>
             </div>
         </div>
     </div>
+    
+    <script>
+        // Auto-submit when 6 digits are entered
+        document.getElementById('code').addEventListener('input', function(e) {
+            const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+            e.target.value = value;
+            
+            if (value.length === 6) {
+                // Small delay to let user see the code
+                setTimeout(function() {
+                    document.getElementById('verifyForm').submit();
+                }, 300);
+            }
+        });
+        
+        // Focus on code input
+        document.getElementById('code').focus();
+    </script>
 </body>
 </html>
 
