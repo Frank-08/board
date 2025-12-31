@@ -134,6 +134,11 @@
             $error = '';
             $redirect = $_GET['redirect'] ?? 'index.php';
             
+            // Check for error messages from redirects
+            if (isset($_GET['error']) && $_GET['error'] === 'session_expired') {
+                $error = 'Your 2FA verification session has expired. Please log in again.';
+            }
+            
             // If already logged in, redirect
             if (isLoggedIn()) {
                 header('Location: ' . $redirect);
@@ -154,8 +159,15 @@
                     $result = login($username, $password);
                     
                     if ($result['success']) {
-                        header('Location: ' . $redirect);
-                        exit;
+                        if ($result['requires_2fa']) {
+                            // Redirect to 2FA verification
+                            header('Location: verify_2fa.php?redirect=' . urlencode($redirect));
+                            exit;
+                        } else {
+                            // Normal login without 2FA
+                            header('Location: ' . $redirect);
+                            exit;
+                        }
                     } else {
                         $error = $result['message'];
                     }
