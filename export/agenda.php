@@ -352,7 +352,7 @@ function formatTime($dateString) {
         <div style="text-align:center; margin-bottom:15px;">
             <img src="../<?php echo htmlspecialchars($logoUrl); ?>" 
                  alt="Logo" 
-                 style="max-width:<?php echo defined('LOGO_WIDTH_HTML') ? LOGO_WIDTH_HTML : 60; ?>px; height:<?php echo defined('LOGO_HEIGHT') && LOGO_HEIGHT > 0 ? LOGO_HEIGHT : 'auto'; ?>px; max-height:80px;">
+                 style="max-width:<?php echo defined('LOGO_WIDTH_HTML') ? LOGO_WIDTH_HTML : 60; ?>px; height:<?php echo defined('LOGO_HEIGHT') && LOGO_HEIGHT > 0 ? LOGO_HEIGHT : 'auto'; ?>px; max-height:250px;">
         </div>
         <?php endif; ?>
         <div class="organization"><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></div>
