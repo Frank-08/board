@@ -8,7 +8,7 @@ define('BASE_URL', 'http://localhost/board');
 
 // File upload settings
 define('UPLOAD_DIR', __DIR__ . '/../uploads/');
-define('MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB
+define('MAX_FILE_SIZE', 50 * 1024 * 1024); // 50MB
 define('ALLOWED_FILE_TYPES', ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']);
 
 // Logo settings for PDF exports
