@@ -1,3 +1,107 @@
+<?php
+// Enable error reporting for debugging (remove in production)
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Include all PHP files BEFORE any HTML output
+require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/config/twofactor.php';
+require_once __DIR__ . '/config/database.php';
+
+$currentUser = getCurrentUser();
+if (!$currentUser) {
+    header('Location: login.php');
+    exit;
+}
+
+// Check if migration has been run
+try {
+    $db = getDBConnection();
+    $stmt = $db->query("SHOW COLUMNS FROM users LIKE 'two_factor_enabled'");
+    $migrationRun = $stmt->rowCount() > 0;
+} catch (Exception $e) {
+    $migrationRun = false;
+    error_log("Error checking migration: " . $e->getMessage());
+}
+
+$userId = $currentUser['id'];
+$isEnabled = false;
+
+if ($migrationRun) {
+    $isEnabled = isTwoFactorEnabled($userId);
+}
+
+$error = '';
+$success = '';
+$setupMode = false;
+$secret = null;
+$qrUrl = null;
+$backupCodes = [];
+
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrfToken = $_POST['csrf_token'] ?? '';
+    
+    if (!verifyCsrfToken($csrfToken)) {
+        $error = 'Invalid request. Please try again.';
+    } else {
+        $action = $_POST['action'] ?? '';
+        
+        if ($action === 'start_setup') {
+            // Generate new secret for setup
+            $secret = generateTwoFactorSecret();
+            $qrUrl = generateTwoFactorQRUrl($secret, $currentUser['email']);
+            $setupMode = true;
+            $_SESSION['2fa_setup_secret'] = $secret;
+        } elseif ($action === 'verify_setup') {
+            // Verify the code and enable 2FA
+            $code = trim($_POST['code'] ?? '');
+            
+            if (empty($code)) {
+                $error = 'Please enter the verification code.';
+            } elseif (!isset($_SESSION['2fa_setup_secret'])) {
+                $error = 'Setup session expired. Please start over.';
+            } else {
+                $secret = $_SESSION['2fa_setup_secret'];
+                
+                if (verifyTOTPCode($secret, $code)) {
+                    // Generate backup codes
+                    $backupCodes = generateBackupCodes(10);
+                    
+                    // Enable 2FA
+                    if (enableTwoFactor($userId, $secret, $backupCodes)) {
+                        unset($_SESSION['2fa_setup_secret']);
+                        $success = 'Two-factor authentication has been enabled successfully!';
+                        $isEnabled = true;
+                        $setupMode = false;
+                    } else {
+                        $error = 'Failed to enable 2FA. Please try again.';
+                    }
+                } else {
+                    $error = 'Invalid code. Please try again.';
+                }
+            }
+        } elseif ($action === 'disable') {
+            // Disable 2FA
+            if (disableTwoFactor($userId)) {
+                $success = 'Two-factor authentication has been disabled.';
+                $isEnabled = false;
+            } else {
+                $error = 'Failed to disable 2FA. Please try again.';
+            }
+        }
+    }
+}
+
+// If in setup mode, get the secret from session
+if (isset($_SESSION['2fa_setup_secret']) && !$isEnabled) {
+    $secret = $_SESSION['2fa_setup_secret'];
+    $qrUrl = generateTwoFactorQRUrl($secret, $currentUser['email']);
+    $setupMode = true;
+}
+
+// Now output the HTML
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -236,109 +340,7 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
-    <?php
-    // Enable error reporting for debugging (remove in production)
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-    
-    require_once __DIR__ . '/includes/header.php';
-    require_once __DIR__ . '/config/twofactor.php';
-    require_once __DIR__ . '/config/database.php';
-    
-    $currentUser = getCurrentUser();
-    if (!$currentUser) {
-        header('Location: login.php');
-        exit;
-    }
-    
-    // Check if migration has been run
-    try {
-        $db = getDBConnection();
-        $stmt = $db->query("SHOW COLUMNS FROM users LIKE 'two_factor_enabled'");
-        $migrationRun = $stmt->rowCount() > 0;
-    } catch (Exception $e) {
-        $migrationRun = false;
-        error_log("Error checking migration: " . $e->getMessage());
-    }
-    
-    $userId = $currentUser['id'];
-    $isEnabled = false;
-    
-    if ($migrationRun) {
-        $isEnabled = isTwoFactorEnabled($userId);
-    }
-    
-    $error = '';
-    $success = '';
-    $setupMode = false;
-    $secret = null;
-    $qrUrl = null;
-    $backupCodes = [];
-    
-    // Handle form submissions
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $csrfToken = $_POST['csrf_token'] ?? '';
-        
-        if (!verifyCsrfToken($csrfToken)) {
-            $error = 'Invalid request. Please try again.';
-        } else {
-            $action = $_POST['action'] ?? '';
-            
-            if ($action === 'start_setup') {
-                // Generate new secret for setup
-                $secret = generateTwoFactorSecret();
-                $qrUrl = generateTwoFactorQRUrl($secret, $currentUser['email']);
-                $setupMode = true;
-                $_SESSION['2fa_setup_secret'] = $secret;
-            } elseif ($action === 'verify_setup') {
-                // Verify the code and enable 2FA
-                $code = trim($_POST['code'] ?? '');
-                
-                if (empty($code)) {
-                    $error = 'Please enter the verification code.';
-                } elseif (!isset($_SESSION['2fa_setup_secret'])) {
-                    $error = 'Setup session expired. Please start over.';
-                } else {
-                    $secret = $_SESSION['2fa_setup_secret'];
-                    
-                    if (verifyTOTPCode($secret, $code)) {
-                        // Generate backup codes
-                        $backupCodes = generateBackupCodes(10);
-                        
-                        // Enable 2FA
-                        if (enableTwoFactor($userId, $secret, $backupCodes)) {
-                            unset($_SESSION['2fa_setup_secret']);
-                            $success = 'Two-factor authentication has been enabled successfully!';
-                            $isEnabled = true;
-                            $setupMode = false;
-                        } else {
-                            $error = 'Failed to enable 2FA. Please try again.';
-                        }
-                    } else {
-                        $error = 'Invalid code. Please try again.';
-                    }
-                }
-            } elseif ($action === 'disable') {
-                // Disable 2FA
-                if (disableTwoFactor($userId)) {
-                    $success = 'Two-factor authentication has been disabled.';
-                    $isEnabled = false;
-                } else {
-                    $error = 'Failed to disable 2FA. Please try again.';
-                }
-            }
-        }
-    }
-    
-    // If in setup mode, get the secret from session
-    if (isset($_SESSION['2fa_setup_secret']) && !$isEnabled) {
-        $secret = $_SESSION['2fa_setup_secret'];
-        $qrUrl = generateTwoFactorQRUrl($secret, $currentUser['email']);
-        $setupMode = true;
-    }
-    
-    outputHeader('Two-Factor Authentication', 'setup_2fa.php');
-    ?>
+    <?php outputHeader('Two-Factor Authentication', 'setup_2fa.php'); ?>
     
     <main>
         <div class="container">
@@ -512,4 +514,3 @@
     </script>
 </body>
 </html>
-
