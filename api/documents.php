@@ -16,6 +16,13 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 
+// Set PHP upload limits programmatically (works even if .htaccess doesn't apply)
+// These must be set before PHP tries to parse the upload
+ini_set('upload_max_filesize', '20M');
+ini_set('post_max_size', '30M');
+ini_set('max_execution_time', '300');
+ini_set('max_input_time', '300');
+
 // Require authentication for all requests
 requireAuth();
 
@@ -114,6 +121,11 @@ switch ($method) {
         break;
         
     case 'POST':
+        // Debug logging (remove in production)
+        error_log('POST request received. $_FILES: ' . print_r($_FILES, true));
+        error_log('Content-Type: ' . ($_SERVER['CONTENT_TYPE'] ?? 'not set'));
+        error_log('Request method: ' . $_SERVER['REQUEST_METHOD']);
+        
         // Handle file upload
         if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['file'];
@@ -123,7 +135,13 @@ switch ($method) {
             $agendaItemId = !empty($_POST['agenda_item_id']) ? (int)$_POST['agenda_item_id'] : null;
             $meetingTypeId = !empty($_POST['meeting_type_id']) ? (int)$_POST['meeting_type_id'] : null;
             $documentType = $_POST['document_type'] ?? 'Other';
-            $uploadedBy = !empty($_POST['uploaded_by']) ? (int)$_POST['uploaded_by'] : null;
+            
+            // Get uploaded_by from current user's session
+            $currentUser = getCurrentUser();
+            $uploadedBy = $currentUser['board_member_id'] ?? null;
+            if (!$uploadedBy) {
+                error_log('Document upload: board_member_id not found in session for user_id: ' . ($currentUser['id'] ?? 'unknown'));
+            }
             
             // Validate file
             $fileSize = $file['size'];
@@ -225,50 +243,83 @@ switch ($method) {
             http_response_code(400);
             echo json_encode(['error' => $errorMessages[$errorCode] ?? 'Unknown upload error']);
             exit;
-        } else {
-            // JSON request for updating document metadata
-            $data = json_decode(file_get_contents('php://input'), true);
-            $id = (int)($data['id'] ?? 0);
+        } elseif (!isset($_FILES['file'])) {
+            // No file was sent - check if this is a JSON metadata update request
+            $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
             
-            if (!$id) {
-                http_response_code(400);
-                echo json_encode(['error' => 'ID is required']);
-                exit;
-            }
+            // Log for debugging
+            error_log('No file in $_FILES. Content-Type: ' . $contentType);
+            error_log('$_FILES contents: ' . print_r($_FILES, true));
             
-            $updates = [];
-            $params = [];
-            
-            $fields = ['title', 'description', 'document_type', 'agenda_item_id'];
-            foreach ($fields as $field) {
-                if (isset($data[$field])) {
-                    $updates[] = "$field = ?";
-                    $params[] = $data[$field];
+            if (strpos($contentType, 'application/json') !== false) {
+                // JSON request for updating document metadata
+                $data = json_decode(file_get_contents('php://input'), true);
+                $id = (int)($data['id'] ?? 0);
+                
+                if (!$id) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'ID is required']);
+                    exit;
                 }
-            }
-            
-            if (empty($updates)) {
+                
+                $updates = [];
+                $params = [];
+                
+                $fields = ['title', 'description', 'document_type', 'agenda_item_id'];
+                foreach ($fields as $field) {
+                    if (isset($data[$field])) {
+                        $updates[] = "$field = ?";
+                        $params[] = $data[$field];
+                    }
+                }
+                
+                if (empty($updates)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'No fields to update']);
+                    exit;
+                }
+                
+                $params[] = $id;
+                $sql = "UPDATE documents SET " . implode(', ', $updates) . " WHERE id = ?";
+                $stmt = $db->prepare($sql);
+                $stmt->execute($params);
+                
+                $stmt = $db->prepare("
+                    SELECT d.*, 
+                        bm.first_name as uploaded_first_name, bm.last_name as uploaded_last_name,
+                        ai.title as agenda_item_title
+                    FROM documents d
+                    LEFT JOIN board_members bm ON d.uploaded_by = bm.id
+                    LEFT JOIN agenda_items ai ON d.agenda_item_id = ai.id
+                    WHERE d.id = ?
+                ");
+                $stmt->execute([$id]);
+                echo json_encode($stmt->fetch());
+            } else {
+                // Expected file upload but no file was provided
+                // This could be due to:
+                // 1. File not selected in the form
+                // 2. PHP upload_max_filesize or post_max_size too small
+                // 3. Form not submitted correctly
+                $contentType = $_SERVER['CONTENT_TYPE'] ?? 'not set';
+                $isMultipart = strpos($contentType, 'multipart/form-data') !== false;
+                $errorMsg = 'No file was uploaded. Please select a file to upload.';
+                if ($isMultipart) {
+                    // Get actual PHP limits for diagnostic info
+                    $uploadMax = ini_get('upload_max_filesize');
+                    $postMax = ini_get('post_max_size');
+                    $contentLength = $_SERVER['CONTENT_LENGTH'] ?? 'unknown';
+                    $errorMsg .= ' (Request received as multipart/form-data but file was not parsed. ';
+                    $errorMsg .= 'PHP limits: upload_max_filesize=' . $uploadMax . ', post_max_size=' . $postMax;
+                    $errorMsg .= ', Content-Length=' . $contentLength . '. ';
+                    $errorMsg .= 'If file is larger than these limits, increase them in php.ini or .htaccess.)';
+                } else {
+                    $errorMsg .= ' (Request Content-Type: ' . $contentType . ')';
+                }
                 http_response_code(400);
-                echo json_encode(['error' => 'No fields to update']);
+                echo json_encode(['error' => $errorMsg]);
                 exit;
             }
-            
-            $params[] = $id;
-            $sql = "UPDATE documents SET " . implode(', ', $updates) . " WHERE id = ?";
-            $stmt = $db->prepare($sql);
-            $stmt->execute($params);
-            
-            $stmt = $db->prepare("
-                SELECT d.*, 
-                    bm.first_name as uploaded_first_name, bm.last_name as uploaded_last_name,
-                    ai.title as agenda_item_title
-                FROM documents d
-                LEFT JOIN board_members bm ON d.uploaded_by = bm.id
-                LEFT JOIN agenda_items ai ON d.agenda_item_id = ai.id
-                WHERE d.id = ?
-            ");
-            $stmt->execute([$id]);
-            echo json_encode($stmt->fetch());
         }
         break;
         
