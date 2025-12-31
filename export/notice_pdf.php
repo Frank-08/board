@@ -91,11 +91,11 @@ if ($useTCPDF && class_exists('TCPDF')) {
             // Try to add logo as image in PDF
             // If height is 0, TCPDF will auto-calculate to maintain aspect ratio
             if ($logoHeight > 0) {
-                $pdf->Image(LOGO_PATH, ($pdf->getPageWidth() - $logoWidth) / 2, 15, $logoWidth, $logoHeight, '', '', 'T', false, 300, '', false, false, 0, false, false, false);
+                $pdf->Image(LOGO_PATH, ($pdf->getPageWidth() - $logoWidth) - 15, 15, $logoWidth, $logoHeight, '', '', 'T', false, 300, '', false, false, 0, false, false, false);
                 $logoY = $logoHeight + 5;
             } else {
                 // Auto-calculate height by passing empty string or 0
-                $pdf->Image(LOGO_PATH, ($pdf->getPageWidth() - $logoWidth) / 2, 15, $logoWidth, 0, '', '', 'T', false, 300, '', false, false, 0, false, false, false);
+                $pdf->Image(LOGO_PATH, ($pdf->getPageWidth() - $logoWidth) - 15, 15, $logoWidth, 0, '', '', 'T', false, 300, '', false, false, 0, false, false, false);
                 $logoY = 25; // Default spacing after logo
             }
             $pdf->SetY($logoY + 10);

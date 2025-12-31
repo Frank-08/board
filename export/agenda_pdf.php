@@ -153,7 +153,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
         $logoHeight = defined('LOGO_HEIGHT') ? LOGO_HEIGHT : 0;
         try {
             // Try to add logo as image in PDF
-            $pdf->Image(LOGO_PATH, ($pdf->getPageWidth() - $logoWidth) / 2, 15, $logoWidth, $logoHeight);
+            $pdf->Image(LOGO_PATH, $pdf->getPageWidth() - $logoWidth - 15, 15, $logoWidth, $logoHeight);
             $logoY = $logoHeight > 0 ? $logoHeight + 5 : 25;
             $pdf->SetY($logoY);
         } catch (Exception $e) {
