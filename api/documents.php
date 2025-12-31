@@ -16,6 +16,13 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 
+// Set PHP upload limits programmatically (works even if .htaccess doesn't apply)
+// These must be set before PHP tries to parse the upload
+ini_set('upload_max_filesize', '20M');
+ini_set('post_max_size', '30M');
+ini_set('max_execution_time', '300');
+ini_set('max_input_time', '300');
+
 // Require authentication for all requests
 requireAuth();
 
@@ -298,7 +305,14 @@ switch ($method) {
                 $isMultipart = strpos($contentType, 'multipart/form-data') !== false;
                 $errorMsg = 'No file was uploaded. Please select a file to upload.';
                 if ($isMultipart) {
-                    $errorMsg .= ' (Request received as multipart/form-data but file was not parsed. Check PHP upload settings.)';
+                    // Get actual PHP limits for diagnostic info
+                    $uploadMax = ini_get('upload_max_filesize');
+                    $postMax = ini_get('post_max_size');
+                    $contentLength = $_SERVER['CONTENT_LENGTH'] ?? 'unknown';
+                    $errorMsg .= ' (Request received as multipart/form-data but file was not parsed. ';
+                    $errorMsg .= 'PHP limits: upload_max_filesize=' . $uploadMax . ', post_max_size=' . $postMax;
+                    $errorMsg .= ', Content-Length=' . $contentLength . '. ';
+                    $errorMsg .= 'If file is larger than these limits, increase them in php.ini or .htaccess.)';
                 } else {
                     $errorMsg .= ' (Request Content-Type: ' . $contentType . ')';
                 }

@@ -30,7 +30,7 @@ define('DISPLAY_DATETIME_FORMAT', 'M d, Y h:i A');
 
 // Authentication settings
 define('AUTH_SESSION_LIFETIME', 3600 * 8); // 8 hours
-define('AUTH_COOKIE_NAME', 'board_session');u
+define('AUTH_COOKIE_NAME', 'board_session');
 
 // Password reset settings
 define('PASSWORD_RESET_TOKEN_EXPIRY', 3600); // 1 hour in seconds
