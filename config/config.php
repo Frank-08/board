@@ -8,7 +8,7 @@ define('BASE_URL', 'http://localhost/board');
 
 // File upload settings
 define('UPLOAD_DIR', __DIR__ . '/../uploads/');
-define('MAX_FILE_SIZE', 50 * 1024 * 1024); // 50MB
+define('MAX_FILE_SIZE', 20 * 1024 * 1024); // 20MB
 define('ALLOWED_FILE_TYPES', ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']);
 
 // Logo settings for PDF exports
@@ -30,7 +30,7 @@ define('DISPLAY_DATETIME_FORMAT', 'M d, Y h:i A');
 
 // Authentication settings
 define('AUTH_SESSION_LIFETIME', 3600 * 8); // 8 hours
-define('AUTH_COOKIE_NAME', 'board_session');
+define('AUTH_COOKIE_NAME', 'board_session');u
 
 // Password reset settings
 define('PASSWORD_RESET_TOKEN_EXPIRY', 3600); // 1 hour in seconds
