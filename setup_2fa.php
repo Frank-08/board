@@ -237,12 +237,36 @@
 </head>
 <body>
     <?php
+    // Enable error reporting for debugging (remove in production)
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    
     require_once __DIR__ . '/includes/header.php';
     require_once __DIR__ . '/config/twofactor.php';
+    require_once __DIR__ . '/config/database.php';
     
     $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        header('Location: login.php');
+        exit;
+    }
+    
+    // Check if migration has been run
+    try {
+        $db = getDBConnection();
+        $stmt = $db->query("SHOW COLUMNS FROM users LIKE 'two_factor_enabled'");
+        $migrationRun = $stmt->rowCount() > 0;
+    } catch (Exception $e) {
+        $migrationRun = false;
+        error_log("Error checking migration: " . $e->getMessage());
+    }
+    
     $userId = $currentUser['id'];
-    $isEnabled = isTwoFactorEnabled($userId);
+    $isEnabled = false;
+    
+    if ($migrationRun) {
+        $isEnabled = isTwoFactorEnabled($userId);
+    }
     
     $error = '';
     $success = '';
@@ -322,6 +346,28 @@
                 <h2>Two-Factor Authentication</h2>
                 <p>Add an extra layer of security to your account</p>
             </div>
+            
+            <?php if (!$migrationRun): ?>
+                <div class="card">
+                    <h3>Database Migration Required</h3>
+                    <div class="alert alert-error">
+                        <strong>Error:</strong> The 2FA database migration has not been run yet.
+                    </div>
+                    <p>Please run the following SQL migration to enable 2FA support:</p>
+                    <pre style="background: #f3f4f6; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px;"><?php 
+                        $migrationFile = __DIR__ . '/database/migration_add_2fa.sql';
+                        if (file_exists($migrationFile)) {
+                            echo htmlspecialchars(file_get_contents($migrationFile));
+                        } else {
+                            echo "Migration file not found at: " . htmlspecialchars($migrationFile);
+                        }
+                    ?></pre>
+                    <p style="margin-top: 15px;">
+                        <strong>To run the migration:</strong><br>
+                        <code>mysql -u your_username -p governance_board &lt; database/migration_add_2fa.sql</code>
+                    </p>
+                </div>
+            <?php else: ?>
             
             <?php if ($error): ?>
                 <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
@@ -424,6 +470,7 @@
                 <h4 style="margin-top: 20px;">Backup codes:</h4>
                 <p>If you lose access to your authenticator device, you can use one of your backup codes to log in. Make sure to store them securely!</p>
             </div>
+            <?php endif; // End migration check ?>
         </div>
     </main>
     

@@ -225,22 +225,36 @@ function verifyBackupCode(string $code, array $hashedCodes): bool {
  * @return bool Success
  */
 function enableTwoFactor(int $userId, string $secret, array $backupCodes): bool {
-    $db = getDBConnection();
-    
-    // Hash backup codes for storage
-    $hashedCodes = array_map('hashBackupCode', $backupCodes);
-    $backupCodesJson = json_encode($hashedCodes);
-    
-    $stmt = $db->prepare("
-        UPDATE users 
-        SET two_factor_secret = ?, 
-            two_factor_enabled = TRUE,
-            two_factor_backup_codes = ?,
-            two_factor_verified_at = NOW()
-        WHERE id = ?
-    ");
-    
-    return $stmt->execute([$secret, $backupCodesJson, $userId]);
+    try {
+        $db = getDBConnection();
+        
+        // Check if columns exist first
+        $stmt = $db->query("SHOW COLUMNS FROM users LIKE 'two_factor_enabled'");
+        if ($stmt->rowCount() === 0) {
+            throw new Exception("2FA database columns not found. Please run the migration: database/migration_add_2fa.sql");
+        }
+        
+        // Hash backup codes for storage
+        $hashedCodes = array_map('hashBackupCode', $backupCodes);
+        $backupCodesJson = json_encode($hashedCodes);
+        
+        $stmt = $db->prepare("
+            UPDATE users 
+            SET two_factor_secret = ?, 
+                two_factor_enabled = TRUE,
+                two_factor_backup_codes = ?,
+                two_factor_verified_at = NOW()
+            WHERE id = ?
+        ");
+        
+        return $stmt->execute([$secret, $backupCodesJson, $userId]);
+    } catch (PDOException $e) {
+        error_log("Error enabling 2FA: " . $e->getMessage());
+        return false;
+    } catch (Exception $e) {
+        error_log("Error enabling 2FA: " . $e->getMessage());
+        throw $e;
+    }
 }
 
 /**
@@ -250,18 +264,29 @@ function enableTwoFactor(int $userId, string $secret, array $backupCodes): bool 
  * @return bool Success
  */
 function disableTwoFactor(int $userId): bool {
-    $db = getDBConnection();
-    
-    $stmt = $db->prepare("
-        UPDATE users 
-        SET two_factor_secret = NULL, 
-            two_factor_enabled = FALSE,
-            two_factor_backup_codes = NULL,
-            two_factor_verified_at = NULL
-        WHERE id = ?
-    ");
-    
-    return $stmt->execute([$userId]);
+    try {
+        $db = getDBConnection();
+        
+        // Check if columns exist first
+        $stmt = $db->query("SHOW COLUMNS FROM users LIKE 'two_factor_enabled'");
+        if ($stmt->rowCount() === 0) {
+            return false;
+        }
+        
+        $stmt = $db->prepare("
+            UPDATE users 
+            SET two_factor_secret = NULL, 
+                two_factor_enabled = FALSE,
+                two_factor_backup_codes = NULL,
+                two_factor_verified_at = NULL
+            WHERE id = ?
+        ");
+        
+        return $stmt->execute([$userId]);
+    } catch (PDOException $e) {
+        error_log("Error disabling 2FA: " . $e->getMessage());
+        return false;
+    }
 }
 
 /**
@@ -271,13 +296,26 @@ function disableTwoFactor(int $userId): bool {
  * @return bool
  */
 function isTwoFactorEnabled(int $userId): bool {
-    $db = getDBConnection();
-    
-    $stmt = $db->prepare("SELECT two_factor_enabled FROM users WHERE id = ?");
-    $stmt->execute([$userId]);
-    $result = $stmt->fetch();
-    
-    return $result && $result['two_factor_enabled'] == 1;
+    try {
+        $db = getDBConnection();
+        
+        // Check if column exists first
+        $stmt = $db->query("SHOW COLUMNS FROM users LIKE 'two_factor_enabled'");
+        if ($stmt->rowCount() === 0) {
+            // Column doesn't exist - migration not run
+            return false;
+        }
+        
+        $stmt = $db->prepare("SELECT two_factor_enabled FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch();
+        
+        return $result && isset($result['two_factor_enabled']) && $result['two_factor_enabled'] == 1;
+    } catch (PDOException $e) {
+        // If there's an error (like column doesn't exist), return false
+        error_log("Error checking 2FA status: " . $e->getMessage());
+        return false;
+    }
 }
 
 /**
@@ -287,13 +325,24 @@ function isTwoFactorEnabled(int $userId): bool {
  * @return string|null Secret or null if not set
  */
 function getUserTwoFactorSecret(int $userId): ?string {
-    $db = getDBConnection();
-    
-    $stmt = $db->prepare("SELECT two_factor_secret FROM users WHERE id = ?");
-    $stmt->execute([$userId]);
-    $result = $stmt->fetch();
-    
-    return $result && $result['two_factor_secret'] ? $result['two_factor_secret'] : null;
+    try {
+        $db = getDBConnection();
+        
+        // Check if column exists first
+        $stmt = $db->query("SHOW COLUMNS FROM users LIKE 'two_factor_secret'");
+        if ($stmt->rowCount() === 0) {
+            return null;
+        }
+        
+        $stmt = $db->prepare("SELECT two_factor_secret FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch();
+        
+        return $result && isset($result['two_factor_secret']) && $result['two_factor_secret'] ? $result['two_factor_secret'] : null;
+    } catch (PDOException $e) {
+        error_log("Error getting 2FA secret: " . $e->getMessage());
+        return null;
+    }
 }
 
 /**
@@ -303,18 +352,29 @@ function getUserTwoFactorSecret(int $userId): ?string {
  * @return array Array of hashed backup codes
  */
 function getUserBackupCodes(int $userId): array {
-    $db = getDBConnection();
-    
-    $stmt = $db->prepare("SELECT two_factor_backup_codes FROM users WHERE id = ?");
-    $stmt->execute([$userId]);
-    $result = $stmt->fetch();
-    
-    if (!$result || !$result['two_factor_backup_codes']) {
+    try {
+        $db = getDBConnection();
+        
+        // Check if column exists first
+        $stmt = $db->query("SHOW COLUMNS FROM users LIKE 'two_factor_backup_codes'");
+        if ($stmt->rowCount() === 0) {
+            return [];
+        }
+        
+        $stmt = $db->prepare("SELECT two_factor_backup_codes FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch();
+        
+        if (!$result || !isset($result['two_factor_backup_codes']) || !$result['two_factor_backup_codes']) {
+            return [];
+        }
+        
+        $codes = json_decode($result['two_factor_backup_codes'], true);
+        return is_array($codes) ? $codes : [];
+    } catch (PDOException $e) {
+        error_log("Error getting backup codes: " . $e->getMessage());
         return [];
     }
-    
-    $codes = json_decode($result['two_factor_backup_codes'], true);
-    return is_array($codes) ? $codes : [];
 }
 
 /**
