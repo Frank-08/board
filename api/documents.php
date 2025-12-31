@@ -114,6 +114,11 @@ switch ($method) {
         break;
         
     case 'POST':
+        // Debug logging (remove in production)
+        error_log('POST request received. $_FILES: ' . print_r($_FILES, true));
+        error_log('Content-Type: ' . ($_SERVER['CONTENT_TYPE'] ?? 'not set'));
+        error_log('Request method: ' . $_SERVER['REQUEST_METHOD']);
+        
         // Handle file upload
         if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['file'];
@@ -234,6 +239,11 @@ switch ($method) {
         } elseif (!isset($_FILES['file'])) {
             // No file was sent - check if this is a JSON metadata update request
             $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+            
+            // Log for debugging
+            error_log('No file in $_FILES. Content-Type: ' . $contentType);
+            error_log('$_FILES contents: ' . print_r($_FILES, true));
+            
             if (strpos($contentType, 'application/json') !== false) {
                 // JSON request for updating document metadata
                 $data = json_decode(file_get_contents('php://input'), true);
@@ -280,8 +290,20 @@ switch ($method) {
                 echo json_encode($stmt->fetch());
             } else {
                 // Expected file upload but no file was provided
+                // This could be due to:
+                // 1. File not selected in the form
+                // 2. PHP upload_max_filesize or post_max_size too small
+                // 3. Form not submitted correctly
+                $contentType = $_SERVER['CONTENT_TYPE'] ?? 'not set';
+                $isMultipart = strpos($contentType, 'multipart/form-data') !== false;
+                $errorMsg = 'No file was uploaded. Please select a file to upload.';
+                if ($isMultipart) {
+                    $errorMsg .= ' (Request received as multipart/form-data but file was not parsed. Check PHP upload settings.)';
+                } else {
+                    $errorMsg .= ' (Request Content-Type: ' . $contentType . ')';
+                }
                 http_response_code(400);
-                echo json_encode(['error' => 'No file was uploaded. Please select a file to upload.']);
+                echo json_encode(['error' => $errorMsg]);
                 exit;
             }
         }
