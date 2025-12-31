@@ -419,9 +419,15 @@ if (isset($_SESSION['2fa_setup_secret']) && !$isEnabled) {
                     </div>
                     
                     <div class="qr-code-container">
-                        <div id="qrcode"></div>
+                        <div id="qrcode" style="min-height: 250px; display: flex; align-items: center; justify-content: center;">
+                            <p style="color: #666;">Loading QR code...</p>
+                        </div>
                         <p style="margin-top: 15px; font-size: 14px; color: #666;">
-                            Or enter this code manually: <strong><?php echo htmlspecialchars($secret); ?></strong>
+                            Or scan using this URL: <br>
+                            <a href="<?php echo htmlspecialchars($qrUrl); ?>" target="_blank" style="word-break: break-all; color: #667eea;"><?php echo htmlspecialchars($qrUrl); ?></a>
+                        </p>
+                        <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                            Or enter this code manually: <strong style="font-family: monospace; font-size: 16px;"><?php echo htmlspecialchars($secret); ?></strong>
                         </p>
                     </div>
                     
@@ -479,38 +485,102 @@ if (isset($_SESSION['2fa_setup_secret']) && !$isEnabled) {
     <?php outputFooter(); ?>
     
     <script>
-        <?php if ($setupMode && $qrUrl): ?>
-        // Generate QR code
-        QRCode.toCanvas(document.getElementById('qrcode'), '<?php echo htmlspecialchars($qrUrl); ?>', {
-            width: 250,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
+        // Wait for DOM and QRCode library to be ready
+        window.addEventListener('load', function() {
+            <?php if ($setupMode && $qrUrl): ?>
+            // Generate QR code
+            const qrElement = document.getElementById('qrcode');
+            const qrUrlValue = '<?php echo htmlspecialchars($qrUrl, ENT_QUOTES, 'UTF-8'); ?>';
+            
+            if (qrElement && qrUrlValue) {
+                // Method 2: QRCode.toDataURL (alternative API)
+                function tryMethod2() {
+                    if (typeof QRCode !== 'undefined' && typeof QRCode.toDataURL === 'function') {
+                        QRCode.toDataURL(qrUrlValue, {
+                            width: 250,
+                            margin: 2,
+                            color: {
+                                dark: '#000000',
+                                light: '#FFFFFF'
+                            }
+                        }, function (err, url) {
+                            if (err) {
+                                console.error('QRCode.toDataURL error:', err);
+                                tryMethod3();
+                            } else {
+                                qrElement.innerHTML = '<img src="' + url + '" alt="QR Code" style="max-width: 250px; height: auto; border: 4px solid white; border-radius: 8px;">';
+                            }
+                        });
+                    } else {
+                        tryMethod3();
+                    }
+                }
+                
+                // Method 3: Online QR code API fallback
+                function tryMethod3() {
+                    const apiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(qrUrlValue);
+                    qrElement.innerHTML = '<img src="' + apiUrl + '" alt="QR Code" style="max-width: 250px; height: auto; border: 4px solid white; border-radius: 8px;" onerror="this.parentElement.innerHTML=\'<p style=\\\'color: #666; padding: 20px; text-align: center;\\\'>QR code unavailable. Please use the manual entry method below.</p>\'">';
+                }
+                
+                // Function to generate QR code with multiple fallbacks
+                function generateQR() {
+                    // Try method 1: QRCode.toCanvas (if library supports it)
+                    if (typeof QRCode !== 'undefined') {
+                        try {
+                            // Method 1: Direct toCanvas on element
+                            if (typeof QRCode.toCanvas === 'function') {
+                                QRCode.toCanvas(qrElement, qrUrlValue, {
+                                    width: 250,
+                                    margin: 2,
+                                    color: {
+                                        dark: '#000000',
+                                        light: '#FFFFFF'
+                                    }
+                                }, function (error) {
+                                    if (error) {
+                                        console.error('QRCode.toCanvas error:', error);
+                                        tryMethod2();
+                                    }
+                                    // Success - canvas is now in the element
+                                });
+                                return; // Exit if we got here
+                            }
+                        } catch (e) {
+                            console.error('QRCode.toCanvas exception:', e);
+                        }
+                        
+                        // If toCanvas doesn't work, try toDataURL
+                        tryMethod2();
+                    } else {
+                        // Library not loaded yet, wait and retry
+                        setTimeout(generateQR, 200);
+                    }
+                }
+                
+                // Start generation after a short delay to ensure library is loaded
+                setTimeout(generateQR, 100);
             }
-        }, function (error) {
-            if (error) {
-                console.error('QR code generation error:', error);
-                document.getElementById('qrcode').innerHTML = '<p style="color: red;">Failed to generate QR code. Please use the manual code instead.</p>';
+            <?php endif; ?>
+            
+            // Auto-submit when 6 digits are entered
+            const codeInput = document.getElementById('code');
+            if (codeInput) {
+                codeInput.addEventListener('input', function(e) {
+                    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                    e.target.value = value;
+                    
+                    if (value.length === 6) {
+                        // Small delay to let user see the code
+                        setTimeout(function() {
+                            const form = document.getElementById('verifyForm');
+                            if (form) {
+                                form.submit();
+                            }
+                        }, 300);
+                    }
+                });
             }
         });
-        <?php endif; ?>
-        
-        // Auto-submit when 6 digits are entered
-        const codeInput = document.getElementById('code');
-        if (codeInput) {
-            codeInput.addEventListener('input', function(e) {
-                const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                e.target.value = value;
-                
-                if (value.length === 6) {
-                    // Small delay to let user see the code
-                    setTimeout(function() {
-                        document.getElementById('verifyForm').submit();
-                    }, 300);
-                }
-            });
-        }
     </script>
 </body>
 </html>
