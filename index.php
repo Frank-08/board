@@ -12,7 +12,7 @@ outputHeader('Dashboard', 'index.php');
             <div class="organization-selector">
                 <label for="meetingTypeSelect">Filter by Meeting Type (optional):</label>
                 <select id="meetingTypeSelect" onchange="loadDashboard()">
-                    <option value="">Select Meeting Type...</option>
+                    <option value="0">---Select Meeting Type---</option>
                 </select>
             </div>
 
