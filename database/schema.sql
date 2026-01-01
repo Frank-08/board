@@ -108,14 +108,18 @@ CREATE TABLE IF NOT EXISTS agenda_items (
     presenter_id INT,
     duration_minutes INT,
     position INT NOT NULL DEFAULT 0,
+    sub_position INT NOT NULL DEFAULT 0,
     item_number VARCHAR(20),
+    parent_id INT NULL,
     outcome TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
     FOREIGN KEY (presenter_id) REFERENCES board_members(id) ON DELETE SET NULL,
+    FOREIGN KEY (parent_id) REFERENCES agenda_items(id) ON DELETE CASCADE,
     INDEX idx_meeting_position (meeting_id, position),
-    INDEX idx_item_number (item_number)
+    INDEX idx_item_number (item_number),
+    INDEX idx_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table for agenda templates (default items for meeting types)

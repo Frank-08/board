@@ -64,6 +64,13 @@ outputHeader('Meetings', 'meetings.php');
                         <option value="">Select presenter...</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="agendaItemParent">Parent Item (optional)</label>
+                    <select id="agendaItemParent">
+                        <option value="">No parent (top-level)</option>
+                    </select>
+                    <small style="color: #666;">Choose a parent to create a sub-item (a, b, c...)</small>
+                </div>
                 <button type="submit" class="btn btn-primary">Save Agenda Item</button>
             </form>
         </div>
@@ -518,19 +525,22 @@ outputHeader('Meetings', 'meetings.php');
                         fetch(`api/documents.php?agenda_item_id=${item.id}`).then(r => r.json())
                     )).then(documentsArrays => {
                         list.innerHTML = items.map((item, index) => {
+                                const isChild = item.parent_id && item.parent_id !== null;
+                                const indentStyle = isChild ? 'style="margin-left: 22px;"' : '';
                             const documents = documentsArrays[index] || [];
                             const isFirst = index === 0;
                             const isLast = index === items.length - 1;
                             return `
-                                <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}" 
-                                     draggable="true" 
-                                     data-item-id="${item.id}" 
-                                     data-position="${item.position}">
+                                      <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}" ${indentStyle}
+                                          draggable="true" 
+                                          data-item-id="${item.id}" 
+                                          data-parent-id="${item.parent_id || ''}"
+                                          data-position="${item.position}">
                                     <div class="item-header">
                                         <div class="item-drag-handle" title="Drag to reorder">
                                             <span class="drag-icon">☰</span>
                                         </div>
-                                        <h4>${item.item_number ? item.item_number + '. ' : ''}${item.title}</h4>
+                                            <h4>${item.item_number ? item.item_number + '. ' : ''}${item.title}</h4>
                                         <div class="item-actions">
                                             <div class="reorder-buttons">
                                                 <button onclick="moveAgendaItemUp(${item.id})" 
@@ -919,6 +929,31 @@ outputHeader('Meetings', 'meetings.php');
                 if (item && item.presenter_id) {
                     presenterSelect.value = item.presenter_id;
                 }
+
+                // Populate parent dropdown with top-level items for current meeting
+                const parentSelect = document.getElementById('agendaItemParent');
+                parentSelect.innerHTML = '<option value="">No parent (top-level)</option>';
+                if (currentMeetingId) {
+                    fetch(`api/agenda.php?meeting_id=${currentMeetingId}`)
+                        .then(r => r.json())
+                        .then(allItems => {
+                            // Only allow selecting top-level items as parent
+                            allItems.filter(i => !i.parent_id).forEach(i => {
+                                // Do not allow an item to be parent of itself
+                                if (item && item.id && item.id == i.id) return;
+                                const opt = document.createElement('option');
+                                opt.value = i.id;
+                                opt.textContent = (i.item_number ? i.item_number + '. ' : '') + i.title;
+                                parentSelect.appendChild(opt);
+                            });
+
+                            if (item && item.parent_id) {
+                                parentSelect.value = item.parent_id;
+                            }
+                        }).catch(err => {
+                            console.error('Error loading parent items:', err);
+                        });
+                }
                 
                 modal.style.display = 'block';
             });
@@ -929,7 +964,7 @@ outputHeader('Meetings', 'meetings.php');
             document.getElementById('agendaItemForm').reset();
         }
 
-        function saveAgendaItem(event) {
+        async function saveAgendaItem(event) {
             event.preventDefault();
             const itemId = document.getElementById('agendaItemId').value;
             const data = {
@@ -940,6 +975,34 @@ outputHeader('Meetings', 'meetings.php');
                 duration_minutes: document.getElementById('agendaItemDuration').value || null,
                 presenter_id: document.getElementById('agendaItemPresenter').value || null
             };
+
+            const parentVal = document.getElementById('agendaItemParent').value;
+            if (parentVal) data.parent_id = parentVal;
+
+            // UI validation: prevent selecting a descendant as the parent (would create a cycle)
+            if (parentVal && itemId) {
+                try {
+                    const resp = await fetch(`api/agenda.php?meeting_id=${currentMeetingId}`);
+                    const allItems = await resp.json();
+                    const parentMap = {};
+                    allItems.forEach(i => { parentMap[i.id] = i.parent_id; });
+
+                    // Walk up from the chosen parent; if we encounter the item itself, it's invalid
+                    let cur = parseInt(parentVal);
+                    const originalId = parseInt(itemId);
+                    while (cur) {
+                        if (cur === originalId) {
+                            alert('Invalid parent selection: an item cannot be a child of its own descendant.');
+                            return;
+                        }
+                        cur = parentMap[cur] ? parseInt(parentMap[cur]) : null;
+                    }
+                } catch (err) {
+                    console.error('Error validating parent selection:', err);
+                    alert('Could not validate parent selection. Please try again.');
+                    return;
+                }
+            }
 
             const method = itemId ? 'PUT' : 'POST';
             if (itemId) data.id = itemId;
@@ -999,7 +1062,19 @@ outputHeader('Meetings', 'meetings.php');
             
             updatedItems.forEach((item, index) => {
                 item.addEventListener('dragstart', (e) => {
-                    draggedElement = item;
+                    // If dragging a parent, include its children in the dragged group
+                    const draggedId = parseInt(item.getAttribute('data-item-id'));
+                    const draggedParentId = item.getAttribute('data-parent-id');
+                    let group = [item];
+                    if (!draggedParentId) {
+                        // collect immediate child rows that follow this parent
+                        let next = item.nextElementSibling;
+                        while (next && next.classList.contains('agenda-item') && next.getAttribute('data-parent-id') == draggedId) {
+                            group.push(next);
+                            next = next.nextElementSibling;
+                        }
+                    }
+                    draggedElement = group;
                     draggedIndex = index;
                     item.classList.add('dragging');
                     e.dataTransfer.effectAllowed = 'move';
@@ -1007,7 +1082,12 @@ outputHeader('Meetings', 'meetings.php');
                 });
 
                 item.addEventListener('dragend', (e) => {
-                    item.classList.remove('dragging');
+                    // remove dragging class from group
+                    if (Array.isArray(draggedElement)) {
+                        draggedElement.forEach(el => el.classList.remove('dragging'));
+                    } else if (draggedElement) {
+                        draggedElement.classList.remove('dragging');
+                    }
                     // Remove drop indicator classes
                     updatedItems.forEach(i => i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom'));
                 });
@@ -1046,12 +1126,24 @@ outputHeader('Meetings', 'meetings.php');
                         const insertBefore = e.clientY < midY;
                         
                         const finalIndex = insertBefore ? dropIndex : dropIndex + 1;
-                        
+
                         // Reorder in DOM
-                        if (draggedIndex < finalIndex) {
-                            item.parentNode.insertBefore(draggedElement, item.nextSibling);
+                        if (Array.isArray(draggedElement)) {
+                            // Insert group: detach all and insert in order
+                            const parent = item.parentNode;
+                            // Determine reference node
+                            const refNode = insertBefore ? item : item.nextSibling;
+                            draggedElement.forEach(el => parent.removeChild(el));
+                            // Insert them preserving order
+                            for (let i = 0; i < draggedElement.length; i++) {
+                                parent.insertBefore(draggedElement[i], refNode);
+                            }
                         } else {
-                            item.parentNode.insertBefore(draggedElement, item);
+                            if (draggedIndex < finalIndex) {
+                                item.parentNode.insertBefore(draggedElement, item.nextSibling);
+                            } else {
+                                item.parentNode.insertBefore(draggedElement, item);
+                            }
                         }
                         
                         // Update positions via API
@@ -1078,10 +1170,23 @@ outputHeader('Meetings', 'meetings.php');
             
             if (currentIndex <= 0) return; // Already at top
             
-            // Swap in DOM
+            // Move group (parent + children) up together
             const currentItem = items[currentIndex];
+            // collect group for current
+            const group = [currentItem];
+            let next = currentItem.nextElementSibling;
+            const currentId = currentItem.getAttribute('data-item-id');
+            while (next && next.classList.contains('agenda-item') && next.getAttribute('data-parent-id') == currentId) {
+                group.push(next);
+                next = next.nextElementSibling;
+            }
+
             const previousItem = items[currentIndex - 1];
-            currentItem.parentNode.insertBefore(currentItem, previousItem);
+            const parent = currentItem.parentNode;
+            // Insert group before previousItem
+            group.forEach(el => parent.removeChild(el));
+            parent.insertBefore(group[0], previousItem);
+            for (let i = 1; i < group.length; i++) parent.insertBefore(group[i], previousItem);
             
             // Update positions via API
             const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el => 
@@ -1101,10 +1206,23 @@ outputHeader('Meetings', 'meetings.php');
             
             if (currentIndex < 0 || currentIndex >= items.length - 1) return; // Already at bottom
             
-            // Swap in DOM
+            // Move group (parent + children) down together
             const currentItem = items[currentIndex];
+            const group = [currentItem];
+            let next = currentItem.nextElementSibling;
+            const currentId = currentItem.getAttribute('data-item-id');
+            while (next && next.classList.contains('agenda-item') && next.getAttribute('data-parent-id') == currentId) {
+                group.push(next);
+                next = next.nextElementSibling;
+            }
+
             const nextItem = items[currentIndex + 1];
-            nextItem.parentNode.insertBefore(currentItem, nextItem.nextSibling);
+            const parent = currentItem.parentNode;
+            // Insert group after nextItem
+            // Remove group first
+            group.forEach(el => parent.removeChild(el));
+            const ref = nextItem.nextSibling;
+            for (let i = 0; i < group.length; i++) parent.insertBefore(group[i], ref);
             
             // Update positions via API
             const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el => 
@@ -1698,7 +1816,6 @@ outputHeader('Meetings', 'meetings.php');
         function saveTemplateItem(event) {
             event.preventDefault();
             const itemId = document.getElementById('templateItemId').value;
-            
             const data = {
                 meeting_type_id: currentMeetingTypeId,
                 title: document.getElementById('templateItemTitle').value,

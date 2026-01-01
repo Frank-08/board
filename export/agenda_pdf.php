@@ -42,7 +42,7 @@ $stmt = $db->prepare("
     LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
     WHERE ai.meeting_id = ?
-    ORDER BY ai.position ASC
+    ORDER BY ai.position ASC, ai.sub_position ASC
 ");
 $stmt->execute([$meetingId]);
 $agendaItems = $stmt->fetchAll();
@@ -183,7 +183,9 @@ if ($useTCPDF && class_exists('TCPDF')) {
     // Agenda items
     $html .= '<h3 style="color:#667eea; border-bottom:2px solid #667eea; padding-bottom:5px;">Agenda Items</h3>';
     foreach ($agendaItems as $item) {
-        $html .= '<div style="margin-bottom:15px; padding:10px; background:#f9f9f9; border-left:4px solid #667eea;">';
+        $isChild = !empty($item['parent_id']);
+        $childStyle = $isChild ? 'margin-left:20px;' : '';
+        $html .= '<div style="' . $childStyle . 'margin-bottom:15px; padding:10px; background:#f9f9f9; border-left:4px solid #667eea;">';
         $html .= '<h4 style="margin:0 0 10px 0; font-size:14px;">';
         if ($item['item_number']) {
             $html .= htmlspecialchars($item['item_number']) . '. ';

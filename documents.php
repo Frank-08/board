@@ -167,7 +167,8 @@ outputHeader('Documents', 'documents.php');
                     data.forEach(item => {
                         const option = document.createElement('option');
                         option.value = item.id;
-                        option.textContent = (item.item_number || '') + (item.item_number ? '. ' : '') + item.title;
+                        const prefix = item.parent_id ? '↳ ' : '';
+                        option.textContent = prefix + (item.item_number || '') + (item.item_number ? '. ' : '') + item.title;
                         agendaSelect.appendChild(option);
                     });
                 })
