@@ -97,7 +97,7 @@ outputHeader('Dashboard', 'index.php');
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('meetingTypeSelect');
-                    select.innerHTML = '<option value="-1">---Select a meeting type---</option>';
+                    select.innerHTML = '<option value="0">---Select a meeting type---</option>';
                     data.forEach(meetingType => {
                         const option = document.createElement('option');
                         option.value = meetingType.id;
