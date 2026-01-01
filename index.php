@@ -70,8 +70,8 @@ outputHeader('Dashboard', 'index.php');
                     <input type="text" id="meetingTypeName" required>
                 </div>
                 <div class="form-group">
-                    <label for="meetingTypeshortcode">Short Code </label>
-                    <input type="text" id="meetingTypeShortCode">
+                    <label for="meetingTypeShortcode">Short Code </label>
+                    <input type="text" id="meetingTypeShortcode">
                 </div>
                 <div class="form-group">
                     <label for="meetingTypeDescription">Description</label>
@@ -182,6 +182,7 @@ outputHeader('Dashboard', 'index.php');
             event.preventDefault();
             const data = {
                 name: document.getElementById('meetingTypeName').value,
+                shortcode: document.getElementById('meetingTypeShortcode').value,
                 description: document.getElementById('meetingTypeDescription').value
             };
 
