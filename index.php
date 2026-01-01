@@ -6,7 +6,7 @@ outputHeader('Dashboard', 'index.php');
         <main>
             <div class="page-header">
                 <h2>System Overview</h2>
-                <button onclick="showMeetingTypeModal()" class="btn btn-primary">+ New Meeting Type</button>
+                <!-- <button onclick="showMeetingTypeModal()" class="btn btn-primary">+ New Meeting Type</button> -->
             </div>
 
             <div class="organization-selector">
@@ -59,7 +59,7 @@ outputHeader('Dashboard', 'index.php');
         </main>
     </div>
 
-    <!-- Meeting Type Modal -->
+    <!-- Meeting Type Modal
     <div id="meetingTypeModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeMeetingTypeModal()">&times;</span>
@@ -70,13 +70,17 @@ outputHeader('Dashboard', 'index.php');
                     <input type="text" id="meetingTypeName" required>
                 </div>
                 <div class="form-group">
+                    <label for="meetingTypeShortcode">Short Code </label>
+                    <input type="text" id="meetingTypeShortcode">
+                </div>
+                <div class="form-group">
                     <label for="meetingTypeDescription">Description</label>
                     <textarea id="meetingTypeDescription"></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary">Create Meeting Type</button>
             </form>
         </div>
-    </div>
+    </div> -->
 
     <script src="assets/js/app.js"></script>
     <script>
@@ -178,6 +182,7 @@ outputHeader('Dashboard', 'index.php');
             event.preventDefault();
             const data = {
                 name: document.getElementById('meetingTypeName').value,
+                shortcode: document.getElementById('meetingTypeShortcode').value,
                 description: document.getElementById('meetingTypeDescription').value
             };
 

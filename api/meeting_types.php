@@ -57,9 +57,10 @@ switch ($method) {
             exit;
         }
         
-        $stmt = $db->prepare("INSERT INTO meeting_types (name, description) VALUES (?, ?)");
+        $stmt = $db->prepare("INSERT INTO meeting_types (name, shortcode, description) VALUES (?, ?, ?)");
         $stmt->execute([
             $name,
+            $shortcode,
             $data['description'] ?? null
         ]);
         
