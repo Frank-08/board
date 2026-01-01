@@ -57,7 +57,7 @@ switch ($method) {
                 LEFT JOIN board_members bm ON ai.presenter_id = bm.id
                 LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
                 WHERE ai.meeting_id = ?
-                ORDER BY ai.position ASC
+                ORDER BY ai.position ASC, ai.sub_position ASC
             ");
             $stmt->execute([$meetingId]);
             echo json_encode($stmt->fetchAll());
@@ -121,23 +121,54 @@ switch ($method) {
                 $month = $meetingDate->format('n');
                 $shortcode = $meeting['shortcode'] ?? '';
                 
-                // Update positions and item numbers
-                $updateStmt = $db->prepare("
-                    UPDATE agenda_items 
-                    SET position = ?, item_number = ?
-                    WHERE id = ?
-                ");
-                
+                // Update positions and item numbers, keeping children with their parent
+                $updateTopStmt = $db->prepare("UPDATE agenda_items SET position = ?, sub_position = 0, item_number = ?, parent_id = NULL WHERE id = ?");
+                $updateChildStmt = $db->prepare("UPDATE agenda_items SET position = ?, sub_position = ?, item_number = ?, parent_id = ? WHERE id = ?");
+
+                $topPos = -1;
+                $parentPositions = [];
+                $parentItemNumbers = [];
+                $parentChildCounters = [];
+
                 foreach ($order as $index => $itemId) {
-                    $position = $index; // 0-based position
-                    $sequence = $position + 1; // 1-based sequence for item number
-                    if (!empty($shortcode)) {
-                        $itemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                    $itemId = (int)$itemId;
+                    // fetch parent for this item
+                    $pstm = $db->prepare("SELECT parent_id FROM agenda_items WHERE id = ?");
+                    $pstm->execute([$itemId]);
+                    $row = $pstm->fetch();
+                    $parentId = $row ? $row['parent_id'] : null;
+
+                    if (empty($parentId)) {
+                        // top-level item
+                        $topPos++;
+                        $position = $topPos;
+                        $sequence = $position + 1;
+                        if (!empty($shortcode)) {
+                            $topItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                        } else {
+                            $topItemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                        }
+
+                        $parentPositions[$itemId] = $position;
+                        $parentItemNumbers[$itemId] = $topItemNumber;
+                        $parentChildCounters[$itemId] = 0;
+
+                        $updateTopStmt->execute([$position, $topItemNumber, $itemId]);
                     } else {
-                        $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                        // child item: parent must have been processed already and appear before child in order
+                        if (!isset($parentItemNumbers[$parentId])) {
+                            throw new Exception('Invalid order: child appears before parent');
+                        }
+
+                        $subPos = $parentChildCounters[$parentId];
+                        $letter = chr(ord('a') + $subPos);
+                        $itemNumber = $parentItemNumbers[$parentId] . $letter;
+                        $position = $parentPositions[$parentId];
+
+                        $parentChildCounters[$parentId] = $subPos + 1;
+
+                        $updateChildStmt->execute([$position, $subPos, $itemNumber, $parentId, $itemId]);
                     }
-                    
-                    $updateStmt->execute([$position, $itemNumber, (int)$itemId]);
                 }
                 
                 $db->commit();
@@ -176,36 +207,92 @@ switch ($method) {
             exit;
         }
         
-        // Get max position and ensure sequential numbering (0-based, so max + 1)
-        $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as new_position FROM agenda_items WHERE meeting_id = ?");
-        $stmt->execute([$meetingId]);
-        $result = $stmt->fetch();
-        $position = (int)$result['new_position'];
-        
-        // Generate item number in format: SHORTCODE.YY.MM.SEQ (or YY.MM.SEQ if no shortcode)
-        $meetingDate = new DateTime($meeting['scheduled_date']);
-        $year = $meetingDate->format('y'); // Last 2 digits of year
-        $month = $meetingDate->format('n'); // Month without leading zero (1-12)
-        $sequence = $position + 1; // Position is 0-based, sequence is 1-based
-        $shortcode = $meeting['shortcode'] ?? ''; // Get shortcode from meeting_type
-        if (!empty($shortcode)) {
-            $itemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
-        } else {
-            $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
-        }
-        
+        // Support optional hierarchical parent_id for sub-items
+        $parentId = !empty($data['parent_id']) ? (int)$data['parent_id'] : null;
 
-        $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $meetingId,
-            $title,
-            $data['description'] ?? null,
-            $data['item_type'] ?? 'Discussion',
-            !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
-            !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
-            $position,
-            $itemNumber
-        ]);
+        if ($parentId) {
+            // Verify parent exists and belongs to this meeting
+            $pstmt = $db->prepare("SELECT * FROM agenda_items WHERE id = ?");
+            $pstmt->execute([$parentId]);
+            $parent = $pstmt->fetch();
+            if (!$parent || (int)$parent['meeting_id'] !== $meetingId) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid parent_id or parent does not belong to meeting']);
+                exit;
+            }
+
+            // Compute next sub_position for this parent
+            $spStmt = $db->prepare("SELECT COALESCE(MAX(sub_position), -1) + 1 as new_sub_position FROM agenda_items WHERE parent_id = ?");
+            $spStmt->execute([$parentId]);
+            $spResult = $spStmt->fetch();
+            $subPosition = (int)$spResult['new_sub_position'];
+
+            // Ensure parent has an item_number
+            $parentItemNumber = $parent['item_number'] ?? null;
+            if (empty($parentItemNumber)) {
+                // Fallback: compute parent item number based on meeting date and parent position
+                $meetingDate = new DateTime($meeting['scheduled_date']);
+                $year = $meetingDate->format('y');
+                $month = $meetingDate->format('n');
+                $shortcode = $meeting['shortcode'] ?? '';
+                $parentSeq = $parent['position'] + 1;
+                if (!empty($shortcode)) {
+                    $parentItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $parentSeq);
+                } else {
+                    $parentItemNumber = sprintf('%s.%s.%d', $year, $month, $parentSeq);
+                }
+            }
+
+            $letter = chr(ord('a') + $subPosition);
+            $itemNumber = $parentItemNumber . $letter;
+
+            // Use parent's position so children are grouped with parent
+            $position = (int)$parent['position'];
+
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, sub_position, parent_id, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $meetingId,
+                $title,
+                $data['description'] ?? null,
+                $data['item_type'] ?? 'Discussion',
+                !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
+                !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
+                $position,
+                $subPosition,
+                $parentId,
+                $itemNumber
+            ]);
+        } else {
+            // Get max position and ensure sequential numbering (0-based, so max + 1)
+            $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as new_position FROM agenda_items WHERE meeting_id = ? AND parent_id IS NULL");
+            $stmt->execute([$meetingId]);
+            $result = $stmt->fetch();
+            $position = (int)$result['new_position'];
+
+            // Generate item number in format: SHORTCODE.YY.MM.SEQ (or YY.MM.SEQ if no shortcode)
+            $meetingDate = new DateTime($meeting['scheduled_date']);
+            $year = $meetingDate->format('y'); // Last 2 digits of year
+            $month = $meetingDate->format('n'); // Month without leading zero (1-12)
+            $sequence = $position + 1; // Position is 0-based, sequence is 1-based
+            $shortcode = $meeting['shortcode'] ?? ''; // Get shortcode from meeting_type
+            if (!empty($shortcode)) {
+                $itemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+            } else {
+                $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+            }
+
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $meetingId,
+                $title,
+                $data['description'] ?? null,
+                $data['item_type'] ?? 'Discussion',
+                !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
+                !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
+                $position,
+                $itemNumber
+            ]);
+        }
         
         $itemId = $db->lastInsertId();
         $stmt = $db->prepare("

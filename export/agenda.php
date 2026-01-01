@@ -5,8 +5,8 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 
-$meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : 0;
-
+    WHERE ai.meeting_id = ?
+    ORDER BY ai.position ASC, ai.sub_position ASC
 if (!$meetingId) {
     die('Meeting ID is required');
 }
@@ -392,7 +392,8 @@ function formatTime($dateString) {
         
         <?php if (count($agendaItems) > 0): ?>
             <?php foreach ($agendaItems as $item): ?>
-            <div class="agenda-item">
+            <?php $isChild = !empty($item['parent_id']); ?>
+            <div class="agenda-item" <?php echo $isChild ? 'style="margin-left:22px;"' : ''; ?>>
                 <div class="agenda-item-header">
                     <div style="display: flex; align-items: flex-start;">
                         <span class="agenda-item-number"><?php echo htmlspecialchars($item['item_number'] ?? '?'); ?>.</span>
