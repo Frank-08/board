@@ -64,15 +64,6 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
             font-size: 14px;
             transition: background-color 0.3s;
         }
-        .user-info .2fa-btn {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 6px 12px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 10px;
-            transition: background-color 0.3s;
-        }
         .user-info .logout-btn:hover {
             background: rgba(255,255,255,0.3);
         }
@@ -104,7 +95,7 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
                 <div class="user-info">
                     <span class="username"><?php echo htmlspecialchars($currentUser['username']); ?></span>
                     <span class="role"><?php echo htmlspecialchars($currentUser['role']); ?></span>
-                    <a href="setup_2fa.php" class="2fa-btn">2FA</a>
+                    <a href="setup_2fa.php" class="logout-btn">2FA</a>
                     <a href="logout.php" class="logout-btn">Logout</a>
                 </div>
             </nav>
