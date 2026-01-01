@@ -6,7 +6,7 @@ outputHeader('Dashboard', 'index.php');
         <main>
             <div class="page-header">
                 <h2>System Overview</h2>
-                <button onclick="showMeetingTypeModal()" class="btn btn-primary">+ New Meeting Type</button>
+                <!-- <button onclick="showMeetingTypeModal()" class="btn btn-primary">+ New Meeting Type</button> -->
             </div>
 
             <div class="organization-selector">
