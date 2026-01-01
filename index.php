@@ -59,7 +59,7 @@ outputHeader('Dashboard', 'index.php');
         </main>
     </div>
 
-    <!-- Meeting Type Modal -->
+    <!-- Meeting Type Modal
     <div id="meetingTypeModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeMeetingTypeModal()">&times;</span>
@@ -80,7 +80,7 @@ outputHeader('Dashboard', 'index.php');
                 <button type="submit" class="btn btn-primary">Create Meeting Type</button>
             </form>
         </div>
-    </div>
+    </div> -->
 
     <script src="assets/js/app.js"></script>
     <script>
