@@ -70,6 +70,10 @@ outputHeader('Dashboard', 'index.php');
                     <input type="text" id="meetingTypeName" required>
                 </div>
                 <div class="form-group">
+                    <label for="meetingTypeshortcode">Short Code </label>
+                    <input type="text" id="meetingTypeShortCode">
+                </div>
+                <div class="form-group">
                     <label for="meetingTypeDescription">Description</label>
                     <textarea id="meetingTypeDescription"></textarea>
                 </div>
