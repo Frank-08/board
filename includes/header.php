@@ -95,7 +95,7 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
                 <div class="user-info">
                     <span class="username"><?php echo htmlspecialchars($currentUser['username']); ?></span>
                     <span class="role"><?php echo htmlspecialchars($currentUser['role']); ?></span>
-                    <a href="setup_2fa.php" style="margin-right: 10px; color: #667eea; text-decoration: none; font-size: 14px;">2FA</a>
+                    <a href="setup_2fa.php" class="logout-btn">2FA</a>
                     <a href="logout.php" class="logout-btn">Logout</a>
                 </div>
             </nav>
