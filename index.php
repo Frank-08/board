@@ -12,7 +12,7 @@ outputHeader('Dashboard', 'index.php');
             <div class="organization-selector">
                 <label for="meetingTypeSelect">Filter by Meeting Type (optional):</label>
                 <select id="meetingTypeSelect" onchange="loadDashboard()">
-                    <option value="0">---Select Meeting Type---</option>
+                    <option value="">---Select Meeting Type---</option>
                 </select>
             </div>
 
@@ -90,6 +90,7 @@ outputHeader('Dashboard', 'index.php');
         // Load meeting types on page load
         window.addEventListener('DOMContentLoaded', function() {
             loadMeetingTypes();
+            loadDashboard();
         });
 
         function loadMeetingTypes() {
@@ -97,17 +98,17 @@ outputHeader('Dashboard', 'index.php');
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('meetingTypeSelect');
-                    select.innerHTML = '<option value="0">---Select a meeting type---</option>';
+                    select.innerHTML = '<option value="">---Select a meeting type---</option>';
                     data.forEach(meetingType => {
                         const option = document.createElement('option');
                         option.value = meetingType.id;
                         option.textContent = meetingType.name;
                         select.appendChild(option);
                     });
-                    if (data.length > 0) {
-                        select.value = data[0].id;
-                        loadDashboard();
-                    }
+                    // if (data.length > 0) {
+                    //     select.value = data[0].id;
+                    //     loadDashboard();
+                    // }
                 })
                 .catch(error => {
                     console.error('Error loading meeting types:', error);
