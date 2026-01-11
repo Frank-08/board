@@ -35,7 +35,7 @@ $stmt = $db->prepare("
     LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
     WHERE ai.meeting_id = ?
-    ORDER BY ai.position ASC
+    ORDER BY ai.position ASC, ai.sub_position ASC
 ");
 $stmt->execute([$meetingId]);
 $agendaItems = $stmt->fetchAll();
