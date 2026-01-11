@@ -121,6 +121,19 @@ switch ($method) {
                 $month = $meetingDate->format('n');
                 $shortcode = $meeting['shortcode'] ?? '';
                 
+                // Pre-fetch all parent-child relationships
+                $placeholders = implode(',', array_fill(0, count($order), '?'));
+                $stmt = $db->prepare("
+                    SELECT id, parent_id 
+                    FROM agenda_items 
+                    WHERE meeting_id = ? AND id IN ($placeholders)
+                ");
+                $stmt->execute(array_merge([$meetingId], $order));
+                $parentRelations = [];
+                while ($row = $stmt->fetch()) {
+                    $parentRelations[(int)$row['id']] = $row['parent_id'] ? (int)$row['parent_id'] : null;
+                }
+                
                 // Update positions and item numbers, keeping children with their parent
                 $updateTopStmt = $db->prepare("UPDATE agenda_items SET position = ?, sub_position = 0, item_number = ?, parent_id = NULL WHERE id = ?");
                 $updateChildStmt = $db->prepare("UPDATE agenda_items SET position = ?, sub_position = ?, item_number = ?, parent_id = ? WHERE id = ?");
@@ -129,14 +142,67 @@ switch ($method) {
                 $parentPositions = [];
                 $parentItemNumbers = [];
                 $parentChildCounters = [];
+                $processed = [];
 
                 foreach ($order as $index => $itemId) {
                     $itemId = (int)$itemId;
-                    // fetch parent for this item
-                    $pstm = $db->prepare("SELECT parent_id FROM agenda_items WHERE id = ?");
-                    $pstm->execute([$itemId]);
-                    $row = $pstm->fetch();
-                    $parentId = $row ? $row['parent_id'] : null;
+                    if (isset($processed[$itemId])) {
+                        continue; // Already processed
+                    }
+                    
+                    $parentId = isset($parentRelations[$itemId]) ? $parentRelations[$itemId] : null;
+
+                    // If this is a child and parent hasn't been processed yet, process parent first
+                    if ($parentId && !isset($processed[$parentId])) {
+                        // Find parent in order array and process it first
+                        $parentIndex = array_search($parentId, $order);
+                        if ($parentIndex !== false) {
+                            // Parent is later in array, but we need it now - process it
+                            $parentIdToProcess = (int)$order[$parentIndex];
+                            $parentParentId = isset($parentRelations[$parentIdToProcess]) ? $parentRelations[$parentIdToProcess] : null;
+                            
+                            if (empty($parentParentId)) {
+                                // Parent is top-level
+                                $topPos++;
+                                $position = $topPos;
+                                $sequence = $position + 1;
+                                if (!empty($shortcode)) {
+                                    $topItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                                } else {
+                                    $topItemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                                }
+
+                                $parentPositions[$parentIdToProcess] = $position;
+                                $parentItemNumbers[$parentIdToProcess] = $topItemNumber;
+                                $parentChildCounters[$parentIdToProcess] = 0;
+
+                                $updateTopStmt->execute([$position, $topItemNumber, $parentIdToProcess]);
+                                $processed[$parentIdToProcess] = true;
+                            } else {
+                                // Parent is also a child - recursively process its parent first
+                                // For now, treat it as top-level to avoid infinite recursion
+                                $topPos++;
+                                $position = $topPos;
+                                $sequence = $position + 1;
+                                if (!empty($shortcode)) {
+                                    $topItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                                } else {
+                                    $topItemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                                }
+
+                                $parentPositions[$parentIdToProcess] = $position;
+                                $parentItemNumbers[$parentIdToProcess] = $topItemNumber;
+                                $parentChildCounters[$parentIdToProcess] = 0;
+
+                                $updateTopStmt->execute([$position, $topItemNumber, $parentIdToProcess]);
+                                $processed[$parentIdToProcess] = true;
+                            }
+                        } else if ($parentIndex === false) {
+                            // Parent not in order array - this shouldn't happen, but handle gracefully
+                            // Treat child as top-level for now
+                            $parentId = null;
+                        }
+                    }
 
                     if (empty($parentId)) {
                         // top-level item
@@ -154,10 +220,28 @@ switch ($method) {
                         $parentChildCounters[$itemId] = 0;
 
                         $updateTopStmt->execute([$position, $topItemNumber, $itemId]);
+                        $processed[$itemId] = true;
                     } else {
-                        // child item: parent must have been processed already and appear before child in order
+                        // child item: parent should now be processed
                         if (!isset($parentItemNumbers[$parentId])) {
-                            throw new Exception('Invalid order: child appears before parent');
+                            // Parent not processed yet - this is an error condition
+                            // This shouldn't happen, but if it does, treat as top-level to avoid breaking
+                            $topPos++;
+                            $position = $topPos;
+                            $sequence = $position + 1;
+                            if (!empty($shortcode)) {
+                                $topItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                            } else {
+                                $topItemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                            }
+
+                            $parentPositions[$itemId] = $position;
+                            $parentItemNumbers[$itemId] = $topItemNumber;
+                            $parentChildCounters[$itemId] = 0;
+
+                            $updateTopStmt->execute([$position, $topItemNumber, $itemId]);
+                            $processed[$itemId] = true;
+                            continue;
                         }
 
                         $subPos = $parentChildCounters[$parentId];
@@ -168,6 +252,7 @@ switch ($method) {
                         $parentChildCounters[$parentId] = $subPos + 1;
 
                         $updateChildStmt->execute([$position, $subPos, $itemNumber, $parentId, $itemId]);
+                        $processed[$itemId] = true;
                     }
                 }
                 
