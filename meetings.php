@@ -1498,19 +1498,27 @@ outputHeader('Meetings', 'meetings.php');
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        throw new Error(err.error || 'Error saving resolution');
-                    });
+            .then(async response => {
+                const text = await response.text();
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(text);
+                } catch (e) {
+                    console.error('Invalid JSON response:', text);
+                    throw new Error('Server returned invalid response. Check console for details.');
                 }
-                return response.json();
+                
+                if (!response.ok) {
+                    throw new Error(jsonData.error || 'Error saving resolution');
+                }
+                
+                if (jsonData.error) {
+                    throw new Error(jsonData.error);
+                }
+                
+                return jsonData;
             })
             .then(data => {
-                if (data.error) {
-                    alert('Error: ' + data.error);
-                    return;
-                }
                 closeResolutionModal();
                 loadMeetingResolutions(currentMeetingId);
                 // Also reload agenda items to show the new sub-item if created
