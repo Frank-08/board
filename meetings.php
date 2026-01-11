@@ -126,6 +126,13 @@ outputHeader('Meetings', 'meetings.php');
                     <label for="resolutionDescription">Description *</label>
                     <textarea id="resolutionDescription" rows="5" required></textarea>
                 </div>
+                <div class="form-group" id="resolutionParentGroup">
+                    <label for="resolutionParentAgendaItem">Parent Agenda Item (Optional)</label>
+                    <select id="resolutionParentAgendaItem">
+                        <option value="">No parent (top-level agenda item)</option>
+                    </select>
+                    <small style="color: #666;">Select a parent agenda item to make this resolution a sub-item</small>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="resolutionNumber">Resolution Number</label>
@@ -1399,6 +1406,39 @@ outputHeader('Meetings', 'meetings.php');
             const modal = document.getElementById('resolutionModal');
             const form = document.getElementById('resolutionForm');
             
+            // Populate parent agenda item dropdown
+            const parentSelect = document.getElementById('resolutionParentAgendaItem');
+            parentSelect.innerHTML = '<option value="">No parent (top-level agenda item)</option>';
+            
+            if (currentMeetingId) {
+                fetch(`api/agenda.php?meeting_id=${currentMeetingId}`)
+                    .then(r => r.json())
+                    .then(allItems => {
+                        // Only allow selecting top-level items as parent
+                        allItems.filter(i => !i.parent_id).forEach(i => {
+                            const opt = document.createElement('option');
+                            opt.value = i.id;
+                            opt.textContent = (i.item_number ? i.item_number + '. ' : '') + i.title;
+                            parentSelect.appendChild(opt);
+                        });
+                        
+                        // If editing a resolution, try to find and select the parent
+                        if (resolution && resolution.agenda_item_id) {
+                            fetch(`api/agenda.php?id=${resolution.agenda_item_id}`)
+                                .then(r => r.json())
+                                .then(agendaItem => {
+                                    if (agendaItem && agendaItem.parent_id) {
+                                        parentSelect.value = agendaItem.parent_id;
+                                    }
+                                })
+                                .catch(err => console.error('Error loading agenda item:', err));
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error loading parent items:', err);
+                    });
+            }
+            
             if (resolution) {
                 document.getElementById('resolutionId').value = resolution.id;
                 document.getElementById('resolutionTitle').value = resolution.title;
@@ -1408,10 +1448,16 @@ outputHeader('Meetings', 'meetings.php');
                 document.getElementById('resolutionStatus').value = resolution.status;
                 document.getElementById('resolutionEffectiveDate').value = resolution.effective_date || '';
                 document.getElementById('modalResolutionTitle').textContent = 'Edit Resolution';
+                // Disable parent selection when editing (parent cannot be changed after creation)
+                document.getElementById('resolutionParentAgendaItem').disabled = true;
+                document.getElementById('resolutionParentGroup').style.opacity = '0.6';
             } else {
                 form.reset();
                 document.getElementById('resolutionId').value = '';
                 document.getElementById('modalResolutionTitle').textContent = 'New Resolution';
+                // Enable parent selection for new resolutions
+                document.getElementById('resolutionParentAgendaItem').disabled = false;
+                document.getElementById('resolutionParentGroup').style.opacity = '1';
             }
             
             modal.style.display = 'block';
@@ -1425,6 +1471,7 @@ outputHeader('Meetings', 'meetings.php');
         function saveResolution(event) {
             event.preventDefault();
             const resolutionId = document.getElementById('resolutionId').value;
+            const parentAgendaItemId = document.getElementById('resolutionParentAgendaItem').value;
             const data = {
                 meeting_id: currentMeetingId,
                 title: document.getElementById('resolutionTitle').value,
@@ -1434,6 +1481,14 @@ outputHeader('Meetings', 'meetings.php');
                 status: document.getElementById('resolutionStatus').value,
                 effective_date: document.getElementById('resolutionEffectiveDate').value || null
             };
+            
+            // Add parent_id if a parent agenda item is selected (only for new resolutions)
+            if (!resolutionId && parentAgendaItemId && parentAgendaItemId !== '') {
+                const parentId = parseInt(parentAgendaItemId);
+                if (!isNaN(parentId)) {
+                    data.parent_id = parentId;
+                }
+            }
 
             const method = resolutionId ? 'PUT' : 'POST';
             if (resolutionId) data.id = resolutionId;
@@ -1443,14 +1498,37 @@ outputHeader('Meetings', 'meetings.php');
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
+            .then(async response => {
+                const text = await response.text();
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(text);
+                } catch (e) {
+                    console.error('Invalid JSON response:', text);
+                    throw new Error('Server returned invalid response. Check console for details.');
+                }
+                
+                if (!response.ok) {
+                    throw new Error(jsonData.error || 'Error saving resolution');
+                }
+                
+                if (jsonData.error) {
+                    throw new Error(jsonData.error);
+                }
+                
+                return jsonData;
+            })
             .then(data => {
                 closeResolutionModal();
                 loadMeetingResolutions(currentMeetingId);
+                // Also reload agenda items to show the new sub-item if created
+                if (!resolutionId) {
+                    loadMeetingAgenda(currentMeetingId);
+                }
             })
             .catch(error => {
                 console.error('Error saving resolution:', error);
-                alert('Error saving resolution');
+                alert('Error saving resolution: ' + error.message);
             });
         }
 
