@@ -134,18 +134,24 @@ switch ($method) {
                 $position = (int)$parent['position'];
 
                 $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, sub_position, parent_id, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([
-                    $meetingId,
-                    $title,
-                    $description,
-                    'Vote', // Resolutions are typically vote items
-                    null, // presenter_id
-                    null, // duration
-                    $position,
-                    $subPosition,
-                    $parentId,
-                    $itemNumber
-                ]);
+                try {
+                    $stmt->execute([
+                        $meetingId,
+                        $title,
+                        $description,
+                        'Vote', // Resolutions are typically vote items
+                        null, // presenter_id
+                        null, // duration
+                        $position,
+                        $subPosition,
+                        $parentId,
+                        $itemNumber
+                    ]);
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+                    exit;
+                }
             } else {
                 // Get max position for agenda items and ensure sequential numbering
                 $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as new_position FROM agenda_items WHERE meeting_id = ? AND parent_id IS NULL");
@@ -167,16 +173,22 @@ switch ($method) {
                 
                 // Create agenda item for the resolution
                 $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([
-                    $meetingId,
-                    $title,
-                    $description,
-                    'Vote', // Resolutions are typically vote items
-                    null, // presenter_id
-                    null, // duration
-                    $position,
-                    $itemNumber
-                ]);
+                try {
+                    $stmt->execute([
+                        $meetingId,
+                        $title,
+                        $description,
+                        'Vote', // Resolutions are typically vote items
+                        null, // presenter_id
+                        null, // duration
+                        $position,
+                        $itemNumber
+                    ]);
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+                    exit;
+                }
             }
             
             $agendaItemId = $db->lastInsertId();
@@ -195,16 +207,22 @@ switch ($method) {
         }
         
         $stmt = $db->prepare("INSERT INTO resolutions (meeting_id, agenda_item_id, resolution_number, title, description, vote_type, status, effective_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $meetingId,
-            $agendaItemId,
-            $data['resolution_number'] ?? null,
-            $title,
-            $description,
-            $data['vote_type'] ?? null,
-            $data['status'] ?? 'Proposed',
-            $data['effective_date'] ?? null
-        ]);
+        try {
+            $stmt->execute([
+                $meetingId,
+                $agendaItemId,
+                $data['resolution_number'] ?? null,
+                $title,
+                $description,
+                $data['vote_type'] ?? null,
+                $data['status'] ?? 'Proposed',
+                $data['effective_date'] ?? null
+            ]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Database error creating resolution: ' . $e->getMessage()]);
+            exit;
+        }
         
         $resolutionId = $db->lastInsertId();
         $stmt = $db->prepare("

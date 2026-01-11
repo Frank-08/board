@@ -1483,8 +1483,11 @@ outputHeader('Meetings', 'meetings.php');
             };
             
             // Add parent_id if a parent agenda item is selected (only for new resolutions)
-            if (!resolutionId && parentAgendaItemId) {
-                data.parent_id = parseInt(parentAgendaItemId);
+            if (!resolutionId && parentAgendaItemId && parentAgendaItemId !== '') {
+                const parentId = parseInt(parentAgendaItemId);
+                if (!isNaN(parentId)) {
+                    data.parent_id = parentId;
+                }
             }
 
             const method = resolutionId ? 'PUT' : 'POST';
@@ -1495,8 +1498,19 @@ outputHeader('Meetings', 'meetings.php');
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Error saving resolution');
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
                 closeResolutionModal();
                 loadMeetingResolutions(currentMeetingId);
                 // Also reload agenda items to show the new sub-item if created
@@ -1506,7 +1520,7 @@ outputHeader('Meetings', 'meetings.php');
             })
             .catch(error => {
                 console.error('Error saving resolution:', error);
-                alert('Error saving resolution');
+                alert('Error saving resolution: ' + error.message);
             });
         }
 
