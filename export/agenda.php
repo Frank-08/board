@@ -5,8 +5,8 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 
-    WHERE ai.meeting_id = ?
-    ORDER BY ai.position ASC, ai.sub_position ASC
+$meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : null;
+
 if (!$meetingId) {
     die('Meeting ID is required');
 }
