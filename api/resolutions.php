@@ -99,8 +99,13 @@ try {
         
         // If no agenda_item_id provided, create one automatically
         if (empty($data['agenda_item_id'])) {
-            // Get meeting date for item number format
-            $stmt = $db->prepare("SELECT scheduled_date, shortcode FROM meetings WHERE id = ?");
+            // Get meeting date and shortcode from meeting_type for item number format
+            $stmt = $db->prepare("
+                SELECT m.scheduled_date, mt.shortcode 
+                FROM meetings m 
+                LEFT JOIN meeting_types mt ON m.meeting_type_id = mt.id 
+                WHERE m.id = ?
+            ");
             $stmt->execute([$meetingId]);
             $meeting = $stmt->fetch();
             
