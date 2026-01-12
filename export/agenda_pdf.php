@@ -279,8 +279,9 @@ if ($useTCPDF && class_exists('TCPDF')) {
     if (!empty($pdfDocuments)) {
         // First, save the agenda PDF to a temporary file
         $tempAgendaPdf = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.pdf';
+        $tempAgendahtml = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.html';
         $pdf->Output($tempAgendaPdf, 'F');
-        
+        $html->Output($tempAgendahtml, 'F');
         // Collect all PDF file paths (prepend attachment metadata pages)
         $pdfFiles = [$tempAgendaPdf];
         foreach ($pdfDocuments as $doc) {
@@ -354,8 +355,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
                 // Output merged PDF
                 header('Content-Type: application/pdf');
                 header('Content-Disposition: attachment; filename="agenda_' . $meetingId . '_combined.pdf"');
-                //readfile($mergedPdf);
-                print_r($html)
+                readfile($mergedPdf);
                 // Cleanup
                 @unlink($tempAgendaPdf);
                 @unlink($mergedPdf);
