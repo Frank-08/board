@@ -355,7 +355,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
                 header('Content-Type: application/pdf');
                 header('Content-Disposition: attachment; filename="agenda_' . $meetingId . '_combined.pdf"');
                 //readfile($mergedPdf);
-                readfile($html)
+                print_r($html)
                 // Cleanup
                 @unlink($tempAgendaPdf);
                 @unlink($mergedPdf);
