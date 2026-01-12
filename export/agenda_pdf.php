@@ -279,7 +279,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     if (!empty($pdfDocuments)) {
         // First, save the agenda PDF to a temporary file
         $tempAgendaPdf = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.pdf';
-        $tempAgendahtml = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.html';
+        $tempAgendahtml = $tempDir . $meetingId . '_' . time() . '.html';
         $pdf->Output($tempAgendaPdf, 'F');
         file_put_contents($tempAgendahtml,$html);
         // Collect all PDF file paths (prepend attachment metadata pages)
