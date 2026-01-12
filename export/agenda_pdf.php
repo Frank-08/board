@@ -281,7 +281,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
         $tempAgendaPdf = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.pdf';
         $tempAgendahtml = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.html';
         $pdf->Output($tempAgendaPdf, 'F');
-        $html->Output($tempAgendahtml, 'F');
+        file_put_contents($tempAgendahtml,$html);
         // Collect all PDF file paths (prepend attachment metadata pages)
         $pdfFiles = [$tempAgendaPdf];
         foreach ($pdfDocuments as $doc) {
