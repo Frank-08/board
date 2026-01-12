@@ -1,0 +1,72 @@
+/* pdf.css - Minimal TCPDF-friendly stylesheet for agenda PDFs
+ * - Keep selectors simple: avoid flex/grid, pseudo-elements, variables
+ * - Designed to be inlined or loaded just before writeHTML() in export scripts
+ */
+
+body {
+  font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  color: #333333;
+  line-height: 1.4;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 6px 0;
+  color: #2b4d7a;
+}
+
+h2 {
+  font-size: 14px;
+  margin: 8px 0;
+  color: #2b4d7a;
+}
+
+p { margin: 6px 0; }
+
+.header { text-align: center; margin-bottom: 10px; }
+
+.meeting-info {
+  background: #f5f5f5;
+  padding: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #e9e9e9;
+}
+
+.info-row { margin: 4px 0; }
+.info-label { font-weight: 600; display: inline-block; width: 120px; color: #555555; }
+
+.attendees { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+.attendees td { vertical-align: top; padding: 2px 6px; width: 50%; }
+
+.agenda-item {
+  margin-bottom: 10px;
+  padding: 8px;
+  background: #ffffff;
+  border-left: 4px solid #2b4d7a;
+}
+.agenda-item-number { color: #2b4d7a; font-weight: 700; margin-right: 6px; }
+.agenda-item-title { font-weight: 700; display: block; margin-bottom: 4px; }
+.agenda-item-details { color: #444444; font-size: 11px; }
+
+.agenda-children { margin-left: 14px; }
+
+.attachments { margin-top: 8px; font-size: 11px; }
+.attachment { margin-bottom: 4px; }
+
+.footer { text-align: center; color: #666666; font-size: 10px; margin-top: 16px; }
+
+/* Pagination helpers for TCPDF */
+.page-break { page-break-after: always; }
+.avoid-break { page-break-inside: avoid; }
+
+/* Simple table support */
+.table { width: 100%; border-collapse: collapse; }
+.table td, .table th { padding: 4px; border: 1px solid #dddddd; }
+
+/* Notes:
+ * - Avoid complex selectors and CSS3 properties not supported by TCPDF
+ * - If exact typography is required, consider embedding a TTF with TCPDF
+ */

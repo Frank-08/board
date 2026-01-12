@@ -47,6 +47,28 @@ $stmt = $db->prepare("
 $stmt->execute([$meetingId]);
 $agendaItems = $stmt->fetchAll();
 
+// Build a quick map of agenda items by id for lookups
+$agendaItemsById = [];
+foreach ($agendaItems as $ai) {
+    $agendaItemsById[$ai['id']] = $ai;
+}
+
+// Get attendees with their role in the meeting's committee
+$stmt = $db->prepare("
+    SELECT ma.*, bm.first_name, bm.last_name, bm.title,
+        mtm.role, mtm.status as membership_status
+    FROM meeting_attendees ma
+    JOIN board_members bm ON ma.member_id = bm.id
+    JOIN meetings m ON ma.meeting_id = m.id
+    LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
+    WHERE ma.meeting_id = ?
+    ORDER BY 
+        FIELD(mtm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
+        bm.last_name ASC
+");
+$stmt->execute([$meetingId]);
+$attendees = $stmt->fetchAll();
+
 // Get PDF documents attached to agenda items
 $agendaItemIds = array_filter(array_column($agendaItems, 'id'));
 $pdfDocuments = [];
@@ -162,49 +184,92 @@ if ($useTCPDF && class_exists('TCPDF')) {
         }
     }
     
-    // Build HTML content for agenda
-    $html = $logoHtml;
-    $html .= '<h1 style="text-align:center; color:#667eea; font-size:24px;">Meeting Agenda</h1>';
-    $html .= '<div style="text-align:center; margin-bottom:20px; color:#666;">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
-    
-    $html .= '<div style="background:#f5f5f5; padding:15px; margin-bottom:20px; border-radius:5px;">';
-    $html .= '<h2 style="margin-top:0; font-size:18px;">' . htmlspecialchars($meeting['title']) . '</h2>';
-    $html .= '<p><strong>Meeting Type:</strong> ' . htmlspecialchars($meeting['meeting_type_name']) . '</p>';
-    $html .= '<p><strong>Date:</strong> ' . formatDate($meeting['scheduled_date']) . '</p>';
-    $html .= '<p><strong>Time:</strong> ' . formatTime($meeting['scheduled_date']) . '</p>';
+    // Build HTML content for agenda (include minimal pdf.css if present)
+    $pdfCssPath = __DIR__ . '/../assets/css/pdf.css';
+    $pdfCss = '';
+    if (file_exists($pdfCssPath)) {
+        $pdfCss = file_get_contents($pdfCssPath);
+    }
+
+    $html = ($pdfCss ? '<style>' . $pdfCss . '</style>' : '') . $logoHtml;
+    $html .= '<div class="header">';
+    $html .= '<div class="organization">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
+    $html .= '<h1>Meeting Agenda</h1>';
+    $html .= '</div>';
+
+    $html .= '<div class="meeting-info">';
+    $html .= '<h2>' . htmlspecialchars($meeting['title']) . '</h2>';
+    $html .= '<div class="info-row"><div class="info-label">Meeting Type:</div><div class="info-value">' . htmlspecialchars($meeting['meeting_type_name']) . '</div></div>';
+    $html .= '<div class="info-row"><div class="info-label">Date:</div><div class="info-value">' . formatDate($meeting['scheduled_date']) . '</div></div>';
+    $html .= '<div class="info-row"><div class="info-label">Time:</div><div class="info-value">' . formatTime($meeting['scheduled_date']) . '</div></div>';
     if ($meeting['location']) {
-        $html .= '<p><strong>Location:</strong> ' . htmlspecialchars($meeting['location']) . '</p>';
+        $html .= '<div class="info-row"><div class="info-label">Location:</div><div class="info-value">' . htmlspecialchars($meeting['location']) . '</div></div>';
     }
     if ($meeting['virtual_link']) {
-        $html .= '<p><strong>Virtual Link:</strong> ' . htmlspecialchars($meeting['virtual_link']) . '</p>';
+        $html .= '<div class="info-row"><div class="info-label">Virtual Link:</div><div class="info-value">' . htmlspecialchars($meeting['virtual_link']) . '</div></div>';
     }
     $html .= '</div>';
-    
-    // Agenda items
-    $html .= '<h3 style="color:#667eea; border-bottom:2px solid #667eea; padding-bottom:5px;">Agenda Items</h3>';
-    foreach ($agendaItems as $item) {
-        $isChild = !empty($item['parent_id']);
-        $childStyle = $isChild ? 'margin-left:20px;' : '';
-        $html .= '<div style="' . $childStyle . 'margin-bottom:15px; padding:10px; background:#f9f9f9; border-left:4px solid #667eea;">';
-        $html .= '<h4 style="margin:0 0 10px 0; font-size:14px;">';
-        if ($item['item_number']) {
-            $html .= htmlspecialchars($item['item_number']) . '. ';
+
+    // Attendees (if any)
+    if (!empty($attendees)) {
+        $html .= '<div class="attendees-section"><h3>Attendees</h3>';
+        $html .= '<table class="attendees">';
+        $col = 0;
+        foreach ($attendees as $att) {
+            if ($col % 2 === 0) $html .= '<tr>';
+            $html .= '<td>' . htmlspecialchars(trim($att['first_name'] . ' ' . $att['last_name'])) . ($att['role'] ? ' (' . htmlspecialchars($att['role']) . ')' : '') . '</td>';
+            if ($col % 2 === 1) $html .= '</tr>';
+            $col++;
         }
-        $html .= htmlspecialchars($item['title']) . '</h4>';
-        if ($item['description']) {
-            $html .= '<p style="margin:5px 0; font-size:12px;">' . nl2br(htmlspecialchars($item['description'])) . '</p>';
-        }
-        if ($item['presenter_first_name']) {
-            $html .= '<p style="margin:5px 0; font-size:11px; color:#666;"><strong>Presenter:</strong> ' . 
-                     htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']) . '</p>';
-        }
-        if ($item['duration_minutes']) {
-            $html .= '<p style="margin:5px 0; font-size:11px; color:#666;"><strong>Duration:</strong> ' . 
-                     htmlspecialchars($item['duration_minutes']) . ' minutes</p>';
-        }
-        $html .= '</div>';
+        if ($col % 2 === 1) $html .= '<td></td></tr>';
+        $html .= '</table></div>';
     }
-    
+
+    // Agenda items
+    $html .= '<div class="agenda-section"><h3>Agenda Items</h3>';
+    if (count($agendaItems) > 0) {
+        foreach ($agendaItems as $item) {
+            $isChild = !empty($item['parent_id']);
+            $childClass = $isChild ? ' agenda-children' : '';
+            $html .= '<div class="agenda-item' . $childClass . '">';
+            $html .= '<div class="agenda-item-header"><div style="display:flex; align-items:flex-start;"><span class="agenda-item-number">' . htmlspecialchars($item['item_number'] ?? '?') . '.</span><span class="agenda-item-title">' . htmlspecialchars($item['title']) . '</span></div>';
+            if ($item['item_type']) { $html .= '<span class="agenda-item-type">' . htmlspecialchars($item['item_type']) . '</span>'; }
+            $html .= '</div>';
+            $html .= '<div class="agenda-item-details">';
+            if ($item['description']) { $html .= '<p><strong>Description:</strong> ' . nl2br(htmlspecialchars($item['description'])) . '</p>'; }
+            if ($item['resolution_id']) {
+                $html .= '<div style="background: #e8f5e9; padding: 8px; border-radius: 4px; margin: 6px 0; border-left: 3px solid #28a745;">';
+                $html .= '<p style="margin: 0 0 3px 0;"><strong>📋 Linked Resolution:</strong> ' . htmlspecialchars($item['resolution_title']) . '</p>';
+                if ($item['resolution_number']) { $html .= '<p style="margin: 3px 0;"><strong>Resolution #:</strong> ' . htmlspecialchars($item['resolution_number']) . '</p>'; }
+                if ($item['resolution_description']) { $html .= '<p style="margin: 3px 0;">' . nl2br(htmlspecialchars($item['resolution_description'])) . '</p>'; }
+                if ($item['resolution_status']) { $html .= '<p style="margin: 3px 0;"><strong>Resolution Status:</strong> ' . htmlspecialchars($item['resolution_status']) . '</p>'; }
+                if ($item['vote_type']) { $html .= '<p style="margin: 3px 0;"><strong>Vote Type:</strong> ' . htmlspecialchars($item['vote_type']) . '</p>'; }
+                $html .= '</div>';
+            }
+            if ($item['presenter_first_name']) { $html .= '<p><strong>Presenter:</strong> ' . htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); if ($item['presenter_role']) { $html .= ' (' . htmlspecialchars($item['presenter_role']) . ')'; } $html .= '</p>'; }
+            if ($item['duration_minutes']) { $html .= '<p><strong>Duration:</strong> ' . htmlspecialchars($item['duration_minutes']) . ' minutes</p>'; }
+            $html .= '</div></div>';
+        }
+    } else {
+        $html .= '<p>No agenda items have been added yet.</p>';
+    }
+    $html .= '</div>';
+
+    // Attached PDFs (list metadata)
+    $html .= '<div class="agenda-section"><h3>Attached PDF Documents</h3>';
+    $anyPdf = false;
+    foreach ($pdfDocuments as $doc) {
+        $ai = isset($agendaItemsById[$doc['agenda_item_id']]) ? $agendaItemsById[$doc['agenda_item_id']] : null;
+        $html .= '<div class="pdf-embed-container"><div class="pdf-embed-header">';
+        $html .= '<div class="pdf-embed-title">' . htmlspecialchars($doc['title']) . '</div>';
+        $html .= '<div class="pdf-embed-meta"><strong>From Agenda Item:</strong> ' . ($ai ? (htmlspecialchars($ai['item_number'] ?? '') . ($ai['item_number'] ? '. ' : '')) . htmlspecialchars($ai['title']) : 'N/A');
+        if ($doc['description']) { $html .= ' | ' . htmlspecialchars($doc['description']); }
+        $html .= ' | File: ' . htmlspecialchars($doc['file_name']) . ' (' . number_format($doc['file_size'] / 1024, 2) . ' KB)';
+        $html .= '</div></div></div>';
+        $anyPdf = true;
+    }
+    if (!$anyPdf) { $html .= '<p>No attached PDFs.</p>'; }
+    $html .= '</div>';    
     // Write HTML content
     $pdf->writeHTML($html, true, false, true, false, '');
     
@@ -216,7 +281,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
         $tempAgendaPdf = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.pdf';
         $pdf->Output($tempAgendaPdf, 'F');
         
-        // Collect all PDF file paths
+        // Collect all PDF file paths (prepend attachment metadata pages)
         $pdfFiles = [$tempAgendaPdf];
         foreach ($pdfDocuments as $doc) {
             $filePath = null;
@@ -232,6 +297,36 @@ if ($useTCPDF && class_exists('TCPDF')) {
             }
             
             if ($filePath && file_exists($filePath)) {
+                // Create a small metadata PDF for this attachment to preserve context when merged
+                try {
+                    $metaPdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+                    $metaPdf->SetCreator('Together in Council');
+                    $metaPdf->SetAuthor($meeting['meeting_type_name']);
+                    $metaPdf->SetTitle('Attachment: ' . $doc['file_name']);
+                    $metaPdf->setPrintHeader(false);
+                    $metaPdf->setPrintFooter(false);
+                    $metaPdf->SetMargins(15, 15, 15);
+                    $metaPdf->AddPage();
+
+                    $ai = isset($agendaItemsById[$doc['agenda_item_id']]) ? $agendaItemsById[$doc['agenda_item_id']] : null;
+                    $metaHtml = '<h2>Attachment: ' . htmlspecialchars($doc['title']) . '</h2>';
+                    if ($ai) {
+                        $metaHtml .= '<p><strong>From Agenda Item:</strong> ' . htmlspecialchars($ai['item_number'] ?? '') . ' ' . htmlspecialchars($ai['title']) . '</p>';
+                    }
+                    if ($doc['description']) {
+                        $metaHtml .= '<p>' . nl2br(htmlspecialchars($doc['description'])) . '</p>';
+                    }
+                    $metaHtml .= '<p><strong>Filename:</strong> ' . htmlspecialchars($doc['file_name']) . ' (' . number_format($doc['file_size'] / 1024, 2) . ' KB)</p>';
+                    $metaPdf->writeHTML($metaHtml, true, false, true, false, '');
+
+                    $metaFile = $tempDir . '/attachment_meta_' . $doc['id'] . '_' . time() . '.pdf';
+                    $metaPdf->Output($metaFile, 'F');
+
+                    $pdfFiles[] = $metaFile;
+                } catch (Exception $e) {
+                    error_log("Failed creating meta PDF for attachment {$doc['id']}: " . $e->getMessage());
+                }
+
                 $pdfFiles[] = $filePath;
             }
         }
