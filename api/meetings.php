@@ -59,7 +59,7 @@ switch ($method) {
                 FROM agenda_items ai
                 LEFT JOIN board_members bm ON ai.presenter_id = bm.id
                 WHERE ai.meeting_id = ?
-                ORDER BY ai.position ASC, ai.sub_position ASC
+                ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
             ");
             $stmt->execute([$id]);
             $meeting['agenda_items'] = $stmt->fetchAll();

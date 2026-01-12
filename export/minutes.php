@@ -53,7 +53,7 @@ $stmt = $db->prepare("
     LEFT JOIN minutes_agenda_comments mac ON ai.id = mac.agenda_item_id AND mac.minutes_id = ?
     LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
     WHERE ai.meeting_id = ?
-    ORDER BY ai.position ASC
+    ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
 ");
 $stmt->execute([$minutes['id'], $meetingId]);
 $agendaItems = $stmt->fetchAll();

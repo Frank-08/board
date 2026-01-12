@@ -75,7 +75,7 @@ switch ($method) {
                 LEFT JOIN board_members bm ON ai.presenter_id = bm.id
                 LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
                 WHERE ai.meeting_id = ?
-                ORDER BY ai.position ASC, ai.sub_position ASC
+                ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
             ");
             $stmt->execute([$meetingId]);
             echo json_encode($stmt->fetchAll());
