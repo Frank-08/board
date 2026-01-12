@@ -232,13 +232,13 @@ if ($useTCPDF && class_exists('TCPDF')) {
             $isChild = !empty($item['parent_id']);
             $childClass = $isChild ? ' agenda-children' : '';
             $html .= '<div class="agenda-item' . $childClass . '">';
-            $html .= '<div class="agenda-item-header"><div style="display:flex; align-items:flex-start;"><span class="agenda-item-number">' . htmlspecialchars($item['item_number'] ?? '?') . '.</span><span class="agenda-item-title">' . htmlspecialchars($item['title']) . '</span></div>';
+            $html .= '<div class="agenda-item-header"><span class="agenda-item-number">' . htmlspecialchars($item['item_number'] ?? '?') . '.</span><span class="agenda-item-title">' . htmlspecialchars($item['title']) . '</span></div>';
             if ($item['item_type']) { $html .= '<span class="agenda-item-type">' . htmlspecialchars($item['item_type']) . '</span>'; }
             $html .= '</div>';
             $html .= '<div class="agenda-item-details">';
             if ($item['description']) { $html .= '<p><strong>Description:</strong> ' . nl2br(htmlspecialchars($item['description'])) . '</p>'; }
             if ($item['resolution_id']) {
-                $html .= '<div style="background: #e8f5e9; padding: 8px; border-radius: 4px; margin: 6px 0; border-left: 3px solid #28a745;">';
+                $html .= '<div class="resolution">';
                 $html .= '<p style="margin: 0 0 3px 0;"><strong>📋 Linked Resolution:</strong> ' . htmlspecialchars($item['resolution_title']) . '</p>';
                 if ($item['resolution_number']) { $html .= '<p style="margin: 3px 0;"><strong>Resolution #:</strong> ' . htmlspecialchars($item['resolution_number']) . '</p>'; }
                 if ($item['resolution_description']) { $html .= '<p style="margin: 3px 0;">' . nl2br(htmlspecialchars($item['resolution_description'])) . '</p>'; }

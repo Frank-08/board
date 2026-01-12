@@ -50,8 +50,28 @@ p { margin: 6px 0; }
     color: #555; 
 }
 
-.attendees { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-.attendees td { vertical-align: top; padding: 2px 6px; width: 50%; }
+.info-value {
+    flex: 1;
+}
+
+.attendees { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin-bottom: 12px; 
+}
+
+.attendees td { 
+    vertical-align: top; 
+    padding: 2px 6px; 
+    width: 50%; 
+}
+
+.agenda-section h3 {
+    color: #667eea;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 5px;
+    margin-bottom: 12px;
+}
 
 .agenda-item {
     margin-bottom: 12px;
@@ -59,6 +79,13 @@ p { margin: 6px 0; }
     background-color: #f9f9f9;
     border-left: 4px solid #667eea;
     border-radius: 4px;
+}
+
+.agenda-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
 }
 
 .agenda-item-number { 
@@ -81,10 +108,17 @@ p { margin: 6px 0; }
     font-size: 14px;
 }
 
-.agenda-children { margin-left: 14px; }
+.agenda-children { 
+    margin-left: 14px; 
+}
 
-.attachments { margin-top: 8px; font-size: 11px; }
-.attachment { margin-bottom: 4px; }
+.attachments { 
+    margin-top: 8px; 
+    font-size: 11px; 
+}
+.attachment { 
+    margin-bottom: 4px; 
+}
 
 .footer { 
     margin-top: 40px;
@@ -95,13 +129,31 @@ p { margin: 6px 0; }
     font-size: 12px;
 }
 
+.resolution{
+    background: #e8f5e9; 
+    padding: 8px; 
+    border-radius: 4px; 
+    margin: 6px 0; 
+    border-left: 3px solid #28a745;
+}
 /* Pagination helpers for TCPDF */
-.page-break { page-break-after: always; }
-.avoid-break { page-break-inside: avoid; }
+.page-break { 
+    page-break-after: always; 
+}
+.avoid-break { 
+    page-break-inside: avoid; 
+}
 
 /* Simple table support */
-.table { width: 100%; border-collapse: collapse; }
-.table td, .table th { padding: 4px; border: 1px solid #dddddd; }
+.table { 
+    width: 100%; 
+    border-collapse: collapse; 
+}
+
+.table td, .table th { 
+    padding: 4px; 
+    border: 1px solid #dddddd; 
+}
 
 /* Notes:
  * - Avoid complex selectors and CSS3 properties not supported by TCPDF
