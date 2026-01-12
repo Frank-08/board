@@ -26,6 +26,24 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'])) {
     requirePermission('manage_agenda');
 }
 
+/**
+ * Convert a numeric position (0-based) to Excel-style column letter suffix
+ * 0 → 'a', 1 → 'b', ..., 25 → 'z', 26 → 'aa', 27 → 'ab', etc.
+ * 
+ * @param int $number 0-based index
+ * @return string Letter suffix (a-z, aa-az, ba-bz, etc.)
+ */
+function numberToLetterSuffix($number) {
+    $result = '';
+    $num = $number;
+    while ($num >= 0) {
+        $result = chr(ord('a') + ($num % 26)) . $result;
+        $num = intval($num / 26) - 1;
+        if ($num < 0) break;
+    }
+    return $result;
+}
+
 switch ($method) {
     case 'GET':
         if (isset($_GET['id'])) {
@@ -245,7 +263,7 @@ switch ($method) {
                         }
 
                         $subPos = $parentChildCounters[$parentId];
-                        $letter = chr(ord('a') + $subPos);
+                        $letter = numberToLetterSuffix($subPos);
                         $itemNumber = $parentItemNumbers[$parentId] . $letter;
                         $position = $parentPositions[$parentId];
 
@@ -328,7 +346,7 @@ switch ($method) {
                 }
             }
 
-            $letter = chr(ord('a') + $subPosition);
+            $letter = numberToLetterSuffix($subPosition);
             $itemNumber = $parentItemNumber . $letter;
 
             // Use parent's position so children are grouped with parent
