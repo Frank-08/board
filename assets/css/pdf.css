@@ -102,6 +102,15 @@ p { margin: 6px 0; }
     color: #333;
 }
 
+.agenda-item-type {
+    background-color: #667eea;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
 .agenda-item-details { 
     margin-top: 6px;
     color: #555;

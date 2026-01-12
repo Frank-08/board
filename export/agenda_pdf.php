@@ -239,7 +239,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             if ($item['description']) { $html .= '<p><strong>Description:</strong> ' . nl2br(htmlspecialchars($item['description'])) . '</p>'; }
             if ($item['resolution_id']) {
                 $html .= '<div class="resolution">';
-                $html .= '<p style="margin: 0 0 3px 0;"><strong>📋 Linked Resolution:</strong> ' . htmlspecialchars($item['resolution_title']) . '</p>';
+                $html .= '<p style="margin: 0 0 3px 0;"><strong>Linked Resolution:</strong> ' . htmlspecialchars($item['resolution_title']) . '</p>';
                 if ($item['resolution_number']) { $html .= '<p style="margin: 3px 0;"><strong>Resolution #:</strong> ' . htmlspecialchars($item['resolution_number']) . '</p>'; }
                 if ($item['resolution_description']) { $html .= '<p style="margin: 3px 0;">' . nl2br(htmlspecialchars($item['resolution_description'])) . '</p>'; }
                 if ($item['resolution_status']) { $html .= '<p style="margin: 3px 0;"><strong>Resolution Status:</strong> ' . htmlspecialchars($item['resolution_status']) . '</p>'; }
@@ -263,8 +263,8 @@ if ($useTCPDF && class_exists('TCPDF')) {
         $html .= '<div class="pdf-embed-container"><div class="pdf-embed-header">';
         $html .= '<div class="pdf-embed-title">' . htmlspecialchars($doc['title']) . '</div>';
         $html .= '<div class="pdf-embed-meta"><strong>From Agenda Item:</strong> ' . ($ai ? (htmlspecialchars($ai['item_number'] ?? '') . ($ai['item_number'] ? '. ' : '')) . htmlspecialchars($ai['title']) : 'N/A');
-        if ($doc['description']) { $html .= ' | ' . htmlspecialchars($doc['description']); }
-        $html .= ' | File: ' . htmlspecialchars($doc['file_name']) . ' (' . number_format($doc['file_size'] / 1024, 2) . ' KB)';
+        // if ($doc['description']) { $html .= ' | ' . htmlspecialchars($doc['description']); }
+        // $html .= ' | File: ' . htmlspecialchars($doc['file_name']) . ' (' . number_format($doc['file_size'] / 1024, 2) . ' KB)';
         $html .= '</div></div></div>';
         $anyPdf = true;
     }
@@ -354,7 +354,8 @@ if ($useTCPDF && class_exists('TCPDF')) {
                 // Output merged PDF
                 header('Content-Type: application/pdf');
                 header('Content-Disposition: attachment; filename="agenda_' . $meetingId . '_combined.pdf"');
-                readfile($mergedPdf);
+                //readfile($mergedPdf);
+                readfile($html)
                 // Cleanup
                 @unlink($tempAgendaPdf);
                 @unlink($mergedPdf);

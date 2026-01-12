@@ -487,7 +487,7 @@ function formatTime($dateString) {
             // Ensure we use just the filename if file_path contains a path
             $fileName = basename($filePath);
             // Construct absolute URL path starting with /board/uploads/
-            $pdfUrl = '/board/uploads/' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8');
+            $pdfUrl = '/uploads/' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8');
             ?>
             <iframe 
                 class="pdf-embed-iframe" 
