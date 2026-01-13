@@ -169,6 +169,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     $html .= '<div class="header">';
     $html .= '<h1>Meeting Agenda</h1>';
     $html .= '<div class="organization">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
+    $html .= '</div>'; // .header
     $html .= '<div class="meeting-info">';
     $html .= '<h2>' . htmlspecialchars($meeting['title']) . '</h2>';
     $html .= '<div class="info-row"><div class="info-label">Meeting Type:</div><div class="info-value">' . htmlspecialchars($meeting['meeting_type_name']) . '</div></div>';
@@ -181,7 +182,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
         $html .= '<div class="info-row"><div class="info-label">Virtual Link:</div><div class="info-value">' . htmlspecialchars($meeting['virtual_link']) . '</div></div>';
     }
     $html .= '</div>'; // .meeting-info
-    $html .= '</div>'; // .header
+
     
     // Agenda items
     $html .= '<div class="agenda-section"><h3>Agenda Items</h3></div>';
