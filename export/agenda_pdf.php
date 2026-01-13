@@ -186,7 +186,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     }
 }
 
-$heardoc html = <<<HEARHTML
+$html = <<<HEARHTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -538,7 +538,7 @@ $heardoc html = <<<HEARHTML
 HEARHTML;
 
     // Write HTML content
-    $heardoc html->writeHTML($html, true, false, true, false, '');
+    $html->writeHTML($html, true, false, true, false, '');
     
     $uploadDir = rtrim(realpath(UPLOAD_DIR) ?: UPLOAD_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     
