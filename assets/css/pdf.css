@@ -53,7 +53,7 @@ p { margin: 6px 0; }
 .info-label { 
     font-weight: bold; 
     width: 150px; 
-    color: #fa0000; 
+    color: #555; 
 }
 
 .info-value {
