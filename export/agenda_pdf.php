@@ -180,7 +180,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     if ($meeting['virtual_link']) {
         $html .= '<div class="info-row><div class="info-label">Virtual Link:</div><div class="info-value"> ' . htmlspecialchars($meeting['virtual_link']) . '</div>';
     }
-    $html .= '</div>'
+    $html .= '</div>';
     $html .= '</div>';
     
     // Agenda items
