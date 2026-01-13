@@ -163,7 +163,10 @@ if ($useTCPDF && class_exists('TCPDF')) {
     }
     
     // Build HTML content for agenda
-    $html = $logoHtml;
+    $cssPath = __DIR__ . '/../assets/css/agenda.css';
+    $css = (file_exists($cssPath) ? file_get_contents($cssPath) : '');
+    $html = ($css ? '<style>' . $css . '</style>' : '') . $logoHtml;
+    $html .= $logoHtml;
     $html .= '<h1 style="text-align:center; color:#667eea; font-size:24px;">Meeting Agenda</h1>';
     $html .= '<div style="text-align:center; margin-bottom:20px; color:#666;">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
     

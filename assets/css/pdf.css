@@ -1,209 +1,234 @@
-/* pdf.css - Minimal TCPDF-friendly stylesheet for agenda PDFs
- * - Keep selectors simple: avoid flex/grid, pseudo-elements, variables
- * - Designed to be inlined or loaded just before writeHTML() in export scripts
- */
-
-body {
-    font-family: Arial, sans-serif;
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 40px 20px;
-    line-height: 1.4;
-    color: #333;
-}
-
-h1 {
-  font-size: 28px;
-  margin: 0 0 6px 0;
-  color: #2b4d7a;
-}
-
-h2 {
-  font-size: 14px;
-  margin: 8px 0;
-  color: #2b4d7a;
-}
-
-p { margin: 6px 0; }
-
-.header {   
-    text-align: center;
-    border-bottom: 3px solid #667eea;
-    padding-bottom: 15px;
-    margin-bottom: 20px; 
-}
-
-.organization { font-size: 16px; color: #666; margin-bottom: 6px; }
-
-.meeting-info {
-  background: #f5f5f5;
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-
-.meeting-info h2 {
-    margin-top: 0;
-    color: #333;
-    font-size: 20px;
-}
-
-.info-row { 
-    margin-bottom: 6px; 
-}
-.info-label { 
-    font-weight: bold; 
-    width: 150px; 
-    color: #555; 
-    display: inline-block;
-    vertical-align: top;
-}
-
-.info-value {
-    display: inline-block;
-    vertical-align: top;
-    margin-left: 6px;
-}
-
-.attendees { 
-    width: 100%; 
-    border-collapse: collapse; 
-    margin-bottom: 12px; 
-}
-
-.attendees td { 
-    vertical-align: top; 
-    padding: 2px 6px; 
-    width: 50%; 
-}
-
-.agenda-section h3 {
-    color: #667eea;
-    border-bottom: 2px solid #667eea;
-    padding-bottom: 5px;
-    margin-bottom: 12px;
-}
-
-.agenda-item {
-    margin-bottom: 12px;
-    padding: 10px;
-    background-color: #f9f9f9;
-    border-left: 4px solid #667eea;
-    border-radius: 4px;
-}
-
-.agenda-item-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 6px;
-}
-
-.agenda-item-number { 
-    font-weight: bold;
-    color: #667eea;
-    font-size: 18px;
-    margin-right: 10px; 
-}
-
-.agenda-item-title { 
-    flex: 1;
-    font-weight: bold;
-    font-size: 16px;
-    color: #333;
-}
-
-.agenda-item-type {
-    background-color: #667eea;
-    color: white;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: bold;
-}
-
-.agenda-item-details { 
-    margin-top: 6px;
-    color: #555;
-    font-size: 14px;
-}
-
-.agenda-children { 
-    margin-left: 14px; 
-}
-
-.attachments { 
-    margin-top: 8px; 
-    font-size: 11px; 
-}
-.attachment { 
-    margin-bottom: 4px; 
-}
-
-/* PDF embed styles to match web view */
-.pdf-embed-container {
-    margin: 12px 0;
-    page-break-inside: avoid;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    overflow: hidden;
-}
-.pdf-embed-header {
-    background-color: #f5f5f5;
-    padding: 8px 12px;
-    border-bottom: 1px solid #ddd;
-}
-.pdf-embed-title {
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 5px;
-}
-.pdf-embed-meta {
-    font-size: 12px;
-    color: #666;
-}
-.pdf-embed-iframe {
-    width: 100%;
-    border: none;
-    display: block;
-}
-
-.footer { 
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid #ddd;
-    text-align: center;
-    color: #666;
-    font-size: 12px;
-}
-
-.resolution{
-    background: #e8f5e9; 
-    padding: 8px; 
-    border-radius: 4px; 
-    margin: 6px 0; 
-    border-left: 3px solid #28a745;
-}
-/* Pagination helpers for TCPDF */
-.page-break { 
-    page-break-after: always; 
-}
-.avoid-break { 
-    page-break-inside: avoid; 
-}
-
-/* Simple table support */
-.table { 
-    width: 100%; 
-    border-collapse: collapse; 
-}
-
-.table td, .table th { 
-    padding: 4px; 
-    border: 1px solid #dddddd; 
-}
-
-/* Notes:
- * - Avoid complex selectors and CSS3 properties not supported by TCPDF
- * - If exact typography is required, consider embedding a TTF with TCPDF
- */
+@media print {
+            body {
+                margin: 0;
+                padding: 20px;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+           body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+        
+        .header .organization {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .meeting-info {
+            background-color: #f5f5f5;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .meeting-info h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 24px;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 6px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            width: 150px;
+            color: #555;
+        }
+        
+        .info-value {
+            flex: 1;
+        }
+        
+        .attendees-section {
+            margin-bottom: 15px;
+        }
+        
+        .attendees-section h3 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .attendee-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        
+        .attendee-item {
+            padding: 6px;
+            background-color: #f9f9f9;
+            border-left: 3px solid #667eea;
+        }
+        
+        .agenda-section h3 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+            margin-bottom: 12px;
+        }
+        
+        .agenda-item {
+            margin-bottom: 12px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+        
+        .agenda-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+        
+        .agenda-item-number {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 18px;
+            margin-right: 10px;
+        }
+        
+        .agenda-item-title {
+            flex: 1;
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .agenda-item-type {
+            background-color: #667eea;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .agenda-item-details {
+            margin-top: 6px;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        .agenda-item-details p {
+            margin: 3px 0;
+        }
+        
+        .print-buttons {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 0 10px;
+            background-color: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background-color: #5568d3;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .pdf-embed-container {
+            margin: 12px 0;
+            page-break-inside: avoid;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .pdf-embed-header {
+            background-color: #f5f5f5;
+            padding: 8px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .pdf-embed-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .pdf-embed-meta {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .pdf-embed-iframe {
+            width: 100%;
+            border: none;
+            display: block;
+        }
+        
+        @media print {
+            .pdf-embed-iframe {
+                height: auto;
+                min-height: 800px;
+            }
+            
+            .pdf-embed-container {
+                page-break-inside: avoid;
+                page-break-after: always;
+            }
+        }
+        
+        @media screen {
+            .pdf-embed-iframe {
+                height: 600px;
+            }
+        }
