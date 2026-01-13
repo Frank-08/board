@@ -186,7 +186,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     }
 }
 
-$html = <<<HEARHTML
+$html = <<<EOT
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -535,7 +535,7 @@ $html = <<<HEARHTML
         <?php endif; ?>
     </div>
         </body>
-HEARHTML;
+EOT;
 
     // Write HTML content
     $html->writeHTML($html, true, false, true, false, '');
