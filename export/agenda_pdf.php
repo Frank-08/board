@@ -185,8 +185,9 @@ if ($useTCPDF && class_exists('TCPDF')) {
         }
     }
 }
-    ?>
-    <!DOCTYPE html>
+
+$heardoc html = <<<HEARHTML
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -431,12 +432,6 @@ if ($useTCPDF && class_exists('TCPDF')) {
     </style>
 </head>
 <body>
-    <div class="no-print print-buttons">
-        <button onclick="window.print()" class="btn">Print / Save as PDF</button>
-        <a href="agenda_pdf.php?meeting_id=<?php echo $meetingId; ?>" class="btn" style="background-color: #28a745;">Download Combined PDF (with attachments)</a>
-        <a href="javascript:history.back()" class="btn btn-secondary">Back</a>
-    </div>
-
     <div class="header">
         <?php 
         $logoPath = defined('LOGO_PATH') && LOGO_PATH ? LOGO_PATH : '';
@@ -540,3 +535,153 @@ if ($useTCPDF && class_exists('TCPDF')) {
         <?php endif; ?>
     </div>
         </body>
+HEARHTML;
+
+    // Write HTML content
+    $heardoc html->writeHTML($html, true, false, true, false, '');
+    
+    $uploadDir = rtrim(realpath(UPLOAD_DIR) ?: UPLOAD_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    
+    // Try to merge attached PDFs
+    if (!empty($pdfDocuments)) {
+        // First, save the agenda PDF to a temporary file
+        $tempAgendaPdf = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.pdf';
+        $pdf->Output($tempAgendaPdf, 'F');
+        // Collect all PDF file paths (prepend attachment metadata pages)
+        $pdfFiles = [$tempAgendaPdf];
+        foreach ($pdfDocuments as $doc) {
+            $filePath = null;
+            $storedPath = $doc['file_path'];
+            
+            // Find the file using multiple strategies
+            if (file_exists($uploadDir . $storedPath)) {
+                $filePath = $uploadDir . $storedPath;
+            } elseif (file_exists($uploadDir . basename($storedPath))) {
+                $filePath = $uploadDir . basename($storedPath);
+            } elseif (file_exists($storedPath)) {
+                $filePath = $storedPath;
+            }
+            
+            if ($filePath && file_exists($filePath)) {
+                // Create a small metadata PDF for this attachment to preserve context when merged
+                try {
+                    $metaPdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+                    $metaPdf->SetCreator('Together in Council');
+                    $metaPdf->SetAuthor($meeting['meeting_type_name']);
+                    $metaPdf->SetTitle('Attachment: ' . $doc['file_name']);
+                    $metaPdf->setPrintHeader(false);
+                    $metaPdf->setPrintFooter(false);
+                    $metaPdf->SetMargins(15, 15, 15);
+                    $metaPdf->AddPage();
+
+                    $ai = isset($agendaItemsById[$doc['agenda_item_id']]) ? $agendaItemsById[$doc['agenda_item_id']] : null;
+                    $metaHtml = '<h2>Attachment: ' . htmlspecialchars($doc['title']) . '</h2>';
+                    if ($ai) {
+                        $metaHtml .= '<p><strong>From Agenda Item:</strong> ' . htmlspecialchars($ai['item_number'] ?? '') . ' ' . htmlspecialchars($ai['title']) . '</p>';
+                    }
+                    if ($doc['description']) {
+                        $metaHtml .= '<p>' . nl2br(htmlspecialchars($doc['description'])) . '</p>';
+                    }
+                    $metaHtml .= '<p><strong>Filename:</strong> ' . htmlspecialchars($doc['file_name']) . ' (' . number_format($doc['file_size'] / 1024, 2) . ' KB)</p>';
+                    $metaPdf->writeHTML($metaHtml, true, false, true, false, '');
+
+                    $metaFile = $tempDir . '/attachment_meta_' . $doc['id'] . '_' . time() . '.pdf';
+                    $metaPdf->Output($metaFile, 'F');
+
+                    $pdfFiles[] = $metaFile;
+                } catch (Exception $e) {
+                    error_log("Failed creating meta PDF for attachment {$doc['id']}: " . $e->getMessage());
+                }
+
+                $pdfFiles[] = $filePath;
+            }
+        }
+        
+        // Try to merge using system commands
+        if ($useSystemCommand && count($pdfFiles) > 1) {
+            $mergedPdf = $tempDir . '/merged_' . $meetingId . '_' . time() . '.pdf';
+            $success = false;
+            
+            if ($mergeCommand === 'pdftk') {
+                $cmd = 'pdftk ' . implode(' ', array_map('escapeshellarg', $pdfFiles)) . ' cat output ' . escapeshellarg($mergedPdf) . ' 2>&1';
+                exec($cmd, $output, $returnVar);
+                $success = ($returnVar === 0 && file_exists($mergedPdf));
+            } elseif ($mergeCommand === 'gs') {
+                $cmd = 'gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=' . escapeshellarg($mergedPdf) . ' ' . implode(' ', array_map('escapeshellarg', $pdfFiles)) . ' 2>&1';
+                exec($cmd, $output, $returnVar);
+                $success = ($returnVar === 0 && file_exists($mergedPdf));
+            } elseif ($mergeCommand === 'pdfunite') {
+                $cmd = 'pdfunite ' . implode(' ', array_map('escapeshellarg', $pdfFiles)) . ' ' . escapeshellarg($mergedPdf) . ' 2>&1';
+                exec($cmd, $output, $returnVar);
+                $success = ($returnVar === 0 && file_exists($mergedPdf));
+            }
+            
+            if ($success) {
+                // Output merged PDF
+                header('Content-Type: application/pdf');
+                header('Content-Disposition: attachment; filename="agenda_' . $meetingId . '_combined.pdf"');
+                readfile($mergedPdf);
+                // Cleanup
+                @unlink($tempAgendaPdf);
+                @unlink($mergedPdf);
+                exit;
+            }
+        }
+        
+        // Try FPDI if system commands didn't work
+        $fpdiPath = __DIR__ . '/../vendor/setasign/fpdi/src/autoload.php';
+        $useFPDI = false;
+        if (file_exists($fpdiPath)) {
+            require_once($fpdiPath);
+            $useFPDI = class_exists('setasign\Fpdi\Tcpdf\Fpdi');
+        }
+        
+        if ($useFPDI) {
+            // Recreate PDF with FPDI support
+            $pdf = new \setasign\Fpdi\Tcpdf\Fpdi();
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            $pdf->SetMargins(15, 15, 15);
+            $pdf->SetAutoPageBreak(TRUE, 15);
+            $pdf->AddPage();
+            $pdf->writeHTML($html, true, false, true, false, '');
+            
+            // Import pages from attached PDFs
+            foreach ($pdfFiles as $idx => $file) {
+                if ($idx === 0) continue; // Skip agenda PDF (already added)
+                if (file_exists($file)) {
+                    try {
+                        $pageCount = $pdf->setSourceFile($file);
+                        for ($i = 1; $i <= $pageCount; $i++) {
+                            $tplIdx = $pdf->importPage($i);
+                            $pdf->AddPage();
+                            $pdf->useTemplate($tplIdx);
+                        }
+                    } catch (Exception $e) {
+                        error_log("Error merging PDF: " . $e->getMessage());
+                    }
+                }
+            }
+            
+            // Cleanup temp file
+            @unlink($tempAgendaPdf);
+            $pdf->Output('agenda_' . $meetingId . '_combined.pdf', 'D');
+            exit;
+        }
+        
+        // If merging failed, output agenda PDF with note
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="agenda_' . $meetingId . '.pdf"');
+        readfile($tempAgendaPdf);
+        @unlink($tempAgendaPdf);
+        exit;
+    }
+    
+    // Output PDF (no attachments to merge)
+    $pdf->Output('agenda_' . $meetingId . '.pdf', 'D');
+    exit;
+} else {
+    // Fallback: Redirect to HTML version if TCPDF not available
+    header('Location: agenda.php?meeting_id=' . $meetingId);
+    exit;
+}
