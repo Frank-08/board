@@ -147,6 +147,7 @@ if (file_exists($tcpdfPath)) {
     }
 }
 
+
 if ($useTCPDF && class_exists('TCPDF')) {
     // Generate PDF using TCPDF
     $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
@@ -183,6 +184,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             $logoHtml = '<div style="text-align:center; margin-bottom:15px;"><img src="' . LOGO_PATH . '" style="max-width:' . $logoWidth . 'mm; height:auto;" alt="Logo"></div>';
         }
     }
+}
     ?>
     <!DOCTYPE html>
 <html lang="en">
