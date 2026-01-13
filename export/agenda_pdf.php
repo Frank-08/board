@@ -196,7 +196,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     $html .= $logoHtml;
     $html .= '<div class="organization">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
     $html .= '<h1>Meeting Agenda</h1>';
-    $html .= '</div>';},{
+    $html .= '</div>';
 
     $html .= '<div class="meeting-info">';
     $html .= '<h2>' . htmlspecialchars($meeting['title']) . '</h2>';
