@@ -50,6 +50,7 @@
         
         .info-row {
             display: flex;
+            flex-wrap: nowrap;
             margin-bottom: 6px;
         }
         

@@ -136,10 +136,10 @@ function formatTime($dateString) {
 
     <div class="meeting-info">
         <h2><?php echo htmlspecialchars($meeting['title']); ?></h2>
-        <div class="info-row">
+        <!-- <div class="info-row">
             <div class="info-label">Meeting Type:</div>
             <div class="info-value"><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></div>
-        </div>
+        </div> -->
         <div class="info-row">
             <div class="info-label">Date:</div>
             <div class="info-value"><?php echo formatDate($meeting['scheduled_date']); ?></div>

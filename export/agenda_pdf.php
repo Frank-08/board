@@ -172,7 +172,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     $html .= '</div>'; // .header
     $html .= '<div class="meeting-info">';
     $html .= '<h2>' . htmlspecialchars($meeting['title']) . '</h2>';
-    $html .= '<div class="info-row"><div class="info-label">Meeting Type:</div><div class="info-value">' . htmlspecialchars($meeting['meeting_type_name']) . '</div></div>';
+    // $html .= '<div class="info-row"><div class="info-label">Meeting Type:</div><div class="info-value">' . htmlspecialchars($meeting['meeting_type_name']) . '</div></div>';
     $html .= '<div class="info-row"><div class="info-label">Date:</div><div class="info-value">' . formatDate($meeting['scheduled_date']) . '</div></div>';
     $html .= '<div class="info-row"><div class="info-label">Time:</div><div class="info-value">' . formatTime($meeting['scheduled_date']) . '</div></div>';
     if ($meeting['location']) {
