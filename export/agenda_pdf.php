@@ -167,19 +167,18 @@ if ($useTCPDF && class_exists('TCPDF')) {
     $css = (file_exists($cssPath) ? file_get_contents($cssPath) : '');
     $html = ($css ? '<style>' . $css . '</style>' : '') . $logoHtml;
     $html .= $logoHtml;
-    $html .= '<h1 style="text-align:center; color:#667eea; font-size:24px;">Meeting Agenda</h1>';
-    $html .= '<div style="text-align:center; margin-bottom:20px; color:#666;">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
-    
-    $html .= '<div style="background:#f5f5f5; padding:15px; margin-bottom:20px; border-radius:5px;">';
-    $html .= '<h2 style="margin-top:0; font-size:18px;">' . htmlspecialchars($meeting['title']) . '</h2>';
-    $html .= '<p><strong>Meeting Type:</strong> ' . htmlspecialchars($meeting['meeting_type_name']) . '</p>';
-    $html .= '<p><strong>Date:</strong> ' . formatDate($meeting['scheduled_date']) . '</p>';
-    $html .= '<p><strong>Time:</strong> ' . formatTime($meeting['scheduled_date']) . '</p>';
+    $html .= '<div class="header h1">Meeting Agenda</div>';
+    $html .= '<div class="organization">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
+    $html .= '<div class="meeting-info">';
+    $html .= '<div class="meeting-info h2">' . htmlspecialchars($meeting['title']) . '</div>';
+    $html .= '<div class="info-row><div class="info-label">Meeting Type:</div><div class="info-value"> ' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
+    $html .= '<div class="info-row><div class="info-label">Date:</div><div class="info-value"> ' . formatDate($meeting['scheduled_date']) . '</div>';
+    $html .= '<div class="info-row><div class="info-label">Time:</div><div class="info-value"> ' . formatTime($meeting['scheduled_date']) . '</div>';
     if ($meeting['location']) {
-        $html .= '<p><strong>Location:</strong> ' . htmlspecialchars($meeting['location']) . '</p>';
+        $html .= '<div class="info-row><div class="info-label">Location:</div><div class="info-value"> ' . htmlspecialchars($meeting['location']) . '</div>';
     }
     if ($meeting['virtual_link']) {
-        $html .= '<p><strong>Virtual Link:</strong> ' . htmlspecialchars($meeting['virtual_link']) . '</p>';
+        $html .= '<div class="info-row><div class="info-label">Virtual Link:</div><div class="info-value"> ' . htmlspecialchars($meeting['virtual_link']) . '</div>';
     }
     $html .= '</div>';
     
