@@ -147,7 +147,6 @@ if (file_exists($tcpdfPath)) {
     }
 }
 
-
 if ($useTCPDF && class_exists('TCPDF')) {
     // Generate PDF using TCPDF
     $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
@@ -184,361 +183,98 @@ if ($useTCPDF && class_exists('TCPDF')) {
             $logoHtml = '<div style="text-align:center; margin-bottom:15px;"><img src="' . LOGO_PATH . '" style="max-width:' . $logoWidth . 'mm; height:auto;" alt="Logo"></div>';
         }
     }
-}
+    
+    // Build HTML content for agenda (include minimal pdf.css if present)
+    $pdfCssPath = __DIR__ . '/../assets/css/pdf.css';
+    $pdfCss = '';
+    if (file_exists($pdfCssPath)) {
+        $pdfCss = file_get_contents($pdfCssPath);
+    }
 
-$html = <<<EOT
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meeting Agenda - <?php echo htmlspecialchars($meeting['title']); ?></title>
-    <style>
-        @media print {
-            body {
-                margin: 0;
-                padding: 20px;
-            }
-            .no-print {
-                display: none !important;
-            }
-        }
-        
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            line-height: 1.4;
-            color: #333;
-        }
-        
-        .header {
-            text-align: center;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .header h1 {
-            color: #667eea;
-            margin: 0 0 10px 0;
-            font-size: 28px;
-        }
-        
-        .header .organization {
-            font-size: 18px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-        
-        .meeting-info {
-            background-color: #f5f5f5;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-        
-        .meeting-info h2 {
-            margin-top: 0;
-            color: #333;
-            font-size: 24px;
-        }
-        
-        .info-row {
-            display: flex;
-            margin-bottom: 6px;
-        }
-        
-        .info-label {
-            font-weight: bold;
-            width: 150px;
-            color: #555;
-        }
-        
-        .info-value {
-            flex: 1;
-        }
-        
-        .attendees-section {
-            margin-bottom: 15px;
-        }
-        
-        .attendees-section h3 {
-            color: #667eea;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-            margin-bottom: 10px;
-        }
-        
-        .attendee-list {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-        }
-        
-        .attendee-item {
-            padding: 6px;
-            background-color: #f9f9f9;
-            border-left: 3px solid #667eea;
-        }
-        
-        .agenda-section h3 {
-            color: #667eea;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-            margin-bottom: 12px;
-        }
-        
-        .agenda-item {
-            margin-bottom: 12px;
-            padding: 10px;
-            background-color: #f9f9f9;
-            border-left: 4px solid #667eea;
-            border-radius: 4px;
-        }
-        
-        .agenda-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 6px;
-        }
-        
-        .agenda-item-number {
-            font-weight: bold;
-            color: #667eea;
-            font-size: 18px;
-            margin-right: 10px;
-        }
-        
-        .agenda-item-title {
-            flex: 1;
-            font-weight: bold;
-            font-size: 16px;
-            color: #333;
-        }
-        
-        .agenda-item-type {
-            background-color: #667eea;
-            color: white;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        
-        .agenda-item-details {
-            margin-top: 6px;
-            color: #555;
-            font-size: 14px;
-        }
-        
-        .agenda-item-details p {
-            margin: 3px 0;
-        }
-        
-        .print-buttons {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background-color: #f5f5f5;
-            border-radius: 8px;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            margin: 0 10px;
-            background-color: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-            border: none;
-            font-size: 14px;
-        }
-        
-        .btn:hover {
-            background-color: #5568d3;
-        }
-        
-        .btn-secondary {
-            background-color: #6c757d;
-        }
-        
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-        
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            text-align: center;
-            color: #666;
-            font-size: 12px;
-        }
-        
-        .pdf-embed-container {
-            margin: 12px 0;
-            page-break-inside: avoid;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        
-        .pdf-embed-header {
-            background-color: #f5f5f5;
-            padding: 8px 12px;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .pdf-embed-title {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 5px;
-        }
-        
-        .pdf-embed-meta {
-            font-size: 12px;
-            color: #666;
-        }
-        
-        .pdf-embed-iframe {
-            width: 100%;
-            border: none;
-            display: block;
-        }
-        
-        @media print {
-            .pdf-embed-iframe {
-                height: auto;
-                min-height: 800px;
-            }
-            
-            .pdf-embed-container {
-                page-break-inside: avoid;
-                page-break-after: always;
-            }
-        }
-        
-        @media screen {
-            .pdf-embed-iframe {
-                height: 600px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <?php 
-        $logoPath = defined('LOGO_PATH') && LOGO_PATH ? LOGO_PATH : '';
-        $logoUrl = defined('LOGO_URL') && LOGO_URL ? LOGO_URL : '';
-        $logoExists = ($logoPath && file_exists($logoPath)) || ($logoUrl && file_exists(__DIR__ . '/../' . $logoUrl));
-        if ($logoExists && $logoUrl): ?>
-        <div style="text-align:center; margin-bottom:15px;">
-            <img src="../<?php echo htmlspecialchars($logoUrl); ?>" 
-                 alt="Logo" 
-                 style="max-width:<?php echo defined('LOGO_WIDTH_HTML') ? LOGO_WIDTH_HTML : 60; ?>px; height:<?php echo defined('LOGO_HEIGHT') && LOGO_HEIGHT > 0 ? LOGO_HEIGHT : 'auto'; ?>px; max-height:250px;">
-        </div>
-        <?php endif; ?>
-        <div class="organization"><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></div>
-        <h1>Meeting Agenda</h1>
-    </div>
+    $html = ($pdfCss ? '<style>' . $pdfCss . '</style>' : '');
+    $html .= '<div class="header">';
+    $html .= $logoHtml;
+    $html .= '<div class="organization">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
+    $html .= '<h1>Meeting Agenda</h1>';
+    $html .= '</div>';},{
 
-    <div class="meeting-info">
-        <h2><?php echo htmlspecialchars($meeting['title']); ?></h2>
-        <div class="info-row">
-            <div class="info-label">Meeting Type:</div>
-            <div class="info-value"><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></div>
-        </div>
-        <div class="info-row">
-            <div class="info-label">Date:</div>
-            <div class="info-value"><?php echo formatDate($meeting['scheduled_date']); ?></div>
-        </div>
-        <div class="info-row">
-            <div class="info-label">Time:</div>
-            <div class="info-value"><?php echo formatTime($meeting['scheduled_date']); ?></div>
-        </div>
-        <?php if ($meeting['location']): ?>
-        <div class="info-row">
-            <div class="info-label">Location:</div>
-            <div class="info-value"><?php echo htmlspecialchars($meeting['location']); ?></div>
-        </div>
-        <?php endif; ?>
-        <?php if ($meeting['virtual_link']): ?>
-        <div class="info-row">
-            <div class="info-label">Virtual Link:</div>
-            <div class="info-value"><?php echo htmlspecialchars($meeting['virtual_link']); ?></div>
-        </div>
-        <?php endif; ?>
-    </div>
+    $html .= '<div class="meeting-info">';
+    $html .= '<h2>' . htmlspecialchars($meeting['title']) . '</h2>';
+    $html .= '<div class="info-row"><div class="info-label">Meeting Type:</div><div class="info-value">' . htmlspecialchars($meeting['meeting_type_name']) . '</div></div>';
+    $html .= '<div class="info-row"><div class="info-label">Date:</div><div class="info-value">' . formatDate($meeting['scheduled_date']) . '</div></div>';
+    $html .= '<div class="info-row"><div class="info-label">Time:</div><div class="info-value">' . formatTime($meeting['scheduled_date']) . '</div></div>';
+    if ($meeting['location']) {
+        $html .= '<div class="info-row"><div class="info-label">Location:</div><div class="info-value">' . htmlspecialchars($meeting['location']) . '</div></div>';
+    }
+    if ($meeting['virtual_link']) {
+        $html .= '<div class="info-row"><div class="info-label">Virtual Link:</div><div class="info-value">' . htmlspecialchars($meeting['virtual_link']) . '</div></div>';
+    }
+    $html .= '</div>';
 
-    <div class="agenda-section">
-        <h3>Agenda Items</h3>
-        
-        <?php if (count($agendaItems) > 0): ?>
-            <?php foreach ($agendaItems as $item): ?>
-            <?php $isChild = !empty($item['parent_id']); ?>
-            <div class="agenda-item" <?php echo $isChild ? 'style="margin-left:22px;"' : ''; ?>>
-                <div class="agenda-item-header">
-                    <div style="display: flex; align-items: flex-start;">
-                        <span class="agenda-item-number"><?php echo htmlspecialchars($item['item_number'] ?? '?'); ?>.</span>
-                        <span class="agenda-item-title"><?php echo htmlspecialchars($item['title']); ?></span>
-                    </div>
-                    <?php if ($item['item_type']): ?>
-                    <span class="agenda-item-type"><?php echo htmlspecialchars($item['item_type']); ?></span>
-                    <?php endif; ?>
-                </div>
-                
-                <div class="agenda-item-details">
-                    <?php if ($item['description']): ?>
-                    <p><strong>Description:</strong> <?php echo nl2br(htmlspecialchars($item['description'])); ?></p>
-                    <?php endif; ?>
-                    
-                    <?php if ($item['resolution_id']): ?>
-                    <div style="background: #e8f5e9; padding: 8px; border-radius: 4px; margin: 6px 0; border-left: 3px solid #28a745;">
-                        <p style="margin: 0 0 3px 0;"><strong>📋 Linked Resolution:</strong> <?php echo htmlspecialchars($item['resolution_title']); ?></p>
-                        <?php if ($item['resolution_number']): ?>
-                        <p style="margin: 3px 0;"><strong>Resolution #:</strong> <?php echo htmlspecialchars($item['resolution_number']); ?></p>
-                        <?php endif; ?>
-                        <?php if ($item['resolution_description']): ?>
-                        <p style="margin: 3px 0;"><?php echo nl2br(htmlspecialchars($item['resolution_description'])); ?></p>
-                        <?php endif; ?>
-                        <?php if ($item['resolution_status']): ?>
-                        <p style="margin: 3px 0;"><strong>Resolution Status:</strong> <?php echo htmlspecialchars($item['resolution_status']); ?></p>
-                        <?php endif; ?>
-                        <?php if ($item['vote_type']): ?>
-                        <p style="margin: 3px 0;"><strong>Vote Type:</strong> <?php echo htmlspecialchars($item['vote_type']); ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <?php if ($item['presenter_first_name']): ?>
-                    <p><strong>Presenter:</strong> <?php echo htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); ?>
-                        <?php if ($item['presenter_role']): ?>
-                        (<?php echo htmlspecialchars($item['presenter_role']); ?>)
-                        <?php endif; ?>
-                    </p>
-                    <?php endif; ?>
-                    
-                    <?php if ($item['duration_minutes']): ?>
-                    <p><strong>Duration:</strong> <?php echo htmlspecialchars($item['duration_minutes']); ?> minutes</p>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <?php endforeach; ?>
-        <?php else: ?>
-            <p>No agenda items have been added yet.</p>
-        <?php endif; ?>
-    </div>
-        </body>
-EOT;
+    // Attendees (if any)
+    if (!empty($attendees)) {
+        $html .= '<div class="attendees-section"><h3>Attendees</h3>';
+        $html .= '<table class="attendees">';
+        $col = 0;
+        foreach ($attendees as $att) {
+            if ($col % 2 === 0) $html .= '<tr>';
+            $html .= '<td>' . htmlspecialchars(trim($att['first_name'] . ' ' . $att['last_name'])) . ($att['role'] ? ' (' . htmlspecialchars($att['role']) . ')' : '') . '</td>';
+            if ($col % 2 === 1) $html .= '</tr>';
+            $col++;
+        }
+        if ($col % 2 === 1) $html .= '<td></td></tr>';
+        $html .= '</table></div>';
+    }
 
+    // Agenda items
+    $html .= '<div class="agenda-section"><h3>Agenda Items</h3>';
+    if (count($agendaItems) > 0) {
+        foreach ($agendaItems as $item) {
+            $isChild = !empty($item['parent_id']);
+            $childClass = $isChild ? ' agenda-children' : '';
+            $html .= '<div class="agenda-item' . $childClass . '">';
+            $html .= '<div class="agenda-item-header"><div style="display:flex; align-items:flex-start;"><span class="agenda-item-number">' . htmlspecialchars($item['item_number'] ?? '?') . '.</span><span class="agenda-item-title">' . htmlspecialchars($item['title']) . '</span></div>';
+            if ($item['item_type']) { $html .= '<span class="agenda-item-type">' . htmlspecialchars($item['item_type']) . '</span>'; }
+            $html .= '</div>';
+            $html .= '<div class="agenda-item-details">';
+            if ($item['description']) { $html .= '<p><strong>Description:</strong> ' . nl2br(htmlspecialchars($item['description'])) . '</p>'; }
+            if ($item['resolution_id']) {
+                $html .= '<div class="resolution">';
+                $html .= '<p style="margin: 0 0 3px 0;"><strong>Linked Resolution:</strong> ' . htmlspecialchars($item['resolution_title']) . '</p>';
+                if ($item['resolution_number']) { $html .= '<p style="margin: 3px 0;"><strong>Resolution #:</strong> ' . htmlspecialchars($item['resolution_number']) . '</p>'; }
+                if ($item['resolution_description']) { $html .= '<p style="margin: 3px 0;">' . nl2br(htmlspecialchars($item['resolution_description'])) . '</p>'; }
+                if ($item['resolution_status']) { $html .= '<p style="margin: 3px 0;"><strong>Resolution Status:</strong> ' . htmlspecialchars($item['resolution_status']) . '</p>'; }
+                if ($item['vote_type']) { $html .= '<p style="margin: 3px 0;"><strong>Vote Type:</strong> ' . htmlspecialchars($item['vote_type']) . '</p>'; }
+                $html .= '</div>';
+            }
+            if ($item['presenter_first_name']) { $html .= '<p><strong>Presenter:</strong> ' . htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); if ($item['presenter_role']) { $html .= ' (' . htmlspecialchars($item['presenter_role']) . ')'; } $html .= '</p>'; }
+            if ($item['duration_minutes']) { $html .= '<p><strong>Duration:</strong> ' . htmlspecialchars($item['duration_minutes']) . ' minutes</p>'; }
+            $html .= '</div></div>';
+        }
+    } else {
+        $html .= '<p>No agenda items have been added yet.</p>';
+    }
+    $html .= '</div>';
+
+    // Attached PDFs (list metadata)
+    $html .= '<div class="agenda-section"><h3>Attached PDF Documents</h3>';
+    $anyPdf = false;
+    foreach ($pdfDocuments as $doc) {
+        $ai = isset($agendaItemsById[$doc['agenda_item_id']]) ? $agendaItemsById[$doc['agenda_item_id']] : null;
+        $html .= '<div class="pdf-embed-container"><div class="pdf-embed-header">';
+        $html .= '<div class="pdf-embed-title">' . htmlspecialchars($doc['title']) . '</div>';
+        $html .= '<div class="pdf-embed-meta"><strong>From Agenda Item:</strong> ' . ($ai ? (htmlspecialchars($ai['item_number'] ?? '') . ($ai['item_number'] ? '. ' : '')) . htmlspecialchars($ai['title']) : 'N/A');
+        if ($doc['description']) { $html .= ' | ' . htmlspecialchars($doc['description']); }
+        $html .= ' | File: ' . htmlspecialchars($doc['file_name']) . ' (' . number_format($doc['file_size'] / 1024, 2) . ' KB)';
+        $html .= '</div></div></div>';
+        $anyPdf = true;
+    }
+    if (!$anyPdf) { $html .= '<p>No attached PDFs.</p>'; }
+    $html .= '</div>';    
+    // Add footer
+    $html .= '<div class="footer"><p>Generated on ' . date('F j, Y \\a\\t g:i A') . '</p><p>' . htmlspecialchars($meeting['meeting_type_name']) . ' - Together in Council</p></div>';
     // Write HTML content
-    $html->writeHTML($html, true, false, true, false, '');
+    $pdf->writeHTML($html, true, false, true, false, '');
     
     $uploadDir = rtrim(realpath(UPLOAD_DIR) ?: UPLOAD_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     
@@ -583,7 +319,11 @@ EOT;
                         $metaHtml .= '<p>' . nl2br(htmlspecialchars($doc['description'])) . '</p>';
                     }
                     $metaHtml .= '<p><strong>Filename:</strong> ' . htmlspecialchars($doc['file_name']) . ' (' . number_format($doc['file_size'] / 1024, 2) . ' KB)</p>';
-                    $metaPdf->writeHTML($metaHtml, true, false, true, false, '');
+
+                    // Include pdf CSS and header/footer to match agenda styling
+                    $metaFull = ($pdfCss ? '<style>' . $pdfCss . '</style>' : '') . '<div class="header">' . $logoHtml . '<div class="organization">' . htmlspecialchars($meeting['meeting_type_name']) . '</div><h1>Attachment</h1></div>' . $metaHtml . '<div class="footer"><p>Generated on ' . date('F j, Y \\a\\t g:i A') . '</p></div>';
+
+                    $metaPdf->writeHTML($metaFull, true, false, true, false, '');
 
                     $metaFile = $tempDir . '/attachment_meta_' . $doc['id'] . '_' . time() . '.pdf';
                     $metaPdf->Output($metaFile, 'F');
@@ -685,3 +425,4 @@ EOT;
     header('Location: agenda.php?meeting_id=' . $meetingId);
     exit;
 }
+
