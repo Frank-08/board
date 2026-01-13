@@ -172,14 +172,14 @@ if ($useTCPDF && class_exists('TCPDF')) {
     $html .= '</div>'; // .header
     $html .= '<div class="meeting-info">';
     $html .= '<h2>' . htmlspecialchars($meeting['title']) . '</h2>';
-    // $html .= '<div class="info-row"><div class="info-label">Meeting Type:</div><div class="info-value">' . htmlspecialchars($meeting['meeting_type_name']) . '</div></div>';
-    $html .= '<div class="info-row"><div class="info-label">Date:</div><div class="info-value">' . formatDate($meeting['scheduled_date']) . '</div></div>';
-    $html .= '<div class="info-row"><div class="info-label">Time:</div><div class="info-value">' . formatTime($meeting['scheduled_date']) . '</div></div>';
+    $html .= '<table class="meeting-info-table">'
+    $html .= '<tr><td class="info-label">Date:</td><td class="info-value">' . formatDate($meeting['scheduled_date']) . '</td></tr>';
+    $html .= '<tr><td class="info-label">Time:</td><td class="info-value">' . formatTime($meeting['scheduled_date']) . '</td></tr>';
     if ($meeting['location']) {
-        $html .= '<div class="info-row"><div class="info-label">Location:</div><div class="info-value">' . htmlspecialchars($meeting['location']) . '</div></div>';
+        $html .= '<tr><td class="info-label">Location:</td><td class="info-value">' . htmlspecialchars($meeting['location']) . '</td></tr>';
     }
     if ($meeting['virtual_link']) {
-        $html .= '<div class="info-row"><div class="info-label">Virtual Link:</div><div class="info-value">' . htmlspecialchars($meeting['virtual_link']) . '</div></div>';
+        $html .= '<tr><td class="info-label">Virtual Link:</td><td class="info-value">' . htmlspecialchars($meeting['virtual_link']) . '</td></tr>';
     }
     $html .= '</div>'; // .meeting-info
 

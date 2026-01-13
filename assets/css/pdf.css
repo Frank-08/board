@@ -50,7 +50,7 @@
         
         .info-row {
             display: flex;
-            flex-direction: flex-start;
+            flex-direction: row;
             margin-bottom: 6px;
         }
         
@@ -64,6 +64,21 @@
             flex: 1;
         }
         
+        .meeting-info-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .meeting-info-table td.info-label {
+            width: 150px;
+            font-weight: bold;
+            color: #555;
+            vertical-align: top;
+            padding: 4px 0;
+        }
+        .meeting-info-table td.info-value {
+            padding: 4px 0;
+        }
+
         .attendees-section {
             margin-bottom: 15px;
         }
