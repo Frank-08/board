@@ -166,30 +166,30 @@ if ($useTCPDF && class_exists('TCPDF')) {
     $cssPath = __DIR__ . '/../assets/css/pdf.css';
     $css = (file_exists($cssPath) ? file_get_contents($cssPath) : '');
     $html = ($css ? '<style>' . $css . '</style>' : '') . $logoHtml;
-    $html .= $logoHtml;
-    $html .= '<div class="header"> <h1>Meeting Agenda</h1>';
+    $html .= '<div class="header">';
+    $html .= '<h1>Meeting Agenda</h1>';
     $html .= '<div class="organization">' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
     $html .= '<div class="meeting-info">';
-    $html .= '<div class="meeting-info"> <h2>' . htmlspecialchars($meeting['title']) . '</h2></div>';
-    $html .= '<div class="info-row><div class="info-label">Meeting Type:</div><div class="info-value"> ' . htmlspecialchars($meeting['meeting_type_name']) . '</div>';
-    $html .= '<div class="info-row><div class="info-label">Date:</div><div class="info-value"> ' . formatDate($meeting['scheduled_date']) . '</div>';
-    $html .= '<div class="info-row><div class="info-label">Time:</div><div class="info-value"> ' . formatTime($meeting['scheduled_date']) . '</div>';
+    $html .= '<h2>' . htmlspecialchars($meeting['title']) . '</h2>';
+    $html .= '<div class="info-row"><div class="info-label">Meeting Type:</div><div class="info-value">' . htmlspecialchars($meeting['meeting_type_name']) . '</div></div>';
+    $html .= '<div class="info-row"><div class="info-label">Date:</div><div class="info-value">' . formatDate($meeting['scheduled_date']) . '</div></div>';
+    $html .= '<div class="info-row"><div class="info-label">Time:</div><div class="info-value">' . formatTime($meeting['scheduled_date']) . '</div></div>';
     if ($meeting['location']) {
-        $html .= '<div class="info-row><div class="info-label">Location:</div><div class="info-value"> ' . htmlspecialchars($meeting['location']) . '</div>';
+        $html .= '<div class="info-row"><div class="info-label">Location:</div><div class="info-value">' . htmlspecialchars($meeting['location']) . '</div></div>';
     }
     if ($meeting['virtual_link']) {
-        $html .= '<div class="info-row><div class="info-label">Virtual Link:</div><div class="info-value"> ' . htmlspecialchars($meeting['virtual_link']) . '</div>';
+        $html .= '<div class="info-row"><div class="info-label">Virtual Link:</div><div class="info-value">' . htmlspecialchars($meeting['virtual_link']) . '</div></div>';
     }
-    $html .= '</div>';
-    $html .= '</div>';
+    $html .= '</div>'; // .meeting-info
+    $html .= '</div>'; // .header
     
     // Agenda items
-    $html .= '<h3 style="color:#667eea; border-bottom:2px solid #667eea; padding-bottom:5px;">Agenda Items</h3>';
+    $html .= '<div class="agenda-section"><h3>Agenda Items</h3></div>';
     foreach ($agendaItems as $item) {
         $isChild = !empty($item['parent_id']);
         $childStyle = $isChild ? 'margin-left:20px;' : '';
-        $html .= '<div style="' . $childStyle . 'margin-bottom:15px; padding:10px; background:#f9f9f9; border-left:4px solid #667eea;">';
-        $html .= '<h4 style="margin:0 0 10px 0; font-size:14px;">';
+        $html .= '<div class="agenda-item' . ($isChild ? ' child' : '') . '">';
+        $html .= '<h4 class="agenda-item-title" style="margin:0 0 10px 0; font-size:14px;">';
         if ($item['item_number']) {
             $html .= htmlspecialchars($item['item_number']) . '. ';
         }
