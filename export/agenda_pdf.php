@@ -163,7 +163,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     }
     
     // Build HTML content for agenda
-    $cssPath = __DIR__ . '/../assets/css/agenda.css';
+    $cssPath = __DIR__ . '/../assets/css/pdf.css';
     $css = (file_exists($cssPath) ? file_get_contents($cssPath) : '');
     $html = ($css ? '<style>' . $css . '</style>' : '') . $logoHtml;
     $html .= $logoHtml;
