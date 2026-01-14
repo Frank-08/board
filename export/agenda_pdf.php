@@ -212,7 +212,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             // Description row
             if ($item['description']) {
                 $html .= '<tr>';
-                $html .= '<td colspan="2" style="padding: 3px ' . $paddingLeft . ' 3px 10px; font-size: 12px; color: #555;">';
+                $html .= '<td colspan="3" style="padding: 3px ' . $paddingLeft . ' 3px 10px; font-size: 12px; color: #555;">';
                 $html .= '<strong>Description:</strong> ' . nl2br(htmlspecialchars($item['description']));
                 $html .= '</td>';
                 $html .= '</tr>';
@@ -221,7 +221,6 @@ if ($useTCPDF && class_exists('TCPDF')) {
             // Resolution row
             if (!empty($item['resolution_id'])) {
                 $html .= '<tr>';
-                $html .= '<td style="width: 5%;"></td>';
                 $html .= '<td colspan="3" style="padding: 8px 10px; background-color: #c8e6c9; border-left: 4px solid #28a745;">';
                 $html .= '<p style="margin: 0 0 3px 0; font-size: 12px; font-weight: bold;">Linked Resolution: ' . htmlspecialchars($item['resolution_title']) . '</p>';
                 if (!empty($item['resolution_number'])) {
@@ -243,7 +242,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             // Presenter row
             if ($item['presenter_first_name']) {
                 $html .= '<tr>';
-                $html .= '<td colspan="2" style="padding: 3px ' . $paddingLeft . ' 3px 10px; font-size: 12px; color: #555;">';
+                $html .= '<td colspan="3" style="padding: 3px ' . $paddingLeft . ' 3px 10px; font-size: 12px; color: #555;">';
                 $html .= '<strong>Presenter:</strong> ' . htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']);
                 if (!empty($item['presenter_role'])) {
                     $html .= ' (' . htmlspecialchars($item['presenter_role']) . ')';
@@ -255,7 +254,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             // Duration row
             if ($item['duration_minutes']) {
                 $html .= '<tr>';
-                $html .= '<td colspan="2" style="padding: 3px ' . $paddingLeft . ' 6px 10px; font-size: 12px; color: #555;">';
+                $html .= '<td colspan="3" style="padding: 3px ' . $paddingLeft . ' 6px 10px; font-size: 12px; color: #555;">';
                 $html .= '<strong>Duration:</strong> ' . htmlspecialchars($item['duration_minutes']) . ' minutes';
                 $html .= '</td>';
                 $html .= '</tr>';
