@@ -199,10 +199,12 @@ if ($useTCPDF && class_exists('TCPDF')) {
             $html .= '<td style="padding: ' . $paddingLeft . ' 10px 6px 10px; width: 20%; vertical-align: top;">';
             $html .= '<span style="font-weight: bold; color: #667eea; font-size: 14px;">' . htmlspecialchars($item['item_number'] ?? '?') . '.</span>';
             $html .= '</td>';
-            $html .= '<td style="padding: 6px 10px; vertical-align: top;">';
+            $html .= '<td style="padding: 6px 10px; vertical-align: top; width: 70%;">';
             $html .= '<span style="font-weight: bold; font-size: 14px; color: #333;">' . htmlspecialchars($item['title']) . '</span>';
+            $html .= '</td>';
+            $html .= '<td style="padding: 6px 10px; vertical-align: top; width: 10%; text-align: right;">';
             if (!empty($item['item_type'])) {
-                $html .= ' <span style="background-color: #667eea; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">' . htmlspecialchars($item['item_type']) . '</span>';
+                $html .= '<span style="background-color: #667eea; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; white-space: nowrap;">' . htmlspecialchars($item['item_type']) . '</span>';
             }
             $html .= '</td>';
             $html .= '</tr>';
@@ -219,7 +221,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             // Resolution row
             if (!empty($item['resolution_id'])) {
                 $html .= '<tr>';
-                $html .= '<td style="padding: ' . $paddingLeft . ' 10px 6px 10px; width: 20%; vertical-align: top;">'.'</td>';
+                $html .= '<td style="width: 5%;">'.'</td>';
                 $html .= '<td colspan="2" style="padding: 8px 10px; background-color: #c8e6c9; border-left: 4px solid #28a745; border-radius: 4px; margin: 0 ' . $paddingLeft . ' 0 10px;">';
                 $html .= '<p style="margin: 0 0 3px 0; font-size: 12px; font-weight: bold;">Linked Resolution: ' . htmlspecialchars($item['resolution_title']) . '</p>';
                 if (!empty($item['resolution_number'])) {
@@ -259,6 +261,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
                 $html .= '</tr>';
             }
         }
+            $html .= '<tr>'
         $html .= '</table>';
     } else {
         $html .= '<p>No agenda items have been added yet.</p>';
