@@ -196,7 +196,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             
             // Item header row
             $html .= '<tr style="border-bottom: 1px solid #ddd;">';
-            $html .= '<td style="padding: ' . $paddingLeft . ' 10px 6px 10px; width: 5%; vertical-align: top;">';
+            $html .= '<td style="padding: ' . $paddingLeft . ' 10px 6px 10px; width: 12%; vertical-align: top;">';
             $html .= '<span style="font-weight: bold; color: #667eea; font-size: 14px;">' . htmlspecialchars($item['item_number'] ?? '?') . '.</span>';
             $html .= '</td>';
             $html .= '<td style="padding: 6px 10px; vertical-align: top;">';
