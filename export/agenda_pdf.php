@@ -189,63 +189,76 @@ if ($useTCPDF && class_exists('TCPDF')) {
     $html .= '<h3>Agenda Items</h3>';
     
     if (count($agendaItems) > 0) {
+        $html .= '<table style="width: 100%; border-collapse: collapse;">';
         foreach ($agendaItems as $item) {
             $isChild = !empty($item['parent_id']);
-            $itemStyle = $isChild ? ' style="padding-left: 25px;"' : '';
-            $html .= '<div class="agenda-item' . ($isChild ? ' child' : '') . '"' . $itemStyle . '>';
+            $paddingLeft = $isChild ? '40px' : '0px';
             
-            // Item header with title and type badge
-            $html .= '<div class="agenda-item-header" style="display: flex; align-items: flex-start; justify-content: space-between;">';
-            $html .= '<div style="display: flex; align-items: flex-start; flex: 1;">';
-            $html .= '<span class="agenda-item-number" style="font-weight: bold; color: #667eea; font-size: 18px; margin-right: 10px;">' . htmlspecialchars($item['item_number'] ?? '?') . '.</span>';
-            $html .= '<span class="agenda-item-title" style="font-weight: bold; font-size: 16px; color: #333;">' . htmlspecialchars($item['title']) . '</span>';
-            $html .= '</div>';
+            // Item header row
+            $html .= '<tr style="border-bottom: 1px solid #ddd;">';
+            $html .= '<td style="padding: ' . $paddingLeft . ' 10px 6px 10px; width: 5%; vertical-align: top;">';
+            $html .= '<span style="font-weight: bold; color: #667eea; font-size: 14px;">' . htmlspecialchars($item['item_number'] ?? '?') . '.</span>';
+            $html .= '</td>';
+            $html .= '<td style="padding: 6px 10px; vertical-align: top;">';
+            $html .= '<span style="font-weight: bold; font-size: 14px; color: #333;">' . htmlspecialchars($item['title']) . '</span>';
             if (!empty($item['item_type'])) {
-                $html .= '<span class="agenda-item-type" style="background-color: #667eea; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-left: 10px; white-space: nowrap;">' . htmlspecialchars($item['item_type']) . '</span>';
+                $html .= ' <span style="background-color: #667eea; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">' . htmlspecialchars($item['item_type']) . '</span>';
             }
-            $html .= '</div>';
+            $html .= '</td>';
+            $html .= '</tr>';
             
-            // Item details
-            $html .= '<div class="agenda-item-details" style="margin-top: 6px; color: #555; font-size: 14px;">';
-            
+            // Description row
             if ($item['description']) {
-                $html .= '<p style="margin: 3px 0;"><strong>Description:</strong> ' . nl2br(htmlspecialchars($item['description'])) . '</p>';
+                $html .= '<tr>';
+                $html .= '<td colspan="2" style="padding: 3px ' . $paddingLeft . ' 3px 10px; font-size: 12px; color: #555;">';
+                $html .= '<strong>Description:</strong> ' . nl2br(htmlspecialchars($item['description']));
+                $html .= '</td>';
+                $html .= '</tr>';
             }
             
-            // Resolution details
+            // Resolution row
             if (!empty($item['resolution_id'])) {
-                $html .= '<div style="background-color: #c8e6c9; padding: 8px; border-radius: 4px; margin: 6px 0; border-left: 4px solid #28a745;">';
-                $html .= '<p style="margin: 0 0 3px 0;"><strong>Linked Resolution:</strong> ' . htmlspecialchars($item['resolution_title']) . '</p>';
+                $html .= '<tr>';
+                $html .= '<td colspan="2" style="padding: 8px 10px; background-color: #c8e6c9; border-left: 4px solid #28a745; border-radius: 4px; margin: 0 ' . $paddingLeft . ' 0 10px;">';
+                $html .= '<p style="margin: 0 0 3px 0; font-size: 12px; font-weight: bold;">Linked Resolution: ' . htmlspecialchars($item['resolution_title']) . '</p>';
                 if (!empty($item['resolution_number'])) {
-                    $html .= '<p style="margin: 3px 0;"><strong>Resolution #:</strong> ' . htmlspecialchars($item['resolution_number']) . '</p>';
+                    $html .= '<p style="margin: 3px 0; font-size: 11px;"><strong>Resolution #:</strong> ' . htmlspecialchars($item['resolution_number']) . '</p>';
                 }
                 if (!empty($item['resolution_description'])) {
-                    $html .= '<p style="margin: 3px 0;">' . nl2br(htmlspecialchars($item['resolution_description'])) . '</p>';
+                    $html .= '<p style="margin: 3px 0; font-size: 11px;">' . nl2br(htmlspecialchars($item['resolution_description'])) . '</p>';
                 }
                 if (!empty($item['resolution_status'])) {
-                    $html .= '<p style="margin: 3px 0;"><strong>Resolution Status:</strong> ' . htmlspecialchars($item['resolution_status']) . '</p>';
+                    $html .= '<p style="margin: 3px 0; font-size: 11px;"><strong>Status:</strong> ' . htmlspecialchars($item['resolution_status']) . '</p>';
                 }
                 if (!empty($item['vote_type'])) {
-                    $html .= '<p style="margin: 3px 0;"><strong>Vote Type:</strong> ' . htmlspecialchars($item['vote_type']) . '</p>';
+                    $html .= '<p style="margin: 3px 0; font-size: 11px;"><strong>Vote Type:</strong> ' . htmlspecialchars($item['vote_type']) . '</p>';
                 }
-                $html .= '</div>';
+                $html .= '</td>';
+                $html .= '</tr>';
             }
             
+            // Presenter row
             if ($item['presenter_first_name']) {
-                $html .= '<p style="margin: 3px 0;"><strong>Presenter:</strong> ' . htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']);
+                $html .= '<tr>';
+                $html .= '<td colspan="2" style="padding: 3px ' . $paddingLeft . ' 3px 10px; font-size: 12px; color: #555;">';
+                $html .= '<strong>Presenter:</strong> ' . htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']);
                 if (!empty($item['presenter_role'])) {
                     $html .= ' (' . htmlspecialchars($item['presenter_role']) . ')';
                 }
-                $html .= '</p>';
+                $html .= '</td>';
+                $html .= '</tr>';
             }
             
+            // Duration row
             if ($item['duration_minutes']) {
-                $html .= '<p style="margin: 3px 0;"><strong>Duration:</strong> ' . htmlspecialchars($item['duration_minutes']) . ' minutes</p>';
+                $html .= '<tr>';
+                $html .= '<td colspan="2" style="padding: 3px ' . $paddingLeft . ' 6px 10px; font-size: 12px; color: #555;">';
+                $html .= '<strong>Duration:</strong> ' . htmlspecialchars($item['duration_minutes']) . ' minutes';
+                $html .= '</td>';
+                $html .= '</tr>';
             }
-            
-            $html .= '</div>';
-            $html .= '</div>';
         }
+        $html .= '</table>';
     } else {
         $html .= '<p>No agenda items have been added yet.</p>';
     }
