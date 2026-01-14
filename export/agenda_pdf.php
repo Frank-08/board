@@ -222,7 +222,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             if (!empty($item['resolution_id'])) {
                 $html .= '<tr>';
                 $html .= '<td style="width: 5%;"></td>';
-                $html .= '<td colspan="2" style="padding: 8px 10px; background-color: #c8e6c9; border-left: 4px solid #28a745;">';
+                $html .= '<td colspan="3" style="padding: 8px 10px; background-color: #c8e6c9; border-left: 4px solid #28a745;">';
                 $html .= '<p style="margin: 0 0 3px 0; font-size: 12px; font-weight: bold;">Linked Resolution: ' . htmlspecialchars($item['resolution_title']) . '</p>';
                 if (!empty($item['resolution_number'])) {
                     $html .= '<p style="margin: 3px 0; font-size: 11px;"><strong>Resolution #:</strong> ' . htmlspecialchars($item['resolution_number']) . '</p>';
