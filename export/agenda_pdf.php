@@ -261,7 +261,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
                 $html .= '</tr>';
             }
         }
-            $html .= '<tr>'
+            $html .= '<tr>';
         $html .= '</table>';
     } else {
         $html .= '<p>No agenda items have been added yet.</p>';
