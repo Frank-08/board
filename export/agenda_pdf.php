@@ -191,17 +191,17 @@ if ($useTCPDF && class_exists('TCPDF')) {
     if (count($agendaItems) > 0) {
         foreach ($agendaItems as $item) {
             $isChild = !empty($item['parent_id']);
-            $style = $isChild ? 'style="margin-left:22px;"' : '';
-            $html .= '<div class="agenda-item' . ($isChild ? ' child' : '') . '" ' . $style . '>';
+            $marginLeft = $isChild ? 'margin-left: 22px;' : '';
+            $html .= '<div class="agenda-item' . ($isChild ? ' child' : '') . '" style="' . $marginLeft . '">';
             
             // Item header with title and type badge
-            $html .= '<div class="agenda-item-header">';
-            $html .= '<div style="display: flex; align-items: flex-start;">';
+            $html .= '<div class="agenda-item-header" style="display: flex; align-items: flex-start; justify-content: space-between;">';
+            $html .= '<div style="display: flex; align-items: flex-start; flex: 1;">';
             $html .= '<span class="agenda-item-number" style="font-weight: bold; color: #667eea; font-size: 18px; margin-right: 10px;">' . htmlspecialchars($item['item_number'] ?? '?') . '.</span>';
-            $html .= '<span class="agenda-item-title" style="flex: 1; font-weight: bold; font-size: 16px; color: #333;">' . htmlspecialchars($item['title']) . '</span>';
+            $html .= '<span class="agenda-item-title" style="font-weight: bold; font-size: 16px; color: #333;">' . htmlspecialchars($item['title']) . '</span>';
             $html .= '</div>';
             if (!empty($item['item_type'])) {
-                $html .= '<span class="agenda-item-type" style="background-color: #667eea; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">' . htmlspecialchars($item['item_type']) . '</span>';
+                $html .= '<span class="agenda-item-type" style="background-color: #667eea; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-left: 10px; white-space: nowrap;">' . htmlspecialchars($item['item_type']) . '</span>';
             }
             $html .= '</div>';
             
