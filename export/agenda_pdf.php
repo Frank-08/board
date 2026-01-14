@@ -191,8 +191,8 @@ if ($useTCPDF && class_exists('TCPDF')) {
     if (count($agendaItems) > 0) {
         foreach ($agendaItems as $item) {
             $isChild = !empty($item['parent_id']);
-            $childStyle = $isChild ? 'margin-left:22px;' : '';
-            $html .= '<div class="agenda-item' . ($isChild ? ' child' : '') . '" ' . ($childStyle ? 'style="' . $childStyle . '"' : '') . '>';
+            $style = $isChild ? 'style="margin-left:22px;"' : '';
+            $html .= '<div class="agenda-item' . ($isChild ? ' child' : '') . '" ' . $style . '>';
             
             // Item header with title and type badge
             $html .= '<div class="agenda-item-header">';
@@ -214,7 +214,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             
             // Resolution details
             if (!empty($item['resolution_id'])) {
-                $html .= '<div style="background: #e8f5e9; padding: 8px; border-radius: 4px; margin: 6px 0; border-left: 3px solid #28a745;">';
+                $html .= '<div style="background-color: #c8e6c9; padding: 8px; border-radius: 4px; margin: 6px 0; border-left: 4px solid #28a745;">';
                 $html .= '<p style="margin: 0 0 3px 0;"><strong>Linked Resolution:</strong> ' . htmlspecialchars($item['resolution_title']) . '</p>';
                 if (!empty($item['resolution_number'])) {
                     $html .= '<p style="margin: 3px 0;"><strong>Resolution #:</strong> ' . htmlspecialchars($item['resolution_number']) . '</p>';
