@@ -191,7 +191,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
     if (count($agendaItems) > 0) {
         foreach ($agendaItems as $item) {
             $isChild = !empty($item['parent_id']);
-            $itemStyle = $isChild ? ' style="margin-left: 22px;"' : '';
+            $itemStyle = $isChild ? ' style="padding-left: 25px;"' : '';
             $html .= '<div class="agenda-item' . ($isChild ? ' child' : '') . '"' . $itemStyle . '>';
             
             // Item header with title and type badge
