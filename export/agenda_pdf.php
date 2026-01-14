@@ -219,7 +219,7 @@ if ($useTCPDF && class_exists('TCPDF')) {
             // Resolution row
             if (!empty($item['resolution_id'])) {
                 $html .= '<tr>';
-                $html .= '<td style="padding: ' . $paddingLeft . ' 10px 6px 10px; width: 20%; vertical-align: top;">''</td>';
+                $html .= '<td style="padding: ' . $paddingLeft . ' 10px 6px 10px; width: 20%; vertical-align: top;">'.'</td>';
                 $html .= '<td colspan="2" style="padding: 8px 10px; background-color: #c8e6c9; border-left: 4px solid #28a745; border-radius: 4px; margin: 0 ' . $paddingLeft . ' 0 10px;">';
                 $html .= '<p style="margin: 0 0 3px 0; font-size: 12px; font-weight: bold;">Linked Resolution: ' . htmlspecialchars($item['resolution_title']) . '</p>';
                 if (!empty($item['resolution_number'])) {
