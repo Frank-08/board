@@ -1,4 +1,6 @@
 <?php
+//Set TZ
+date_default_timezone_set('Australia/Sydney');
 /**
  * Authentication Helper Functions
  * 
