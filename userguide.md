@@ -147,7 +147,60 @@ Board members can belong to multiple meeting types, each with different roles an
 
 ---
 
-## Managing Agendas
+## Managing Documents
+
+The Documents page provides a centralized view of all documents across all meetings and meeting types. This is different from the meeting-specific document tabs, which show only documents attached to a particular meeting.
+
+### Accessing the Documents Page
+1. Click **Documents** in the main navigation menu
+2. You'll see a list of all documents in the system
+
+### Viewing and Filtering Documents
+- **Browse all documents**: Scroll through the complete list of documents across all meetings
+- **Filter by meeting**: Use the meeting filter dropdown to view documents from a specific meeting
+- **Filter by type**: View documents by their type (Agenda, Minutes, Resolution, Report, Policy, Other)
+- **Search**: Use the search function to find specific documents by name
+
+### Viewing Documents
+1. Click on a document in the list
+2. View the PDF inline in your browser
+3. To download, click the **Download** button
+4. To return to the documents list, click **Back**
+
+### Document Details
+Each document shows:
+- Document name/title
+- Associated meeting (if applicable)
+- Upload date
+- Document type
+- File size
+- Uploader information
+
+---
+
+## Recording Minutes
+
+### Creating Minutes
+1. Open a meeting and go to the **Minutes** tab
+2. Click **+ Create Minutes**
+3. The agenda items will be pre-loaded into the form
+4. For each agenda item, you can:
+   - Add **Comments** – Notes about what was discussed
+   - Record **Decisions** – What was agreed upon
+   - Add **Item-Specific Comments** – Detailed comments linked to that specific agenda item (see below)
+5. Fill in general meeting notes and outcomes
+6. Click **Save Minutes**
+
+### Adding Item-Specific Comments
+
+Minutes can include detailed comments for individual agenda items, separate from general meeting notes. This is useful for recording specific discussions tied to each agenda item.
+
+1. While creating or editing minutes, locate the agenda item
+2. In the item-specific comments field, add detailed notes about that particular agenda item
+3. These comments are kept separate from general meeting notes but will be included in minute exports
+4. Comments are linked to the specific agenda item and appear with that item in exported PDFs
+
+### Editing Minutes
 
 ### Adding Agenda Items
 1. Open a meeting and go to the **Agenda** tab
@@ -395,6 +448,7 @@ Two-Factor Authentication adds an extra layer of security to your account by req
 - **Keep Member Information Updated:** Regularly update board member contact information and roles
 - **Filter Views:** Use meeting type filters on Dashboard and Members pages to focus on specific groups
 - **Export Regularly:** Export important agendas and minutes as PDFs for archival purposes
+- **Use Item Comments:** Add detailed comments to specific agenda items in minutes for comprehensive record-keeping
 
 ---
 

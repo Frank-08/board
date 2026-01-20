@@ -1,4 +1,4 @@
-# PYY Meeting Management System
+# Together in Council Meeting Management System
 
 A comprehensive LAMP (Linux, Apache, MySQL, PHP) stack application for managing governance boards, board members, meetings, agendas, minutes, and resolutions.
 
@@ -15,12 +15,16 @@ A comprehensive LAMP (Linux, Apache, MySQL, PHP) stack application for managing 
   - **PDF document attachments**: Attach PDF documents to agenda items (PDF-only for agenda items)
 - **Attendees**: Track meeting attendance and participation
 - **Minutes**: Create, review, and approve meeting minutes
+  - **Minutes Comments**: Add detailed comments to individual agenda items within meeting minutes
 - **Resolutions**: Manage board resolutions with voting records and status
 - **Document Management**: Upload and manage documents, with PDF support for agenda attachments
 - **PDF Exports**: 
   - Export agendas as HTML or combined PDF
   - **Combined PDF exports**: Merge agenda with attached PDF documents into a single PDF file
   - **Logo support**: Add your organization logo to PDF exports
+  - **Meeting Notices**: Generate meeting notices as HTML or PDF for participant distribution
+- **Two-Factor Authentication**: TOTP-based 2FA with authenticator app support and backup codes
+- **Password Reset**: Email-based password reset with CSRF protection
 - **Dashboard**: Overview of key statistics and upcoming events
 
 ## Requirements
@@ -99,6 +103,41 @@ define('LOGO_HEIGHT', 0);  // Height (0 = auto)
 ```
 
 Place your logo file at `assets/images/logo.png` (or update the path accordingly).
+
+### 4.6. Configure Email/SMTP (Required for Password Reset)
+
+Edit `config/config.php` and configure SMTP settings for password reset and email notifications:
+
+```php
+define('SMTP_HOST', 'mail.example.com');           // Mail server address
+define('SMTP_PORT', 587);                          // 587 for TLS, 465 for SSL, 25 for none
+define('SMTP_USERNAME', 'your_email@example.com'); // SMTP username
+define('SMTP_PASSWORD', 'your_password');          // SMTP password (use app-specific password for Gmail/Outlook/Zoho)
+define('SMTP_FROM_EMAIL', 'your_email@example.com'); // Sender email address
+define('SMTP_FROM_NAME', APP_NAME);                // Sender display name
+define('SMTP_ENCRYPTION', 'tls');                  // 'tls', 'ssl', or '' for none
+```
+
+**Common SMTP Configurations:**
+- **TLS (port 587)**: Standard secure connection, recommended for most providers
+- **SSL (port 465)**: Secure connection with SSL wrapper
+- **None (port 25)**: Unencrypted connection, use only on trusted networks
+
+**Note on App-Specific Passwords:** Services like Gmail, Outlook, and Zoho require app-specific passwords instead of your account password. Generate these from your account security settings.
+
+### 4.7. Generate CSRF Secret
+
+For password reset security, generate a random CSRF secret:
+
+```bash
+php -r "echo bin2hex(random_bytes(32));"
+```
+
+Copy the output and update the CSRF_SECRET in `config/config.php`:
+
+```php
+define('CSRF_SECRET', 'paste_your_generated_secret_here');
+```
 
 ### 5. Apache Configuration
 
@@ -185,7 +224,37 @@ composer require setasign/fpdi
 
 The system will automatically use available tools. If none are available, the export will still work but won't merge attached PDFs.
 
-### 7. Verify Installation
+### 7. Optional Features Setup
+
+The following features require additional database migrations:
+
+#### Two-Factor Authentication (2FA)
+
+Enable TOTP-based two-factor authentication with authenticator apps and backup codes:
+
+```bash
+mysql -u board_user -p governance_board < database/migration_add_2fa.sql
+```
+
+For comprehensive 2FA setup and troubleshooting, see [2FA_README.md](2FA_README.md).
+
+#### Password Reset System
+
+Enable email-based password reset functionality (requires email configuration from step 4.6):
+
+```bash
+mysql -u board_user -p governance_board < database/migration_add_password_reset.sql
+```
+
+#### Minutes Agenda Comments
+
+Enable per-agenda-item comments within meeting minutes for detailed record-keeping:
+
+```bash
+mysql -u board_user -p governance_board < database/migration_add_minutes_comments.sql
+```
+
+### 8. Verify Installation
 
 1. Open your browser and navigate to the application URL
 2. You should see the dashboard
@@ -195,49 +264,70 @@ The system will automatically use available tools. If none are available, the ex
 
 ```
 board/
-├── api/                    # API endpoints
-│   ├── meeting_types.php   # Meeting type CRUD
-│   ├── meeting_type_members.php   # Meeting type membership management
-│   ├── members.php         # Board members CRUD
-│   ├── meetings.php        # Meetings CRUD
-│   ├── agenda.php          # Agenda items CRUD (includes reordering)
-│   ├── agenda_templates.php # Agenda templates for meeting types
-│   ├── attendees.php       # Meeting attendees CRUD
-│   ├── minutes.php         # Meeting minutes CRUD
-│   ├── resolutions.php     # Resolutions CRUD
-│   ├── documents.php       # Document upload/management
-│   ├── view_pdf.php        # PDF viewer endpoint
-│   ├── download.php        # Document download endpoint
-│   └── dashboard.php       # Dashboard statistics
-├── assets/                 # Frontend assets
+├── api/                         # API endpoints
+│   ├── agenda.php               # Agenda items CRUD (includes reordering)
+│   ├── agenda_templates.php     # Agenda templates for meeting types
+│   ├── attendees.php            # Meeting attendees CRUD
+│   ├── committee_members.php    # Committee member associations
+│   ├── committees.php           # Committee management
+│   ├── dashboard.php            # Dashboard statistics
+│   ├── documents.php            # Document upload/management
+│   ├── download.php             # Document download endpoint
+│   ├── meeting_type_members.php # Meeting type membership management
+│   ├── meeting_types.php        # Meeting type CRUD
+│   ├── meetings.php             # Meetings CRUD
+│   ├── members.php              # Board members CRUD
+│   ├── minutes.php              # Meeting minutes CRUD
+│   ├── minutes_comments.php     # Minutes agenda comments
+│   ├── organizations.php        # Organization management
+│   ├── password_reset.php       # Password reset API
+│   ├── qrcode.php               # QR code generation for 2FA
+│   ├── resolutions.php          # Resolutions CRUD
+│   ├── users.php                # User management
+│   └── view_pdf.php             # PDF viewer endpoint
+├── assets/                      # Frontend assets
 │   ├── css/
-│   │   └── style.css       # Main stylesheet
+│   │   ├── pdf.css              # PDF export styles
+│   │   └── style.css            # Main stylesheet
+│   ├── images/                  # Images (logo, etc.)
 │   └── js/
-│       └── app.js          # JavaScript utilities
-├── config/                 # Configuration files
-│   ├── database.php        # Database connection
-│   └── config.php          # App configuration
-├── database/               # Database files
-│   ├── schema.sql          # Database schema
-│   └── migration_*.sql     # Database migration scripts
-├── export/                 # Export functionality
-│   ├── agenda.php          # HTML agenda export
-│   ├── agenda_pdf.php      # Combined PDF agenda export
-│   ├── minutes.php         # Minutes export
-│   ├── notice.php          # Meeting notice HTML export
-│   └── notice_pdf.php      # Meeting notice PDF export
-├── uploads/                # File uploads directory
-├── assets/                 # Frontend assets
-│   ├── images/             # Images (logo, etc.)
-│   ├── css/
-│   └── js/
-├── index.php               # Dashboard page
-├── members.php             # Board members page
-├── meetings.php            # Meetings page
-├── resolutions.php         # Resolutions page
-├── documents.php           # Documents page
-├── .htaccess               # Apache configuration
-└── README.md               # This file
+│       └── app.js               # JavaScript utilities
+├── config/                      # Configuration files
+│   ├── auth.php                 # Authentication functions
+│   ├── config.php               # App configuration
+│   ├── database.php             # Database connection
+│   ├── email.php                # Email configuration and functions
+│   └── twofactor.php            # 2FA configuration
+├── database/                    # Database files
+│   ├── schema.sql               # Database schema (current complete version)
+│   ├── fix_role_enum.php        # Helper script for role enum fixes
+│   └── migration_*.sql          # Database migration scripts (incremental updates)
+├── export/                      # Export functionality
+│   ├── agenda.php               # HTML agenda export
+│   ├── agenda_pdf.php           # Combined PDF agenda export
+│   ├── minutes.php              # Minutes export
+│   ├── notice.php               # Meeting notice HTML export
+│   └── notice_pdf.php           # Meeting notice PDF export
+├── libs/                        # Third-party libraries
+│   ├── phpqrcode/               # QR code generation library for 2FA
+│   └── other/                   # Additional utility libraries
+├── uploads/                     # File uploads directory (writable by webserver)
+├── documents.php                # Documents management page
+├── forgot_password.php          # Password reset request page
+├── index.php                    # Dashboard page
+├── login.php                    # Login page
+├── logout.php                   # Logout handler
+├── members.php                  # Board members page
+├── meetings.php                 # Meetings page
+├── reset_password.php           # Password reset completion page
+├── resolutions.php              # Resolutions page
+├── setup_2fa.php                # 2FA setup page
+├── users.php                    # User management page
+├── verify_2fa.php               # 2FA verification page
+├── .htaccess                    # Apache configuration
+├── .github/                     # GitHub configuration
+│   └── copilot-instructions.md  # AI coding agent guidelines
+└── README.md                    # This file
 ```
 
 ## Usage
@@ -268,47 +358,98 @@ board/
   - Drag-and-drop or button-based reordering of agenda items
   - Automatic item numbering (YY.MM.SEQ format)
   - PDF document attachments (PDF-only for agenda items)
+- **Minutes Management**: 
+  - Create, review, approve, and publish meeting minutes
+  - **Item-Specific Comments**: Add detailed comments to individual agenda items within minutes
+  - Export minutes with all comments and decisions
+- **Meeting Notices**: Generate HTML or PDF meeting notices for participant distribution with meeting details, date/time, location, virtual links, and status
 - **PDF Exports**: 
   - Export agendas as HTML (print-friendly) or combined PDF
   - Attached PDF documents are merged into the agenda export
-  - Custom logo support in PDF exports
-- **Minutes**: Create, review, approve, and publish meeting minutes
+  - Custom logo support in all PDF exports
 - **Resolutions**: Track board resolutions with voting records and status
 
 ## API Endpoints
 
-All API endpoints return JSON and support standard HTTP methods:
+All API endpoints return JSON and support standard HTTP methods (GET, POST, PUT, DELETE).
 
+### API Authentication
+
+All API endpoints use session-based authentication with secure httponly cookies. Session IDs are regenerated on login to prevent session fixation attacks. Authenticated requests include the session cookie, and responses include appropriate CORS headers.
+
+### Error Responses
+
+API errors return JSON with the following format:
+
+```json
+{
+  "error": true,
+  "message": "Description of the error"
+}
+```
+
+HTTP status codes used:
+- **200** - Success
+- **400** - Bad request (missing or invalid parameters)
+- **404** - Not found (resource doesn't exist)
+- **500** - Server error
+
+### Standard Endpoints
+
+**Meeting Types:**
 - `GET /api/meeting_types.php` - List all meeting types
 - `GET /api/meeting_types.php?id={id}` - Get single meeting type
 - `POST /api/meeting_types.php` - Create meeting type
 - `PUT /api/meeting_types.php` - Update meeting type
 - `DELETE /api/meeting_types.php` - Delete meeting type
 
+**Meeting Type Members:**
 - `GET /api/meeting_type_members.php?member_id={id}` - Get all meeting types for a member
 - `GET /api/meeting_type_members.php?meeting_type_id={id}` - Get all members for a meeting type
 - `POST /api/meeting_type_members.php` - Add member to meeting type
 - `PUT /api/meeting_type_members.php` - Update member's role/status in meeting type
 - `DELETE /api/meeting_type_members.php` - Remove member from meeting type
 
+**Agenda Items:**
 - `GET /api/agenda.php?meeting_id={id}` - Get all agenda items for a meeting
 - `POST /api/agenda.php` - Create agenda item
-- `POST /api/agenda.php` (action=reorder) - Reorder agenda items (bulk update)
+- `POST /api/agenda.php` (with action=reorder) - Reorder agenda items in bulk
 - `PUT /api/agenda.php` - Update agenda item
 - `DELETE /api/agenda.php` - Delete agenda item
 
+**Agenda Reordering Example:**
+```json
+POST /api/agenda.php
+{
+  "action": "reorder",
+  "meeting_id": 12,
+  "order": [45, 46, 44]
+}
+```
+
+**Agenda Templates:**
 - `GET /api/agenda_templates.php?meeting_type_id={id}` - Get agenda templates for a meeting type
 - `POST /api/agenda_templates.php` - Create agenda template item
 - `POST /api/agenda_templates.php` (action=reorder) - Reorder template items
 - `PUT /api/agenda_templates.php` - Update template item
 - `DELETE /api/agenda_templates.php` - Delete template item
 
+**Documents:**
 - `GET /api/documents.php?agenda_item_id={id}` - Get documents for an agenda item
+- `GET /api/documents.php?meeting_id={id}` - Get documents for a meeting
 - `POST /api/documents.php` - Upload document (PDF-only for agenda items)
 - `GET /api/view_pdf.php?id={id}` - View PDF document inline
 - `GET /api/download.php?id={id}` - Download document
 
-Similar endpoints exist for members, meetings, attendees, minutes, and resolutions.
+**Minutes Comments:**
+- `GET /api/minutes_comments.php?meeting_id={id}` - Get all comments for a meeting's minutes
+- `GET /api/minutes_comments.php?agenda_item_id={id}` - Get comments for a specific agenda item
+- `POST /api/minutes_comments.php` - Add comment to agenda item in minutes
+- `PUT /api/minutes_comments.php` - Update a comment
+- `DELETE /api/minutes_comments.php` - Delete a comment
+
+**Other Endpoints:**
+Similar endpoints exist for members, meetings, attendees, minutes, resolutions, users, and organizations. All support GET (list/retrieve), POST (create), PUT (update), and DELETE operations where applicable.
 
 ## Configuration
 
@@ -432,6 +573,42 @@ DEFAULT 'Member';
 - Check Apache `AllowOverride All` is set
 - Ensure mod_rewrite is enabled: `sudo a2enmod rewrite`
 
+### Email Not Sending
+
+If password reset emails or other notifications aren't being sent:
+- Verify SMTP configuration in `config/config.php` with correct SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD
+- Confirm username and password are correct for your email provider
+- Verify port and encryption type match your email provider (587 for TLS, 465 for SSL, 25 for none)
+- Check that your server's network allows outbound SMTP connections
+- Review email provider's firewall/security rules to ensure connections from your server are allowed
+
+### PDF Merge Failures
+
+If PDF exports fail to merge attached documents:
+- Install one of the required tools: `pdftk`, `ghostscript` (gs), or `pdfunite` using your package manager
+- Alternatively, install the PHP FPDI library via Composer: `composer require setasign/fpdi`
+- Verify installed tool is in the system PATH
+- Check PHP error logs for specific merge tool errors
+- Note: Exports will still work without merge tools, but attached PDFs won't be combined
+
+### Document Upload Issues
+
+If you cannot upload documents:
+- Verify the `uploads/` directory exists and is writable by the web server user (www-data)
+- Check that file size is under the MAX_FILE_SIZE limit configured in `config/config.php`
+- For agenda item attachments, ensure the file is in PDF format only
+- Verify your PHP installation's `upload_max_filesize` and `post_max_size` settings allow the file size
+- Check browser console and server error logs for specific error messages
+
+### 2FA QR Code Not Displaying
+
+If the QR code doesn't appear during 2FA setup:
+- Verify the `libs/` directory contains the phpqrcode library files
+- Check PHP error logs for QR generation errors
+- Ensure the `/api/qrcode.php` endpoint is accessible
+- Use the manual secret key entry option as an alternative (shown below the QR code)
+- Verify your authenticator app supports manual key entry (all major apps do)
+
 ## Development
 
 ### Adding New Features
@@ -445,21 +622,41 @@ DEFAULT 'Member';
 
 When making schema changes:
 1. Backup database: `mysqldump -u user -p governance_board > backup.sql`
-2. Update `database/schema.sql`
-3. Apply changes manually or create migration script
+2. The `database/schema.sql` file contains the complete current database schema
+3. Migration files in the `database/` directory provide incremental updates for upgrading from older versions
 
-**Available Migrations:**
-- `migration_rename_pic_to_presbytery_in_council.sql` - Renames "PiC" to "Presbytery in Council"
-- `migration_committees_to_meeting_types.sql` - Migrates from committees to meeting types
-- `migration_add_deputy_chair.sql` - Adds "Deputy Chair" role option
-- `migration_add_item_number.sql` - Adds item numbering to agenda items
-- `migration_add_agenda_templates.sql` - Adds agenda templates for meeting types
-- And more in the `database/` directory
-
-To apply a migration:
+**Applying a Migration:**
 ```bash
 mysql -u board_user -p governance_board < database/migration_name.sql
 ```
+
+**Available Migrations (by category):**
+
+*Authentication:*
+- `migration_add_2fa.sql` - Adds TOTP-based two-factor authentication
+- `migration_add_password_reset.sql` - Adds password reset functionality
+- `migration_add_users.sql` - Adds user management system
+- `migration_fix_users_table.sql` - Updates user table schema
+
+*Agenda Features:*
+- `migration_add_agenda_templates.sql` - Adds agenda templates per meeting type
+- `migration_add_item_number.sql` - Adds automatic item numbering (YY.MM.SEQ format)
+- `migration_add_parent_to_agenda.sql` - Adds hierarchical agenda items (sub-items)
+- `migration_add_agenda_item_to_documents.sql` - Links documents to agenda items
+
+*Meeting Management:*
+- `migration_committees_to_meeting_types.sql` - Migrates from committees to meeting types
+- `migration_add_minutes_comments.sql` - Adds per-item comments in minutes
+- `migration_add_deputy_chair.sql` - Adds "Deputy Chair" role option
+
+*Schema Updates:*
+- `migration_organizations_to_committees.sql` - Reorganizes organization/committee structure
+- `migration_rename_pic_to_presbytery_in_council.sql` - Renames "PiC" to "Presbytery in Council"
+- `migration_remove_agenda_status.sql` - Removes deprecated agenda status field
+- `migration_update_resolutions_schema.sql` - Updates resolutions table structure
+- `migration_fix_role_enum.sql` - Fixes role enum constraints
+
+For new installations, import `database/schema.sql` directly. For upgrades from older versions, review the migration history and apply needed migrations in order.
 
 ## License
 
@@ -471,10 +668,19 @@ For issues, questions, or contributions, please refer to the project repository.
 
 ## Changelog
 
+### Version 1.3.0
+- **Two-Factor Authentication (2FA)**: TOTP-based authentication using any authenticator app (Google Authenticator, Authy, Microsoft Authenticator, 1Password, etc.), QR code generation for easy setup, 10 one-time backup codes for account recovery
+- **Password Reset System**: Email-based password reset with secure tokens and CSRF protection, configurable token expiration
+- **Email Integration**: Full SMTP configuration support, HTML email templates for password reset and notifications, sendEmail helper functions for future integrations
+- **Session Security**: Enhanced session handling with httponly cookies, HTTPS detection for proxy environments (Cloudflare compatibility), session ID regeneration on login
+
+### Version 1.2.5
+- **Minutes Agenda Comments**: Add detailed comments to individual agenda items within meeting minutes, separate from general meeting notes, comments included in minute exports and PDFs
+
 ### Version 1.2.0
 - **Agenda Templates**: Define default agenda items per meeting type that auto-populate when creating new meetings
 - **Edit Resolutions from Minutes**: Edit resolutions directly from the Minutes tab
-- **Meeting Notice Exports**: Generate meeting notices as HTML or PDF
+- **Meeting Notice Exports**: Generate meeting notices as HTML or PDF with meeting details, date/time, location, virtual links, and status
 
 ### Version 1.1.0
 - **Agenda Item Reordering**: Drag-and-drop and up/down arrow buttons for reordering agenda items
@@ -495,4 +701,13 @@ For issues, questions, or contributions, please refer to the project repository.
 - Minutes creation and approval
 - Resolution management
 - Dashboard with statistics
+
+## Additional Documentation
+
+For more detailed information about specific features and configurations, refer to these additional documentation files:
+
+- **[2FA_README.md](2FA_README.md)** - Comprehensive guide to setting up and troubleshooting Two-Factor Authentication
+- **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - Step-by-step instructions for upgrading from older versions
+- **[VERIFICATION_REPORT.md](VERIFICATION_REPORT.md)** - Database schema verification and integrity checks
+- **[userguide.md](userguide.md)** - Complete end-user manual with step-by-step instructions for all features
 
