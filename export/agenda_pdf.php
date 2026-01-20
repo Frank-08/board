@@ -102,6 +102,7 @@ if (shell_exec('which pdftk')) {
 
 // Check for wkhtmltopdf (preferred for rendering HTML to PDF as it appears on screen)
 $hasWkhtmltopdf = (bool)shell_exec('which wkhtmltopdf');
+$hasXvfbRun = (bool)shell_exec('which xvfb-run');
 
 // Build HTML content for agenda
 $cssPath = __DIR__ . '/../assets/css/pdf.css';
@@ -249,13 +250,26 @@ file_put_contents($tempAgendaHtml, $html);
 $tempAgendaPdf = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.pdf';
 
 if ($hasWkhtmltopdf) {
-    $cmd = 'wkhtmltopdf --quiet ' . escapeshellarg($tempAgendaHtml) . ' ' . escapeshellarg($tempAgendaPdf) . ' 2>&1';
+    // Try wkhtmltopdf with xvfb-run if available for headless environments
+    if ($hasXvfbRun) {
+        $cmd = 'xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" wkhtmltopdf --quiet --disable-smart-shrinking --print-media-type ' . escapeshellarg($tempAgendaHtml) . ' ' . escapeshellarg($tempAgendaPdf) . ' 2>&1';
+    } else {
+        // Try wkhtmltopdf with headless-friendly flags
+        $cmd = 'wkhtmltopdf --quiet --disable-smart-shrinking --print-media-type ' . escapeshellarg($tempAgendaHtml) . ' ' . escapeshellarg($tempAgendaPdf) . ' 2>&1';
+    }
+    
     exec($cmd, $output, $returnVar);
     if ($returnVar !== 0 || !file_exists($tempAgendaPdf)) {
-        // wkhtmltopdf failed, create error response
+        // wkhtmltopdf failed, log details and return error
+        error_log("wkhtmltopdf failed with code $returnVar: " . implode(' ', $output));
+        
         header('Content-Type: application/json');
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to generate PDF from agenda HTML', 'details' => implode(' ', $output)]);
+        echo json_encode([
+            'error' => 'Failed to generate PDF from agenda HTML',
+            'details' => implode(' ', $output),
+            'suggestion' => 'Please install xvfb (apt-get install xvfb) for PDF generation in headless environments'
+        ]);
         @unlink($tempAgendaHtml);
         exit;
     }
