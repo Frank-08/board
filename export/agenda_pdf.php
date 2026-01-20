@@ -100,9 +100,27 @@ if (shell_exec('which pdftk')) {
     $mergeCommand = 'pdfunite';
 }
 
-// Check for wkhtmltopdf (preferred for rendering HTML to PDF as it appears on screen)
-$hasWkhtmltopdf = (bool)shell_exec('which wkhtmltopdf');
-$hasXvfbRun = (bool)shell_exec('which xvfb-run');
+// Try to use TCPDF if available
+$useTCPDF = false;
+$tcpdfPath = __DIR__ . '/../vendor/tecnickcom/tcpdf/tcpdf.php';
+if (file_exists($tcpdfPath)) {
+    require_once($tcpdfPath);
+    $useTCPDF = true;
+} else {
+    // Check for TCPDF in common locations
+    $commonPaths = [
+        __DIR__ . '/../tcpdf/tcpdf.php',
+        __DIR__ . '/../libs/tcpdf/tcpdf.php',
+        '/usr/share/php/tcpdf/tcpdf.php'
+    ];
+    foreach ($commonPaths as $path) {
+        if (file_exists($path)) {
+            require_once($path);
+            $useTCPDF = true;
+            break;
+        }
+    }
+}
 
 // Build HTML content for agenda
 $cssPath = __DIR__ . '/../assets/css/pdf.css';
@@ -243,38 +261,37 @@ $html .= '</div>';
 $html .= '</body></html>';
 
 $uploadDir = rtrim(realpath(UPLOAD_DIR) ?: UPLOAD_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-$tempAgendaHtml = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.html';
-file_put_contents($tempAgendaHtml, $html);
-
-// Convert HTML to PDF using wkhtmltopdf if available
 $tempAgendaPdf = $tempDir . '/agenda_' . $meetingId . '_' . time() . '.pdf';
 
-if ($hasWkhtmltopdf) {
-    // Try wkhtmltopdf with xvfb-run if available for headless environments
-    if ($hasXvfbRun) {
-        $cmd = 'xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" wkhtmltopdf --quiet --disable-smart-shrinking --print-media-type ' . escapeshellarg($tempAgendaHtml) . ' ' . escapeshellarg($tempAgendaPdf) . ' 2>&1';
-    } else {
-        // Try wkhtmltopdf with headless-friendly flags
-        $cmd = 'wkhtmltopdf --quiet --disable-smart-shrinking --print-media-type ' . escapeshellarg($tempAgendaHtml) . ' ' . escapeshellarg($tempAgendaPdf) . ' 2>&1';
-    }
+if ($useTCPDF && class_exists('TCPDF')) {
+    // Use TCPDF to render HTML to PDF
+    $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
     
-    exec($cmd, $output, $returnVar);
-    if ($returnVar !== 0 || !file_exists($tempAgendaPdf)) {
-        // wkhtmltopdf failed, log details and return error
-        error_log("wkhtmltopdf failed with code $returnVar: " . implode(' ', $output));
-        
-        header('Content-Type: application/json');
-        http_response_code(500);
-        echo json_encode([
-            'error' => 'Failed to generate PDF from agenda HTML',
-            'details' => implode(' ', $output),
-            'suggestion' => 'Please install xvfb (apt-get install xvfb) for PDF generation in headless environments'
-        ]);
-        @unlink($tempAgendaHtml);
-        exit;
-    }
+    // Set document information
+    $pdf->SetCreator('Together in Council');
+    $pdf->SetAuthor($meeting['meeting_type_name']);
+    $pdf->SetTitle('Meeting Agenda - ' . $meeting['title']);
+    $pdf->SetSubject('Meeting Agenda');
+    
+    // Remove default header/footer
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    
+    // Set margins
+    $pdf->SetMargins(15, 15, 15);
+    $pdf->SetAutoPageBreak(TRUE, 15);
+    
+    // Add first page
+    $pdf->AddPage();
+    
+    // Write HTML content using TCPDF's HTML renderer
+    // This renders the HTML exactly as styled, maintaining layout and CSS
+    $pdf->writeHTML($html, true, false, true, false, '');
+    
+    // Save to temporary file
+    $pdf->Output($tempAgendaPdf, 'F');
 } else {
-    // Fallback: Redirect to HTML version if wkhtmltopdf not available
+    // Fallback: Redirect to HTML version if TCPDF not available
     header('Location: agenda.php?meeting_id=' . $meetingId);
     exit;
 }
@@ -326,7 +343,6 @@ if (!empty($pdfDocuments)) {
             header('Content-Disposition: attachment; filename="agenda_' . $meetingId . '_combined.pdf"');
             readfile($mergedPdf);
             // Cleanup
-            @unlink($tempAgendaHtml);
             @unlink($tempAgendaPdf);
             @unlink($mergedPdf);
             exit;
@@ -365,8 +381,7 @@ if (!empty($pdfDocuments)) {
             }
         }
         
-        // Cleanup temp files
-        @unlink($tempAgendaHtml);
+        // Cleanup temp file
         @unlink($tempAgendaPdf);
         $pdf->Output('agenda_' . $meetingId . '_combined.pdf', 'D');
         exit;
@@ -376,7 +391,6 @@ if (!empty($pdfDocuments)) {
     header('Content-Type: application/pdf');
     header('Content-Disposition: attachment; filename="agenda_' . $meetingId . '.pdf"');
     readfile($tempAgendaPdf);
-    @unlink($tempAgendaHtml);
     @unlink($tempAgendaPdf);
     exit;
 }
@@ -385,7 +399,6 @@ if (!empty($pdfDocuments)) {
 header('Content-Type: application/pdf');
 header('Content-Disposition: attachment; filename="agenda_' . $meetingId . '.pdf"');
 readfile($tempAgendaPdf);
-@unlink($tempAgendaHtml);
 @unlink($tempAgendaPdf);
 exit;
 
