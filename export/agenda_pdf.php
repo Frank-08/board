@@ -129,8 +129,8 @@ $css = (file_exists($cssPath) ? file_get_contents($cssPath) : '');
 // Add logo if configured and exists
 $logoHtml = '';
 if (defined('LOGO_PATH') && LOGO_PATH && file_exists(LOGO_PATH)) {
-    $logoWidth = defined('LOGO_WIDTH') ? LOGO_WIDTH : 250;
-    $logoHtml = '<div style="text-align:center; margin-bottom:15px;"><img src="' . LOGO_PATH . '" style="max-width:' . $logoWidth . 'px; height:50px;" alt="Logo"></div>';
+    $logoWidth = defined('LOGO_WIDTH') ? LOGO_WIDTH : 40;
+    $logoHtml = '<div style="text-align:center; margin-bottom:15px;"><img src="' . LOGO_PATH . '" style="max-width:' . $logoWidth . 'px; height:250px;" alt="Logo"></div>';
 }
 
 // Build the HTML document
