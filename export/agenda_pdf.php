@@ -130,7 +130,7 @@ $css = (file_exists($cssPath) ? file_get_contents($cssPath) : '');
 $logoHtml = '';
 if (defined('LOGO_PATH') && LOGO_PATH && file_exists(LOGO_PATH)) {
     $logoWidth = defined('LOGO_WIDTH') ? LOGO_WIDTH : 40;
-    $logoHtml = '<div style="text-align:center; margin-bottom:15px;"><img src="' . LOGO_PATH . '" style="max-width:' . $logoWidth . 'px; height:250px;" alt="Logo"></div>';
+    $logoHtml = '<div style="text-align:center; margin-bottom:15px;"><img src="' . LOGO_PATH . '" style="max-width:' . $logoWidth . 'px; height: 75px;" alt="Logo"></div>';
 }
 
 // Build the HTML document
