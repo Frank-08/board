@@ -6,6 +6,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 
 $meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : 0;
+date_default_timezone_set('Australia/Sydney');
 
 if (!$meetingId) {
     die('Meeting ID is required');
@@ -296,9 +297,9 @@ function formatDateTime($dateString) {
         
         /* Resolution status badges */
         .status-proposed { background: #17a2b8; color: #fff; }
-        .status-passed { background: #28a745; color: #fff; }
+        .status-consensus { background: #28a745; color: #fff; }
+        .status-agreement { background: #28a745; color: #fff; }
         .status-failed { background: #dc3545; color: #fff; }
-        .status-tabled { background: #ffc107; color: #000; }
         .status-withdrawn { background: #6c757d; color: #fff; }
     </style>
 </head>
