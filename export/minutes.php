@@ -251,6 +251,31 @@ function formatDateTime($dateString) {
             text-transform: uppercase;
         }
 
+        .resolution-callout .callout-lead {
+            margin: 0 0 6px 0;
+            font-size: 13px;
+            font-weight: 600;
+            color: #0056b3;
+        }
+
+        .resolution-callout .callout-body {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .resolution-callout .callout-number {
+            min-width: 80px;
+            padding: 4px 8px;
+            border: 1px solid #007bff;
+            border-radius: 4px;
+            background: #f6faff;
+            font-weight: bold;
+            color: #0056b3;
+            text-align: center;
+            font-size: 12px;
+        }
+
         .resolution-callout .callout-text {
             margin: 0;
             color: #333;
@@ -401,16 +426,26 @@ function formatDateTime($dateString) {
             $description = '';
             $hasResolution = false;
             if (!empty($item['resolution_description'])) {
-                $description = 'It was resolved to ' . ltrim($item['resolution_description']);
+                $description = ltrim($item['resolution_description']);
                 $hasResolution = true;
             } elseif (!empty($item['description'])) {
                 $description = $item['description'];
+            }
+            $numberLabel = '';
+            if (!empty($item['resolution_number'])) {
+                $numberLabel = 'Resolution #' . $item['resolution_number'];
+            } elseif (!empty($item['item_number'])) {
+                $numberLabel = 'Item ' . $item['item_number'];
             }
             if ($description): ?>
             <?php if ($hasResolution): ?>
             <div class="resolution-callout">
                 <p class="callout-title">Resolution</p>
-                <p class="callout-text"><?php echo nl2br(htmlspecialchars($description)); ?></p>
+                <p class="callout-lead">It was resolved</p>
+                <div class="callout-body">
+                    <?php if ($numberLabel): ?><span class="callout-number"><?php echo htmlspecialchars($numberLabel); ?></span><?php endif; ?>
+                    <p class="callout-text"><?php echo nl2br(htmlspecialchars($description)); ?></p>
+                </div>
             </div>
             <?php else: ?>
             <div class="item-description"><?php echo nl2br(htmlspecialchars($description)); ?></div>
