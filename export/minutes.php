@@ -46,7 +46,7 @@ $stmt = $db->prepare("
         bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
         mtm.role as presenter_role,
         mac.comment as minutes_comment,
-        r.resolution_number, r.title as resolution_title, r.status as resolution_status
+        r.resolution_number, r.title as resolution_title, r.status as resolution_status, r.description as resolution_description
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
     LEFT JOIN meetings m ON ai.meeting_id = m.id
@@ -374,8 +374,13 @@ function formatDateTime($dateString) {
                 </span>
                 <?php endif; ?>
             </h4>
-            <?php if ($item['description']): ?>
-            <div class="item-description"><?php echo nl2br(htmlspecialchars($item['description'])); ?></div>
+            <?php 
+            $description = $item["It was resolved to 'resolution_description'"] ?? '';
+            if (!$description) {
+                $description = $item['description'] ?? '';
+            }
+            if ($description): ?>
+            <div class="item-description"><?php echo nl2br(htmlspecialchars($description)); ?></div>
             <?php endif; ?>
             <?php if ($item['presenter_first_name']): ?>
             <p style="font-size: 14px; color: #666; margin: 8px 0;">
