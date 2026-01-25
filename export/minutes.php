@@ -233,6 +233,29 @@ function formatDateTime($dateString) {
             margin: 6px 0;
             font-style: italic;
         }
+
+        .resolution-callout {
+            background: #e6f2ff;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 8px 0;
+        }
+
+        .resolution-callout .callout-title {
+            margin: 0 0 4px 0;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            color: #0056b3;
+            text-transform: uppercase;
+        }
+
+        .resolution-callout .callout-text {
+            margin: 0;
+            color: #333;
+            font-style: italic;
+        }
         
         .agenda-comment {
             margin-top: 8px;
@@ -375,12 +398,23 @@ function formatDateTime($dateString) {
                 <?php endif; ?>
             </h4>
             <?php 
-            $description = $item["It was resolved to 'resolution_description'"] ?? '';
-            if (!$description) {
-                $description = $item['description'] ?? '';
+            $description = '';
+            $hasResolution = false;
+            if (!empty($item['resolution_description'])) {
+                $description = 'It was resolved to ' . ltrim($item['resolution_description']);
+                $hasResolution = true;
+            } elseif (!empty($item['description'])) {
+                $description = $item['description'];
             }
             if ($description): ?>
+            <?php if ($hasResolution): ?>
+            <div class="resolution-callout">
+                <p class="callout-title">Resolution</p>
+                <p class="callout-text"><?php echo nl2br(htmlspecialchars($description)); ?></p>
+            </div>
+            <?php else: ?>
             <div class="item-description"><?php echo nl2br(htmlspecialchars($description)); ?></div>
+            <?php endif; ?>
             <?php endif; ?>
             <?php if ($item['presenter_first_name']): ?>
             <p style="font-size: 14px; color: #666; margin: 8px 0;">
