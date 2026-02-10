@@ -573,9 +573,14 @@ outputHeader('Meetings', 'meetings.php');
                                     </div>
                                     ${item.description ? `<p>${item.description}</p>` : ''}
                                     ${item.resolution_id ? `<div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #28a745;">
-                                        <strong>📋 Linked Resolution:</strong> ${item.resolution_title || 'Resolution'} 
-                                        ${item.resolution_number ? `(#${item.resolution_number})` : ''}
-                                        ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase()}" style="margin-left: 8px;">${item.resolution_status}</span>` : ''}
+                                        <div>
+                                            <strong>📋 Linked Resolution:</strong> ${item.resolution_title || 'Resolution'}
+                                            ${item.resolution_number ? `(#${item.resolution_number})` : ''}
+                                            ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase()}" style="margin-left: 8px;">${item.resolution_status}</span>` : ''}
+                                        </div>
+                                        ${item.resolution_vote_type ? `<div style="margin-top: 4px; color: #2f6f46;">Vote Type: ${item.resolution_vote_type}</div>` : ''}
+                                        ${item.resolution_effective_date ? `<div style="margin-top: 4px; color: #2f6f46;">Effective: ${formatDateTime(item.resolution_effective_date)}</div>` : ''}
+                                        ${item.resolution_description ? `<div style="margin-top: 6px; color: #2f6f46;">${item.resolution_description}</div>` : ''}
                                     </div>` : ''}
                                     ${documents.length > 0 ? `
                                         <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #007bff;">
@@ -1441,7 +1446,7 @@ outputHeader('Meetings', 'meetings.php');
                 document.getElementById('resolutionEffectiveDate').value = resolution.effective_date || '';
                 document.getElementById('modalResolutionTitle').textContent = 'Edit Resolution';
                 // Disable parent selection when editing (parent cannot be changed after creation)
-                document.getElementById('resolutionParentAgendaItem').disabled = true;
+                document.getElementById('resolutionParentAgendaItem').disabled = false;
                 document.getElementById('resolutionParentGroup').style.opacity = '0.6';
             } else {
                 form.reset();
@@ -1474,12 +1479,13 @@ outputHeader('Meetings', 'meetings.php');
                 effective_date: document.getElementById('resolutionEffectiveDate').value || null
             };
             
-            // Add parent_id if a parent agenda item is selected (only for new resolutions)
-            if (!resolutionId && parentAgendaItemId && parentAgendaItemId !== '') {
-                const parentId = parseInt(parentAgendaItemId);
-                if (!isNaN(parentId)) {
-                    data.parent_id = parentId;
+            if (parentAgendaItemId && parentAgendaItemId !== '') {
+                const agendaItemId = parseInt(parentAgendaItemId);
+                if (!isNaN(agendaItemId)) {
+                    data.agenda_item_id = agendaItemId;
                 }
+            } else {
+                data.agenda_item_id = null;
             }
 
             const method = resolutionId ? 'PUT' : 'POST';

@@ -50,7 +50,9 @@ switch ($method) {
             $id = (int)$_GET['id'];
             $stmt = $db->prepare("
                 SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
-                    r.id as resolution_id, r.title as resolution_title, r.resolution_number, r.status as resolution_status
+                    r.id as resolution_id, r.title as resolution_title, r.description as resolution_description,
+                    r.resolution_number, r.status as resolution_status, r.vote_type as resolution_vote_type,
+                    r.effective_date as resolution_effective_date
                 FROM agenda_items ai
                 LEFT JOIN board_members bm ON ai.presenter_id = bm.id
                 LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
@@ -70,7 +72,9 @@ switch ($method) {
             $meetingId = (int)$_GET['meeting_id'];
             $stmt = $db->prepare("
                 SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
-                    r.id as resolution_id, r.title as resolution_title, r.resolution_number, r.status as resolution_status
+                    r.id as resolution_id, r.title as resolution_title, r.description as resolution_description,
+                    r.resolution_number, r.status as resolution_status, r.vote_type as resolution_vote_type,
+                    r.effective_date as resolution_effective_date
                 FROM agenda_items ai
                 LEFT JOIN board_members bm ON ai.presenter_id = bm.id
                 LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
