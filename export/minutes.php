@@ -69,11 +69,25 @@ $stmt = $db->prepare("
     LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     WHERE ma.meeting_id = ?
     ORDER BY 
+        FIELD(ma.attendance_status, 'Present', 'Apology', 'Absent', 'Excused', 'Late') ASC,
         FIELD(mtm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
         bm.last_name ASC
 ");
 $stmt->execute([$meetingId]);
 $attendees = $stmt->fetchAll();
+
+$attendanceOrder = ['Present', 'Apology', 'Absent', 'Excused', 'Late', 'Other'];
+$attendanceLabels = [
+    'Apology' => 'Apologies'
+];
+$attendeesByStatus = array_fill_keys($attendanceOrder, []);
+foreach ($attendees as $attendee) {
+    $status = $attendee['attendance_status'] ?? '';
+    if (!isset($attendeesByStatus[$status])) {
+        $status = 'Other';
+    }
+    $attendeesByStatus[$status][] = $attendee;
+}
 
 // Format date
 function formatDate($dateString) {
@@ -389,19 +403,24 @@ function formatDateTime($dateString) {
     <?php if (count($attendees) > 0): ?>
     <div class="section">
         <h2>Attendees</h2>
-        <div class="attendee-list">
-            <?php foreach ($attendees as $attendee): ?>
-            <div class="attendee-item">
-                <strong><?php echo htmlspecialchars($attendee['first_name'] . ' ' . $attendee['last_name']); ?></strong>
-                <?php if (!empty($attendee['role'])): ?>
-                <span style="color: #666; font-size: 12px;"><?php echo htmlspecialchars($attendee['role']); ?></span>
-                <?php endif; ?>
-                <?php if ($attendee['title']): ?>
-                <br><span style="color: #999; font-size: 11px;"><?php echo htmlspecialchars($attendee['title']); ?></span>
-                <?php endif; ?>
+        <?php foreach ($attendanceOrder as $status): ?>
+            <?php if (!empty($attendeesByStatus[$status])): ?>
+            <h3><?php echo htmlspecialchars($attendanceLabels[$status] ?? $status); ?></h3>
+            <div class="attendee-list">
+                <?php foreach ($attendeesByStatus[$status] as $attendee): ?>
+                <div class="attendee-item">
+                    <strong><?php echo htmlspecialchars($attendee['first_name'] . ' ' . $attendee['last_name']); ?></strong>
+                    <?php if (!empty($attendee['role'])): ?>
+                    <span style="color: #666; font-size: 12px;"><?php echo htmlspecialchars($attendee['role']); ?></span>
+                    <?php endif; ?>
+                    <?php if ($attendee['title']): ?>
+                    <br><span style="color: #999; font-size: 11px;"><?php echo htmlspecialchars($attendee['title']); ?></span>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
             </div>
-            <?php endforeach; ?>
-        </div>
+            <?php endif; ?>
+        <?php endforeach; ?>
     </div>
     <?php endif; ?>
     
