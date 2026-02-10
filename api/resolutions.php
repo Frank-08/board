@@ -105,24 +105,42 @@ try {
             http_response_code(400);
             echo json_encode(['error' => 'id or meeting_id is required']);
         }
-        if (empty($data['agenda_item_id'])) {
-            // Get meeting date and shortcode from meeting_type for item number format
-            $stmt = $db->prepare("
-                $agendaItemId = null;
-                if (!empty($data['agenda_item_id'])) {
-                    $agendaItemId = (int)$data['agenda_item_id'];
+        break;
 
-                    // Validate that the agenda_item_id belongs to the meeting
-                    $stmt = $db->prepare("SELECT meeting_id FROM agenda_items WHERE id = ?");
-                    $stmt->execute([$agendaItemId]);
-                    $agendaItem = $stmt->fetch();
-                    if (!$agendaItem || (int)$agendaItem['meeting_id'] !== $meetingId) {
-                        ob_end_clean();
-                        http_response_code(400);
-                        echo json_encode(['error' => 'Invalid agenda_item_id or agenda item does not belong to meeting']);
-                        exit;
-                    }
-                }
+    case 'POST':
+        $data = json_decode(file_get_contents('php://input'), true);
+        $meetingId = (int)($data['meeting_id'] ?? 0);
+        $title = $data['title'] ?? '';
+        $description = $data['description'] ?? '';
+
+        if (!$meetingId || empty($title) || empty($description)) {
+            ob_end_clean();
+            http_response_code(400);
+            echo json_encode(['error' => 'meeting_id, title, and description are required']);
+            exit;
+        }
+
+        $agendaItemId = null;
+        if (!empty($data['agenda_item_id'])) {
+            $agendaItemId = (int)$data['agenda_item_id'];
+
+            // Validate that the agenda_item_id belongs to the meeting
+            $stmt = $db->prepare("SELECT meeting_id FROM agenda_items WHERE id = ?");
+            $stmt->execute([$agendaItemId]);
+            $agendaItem = $stmt->fetch();
+            if (!$agendaItem || (int)$agendaItem['meeting_id'] !== $meetingId) {
+                ob_end_clean();
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid agenda_item_id or agenda item does not belong to meeting']);
+                exit;
+            }
+        }
+
+        $stmt = $db->prepare("INSERT INTO resolutions (meeting_id, agenda_item_id, resolution_number, title, description, vote_type, status, effective_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        try {
+            $stmt->execute([
+                $meetingId,
+                $agendaItemId,
                 $data['resolution_number'] ?? null,
                 $title,
                 $description,
@@ -136,7 +154,7 @@ try {
             echo json_encode(['error' => 'Database error creating resolution: ' . $e->getMessage()]);
             exit;
         }
-        
+
         $resolutionId = $db->lastInsertId();
         if (!$resolutionId) {
             ob_end_clean();
@@ -144,7 +162,7 @@ try {
             echo json_encode(['error' => 'Failed to create resolution']);
             exit;
         }
-        
+
         $stmt = $db->prepare("
             SELECT r.*
             FROM resolutions r
