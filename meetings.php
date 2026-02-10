@@ -94,6 +94,7 @@ outputHeader('Meetings', 'meetings.php');
                     <select id="attendeeStatus" required>
                         <option value="Present">Present</option>
                         <option value="Absent">Absent</option>
+                        <option value="Apology">Apology</option>
                         <option value="Excused">Excused</option>
                         <option value="Late">Late</option>
                     </select>

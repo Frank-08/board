@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS meeting_attendees (
     id INT AUTO_INCREMENT PRIMARY KEY,
     meeting_id INT NOT NULL,
     member_id INT NOT NULL,
-    attendance_status ENUM('Present', 'Absent', 'Excused', 'Late') DEFAULT 'Absent',
+    attendance_status ENUM('Present', 'Absent', 'Apology', 'Excused', 'Late') DEFAULT 'Absent',
     arrival_time DATETIME,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
