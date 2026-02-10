@@ -581,6 +581,9 @@ outputHeader('Meetings', 'meetings.php');
                                         ${item.resolution_vote_type ? `<div style="margin-top: 4px; color: #2f6f46;">Vote Type: ${item.resolution_vote_type}</div>` : ''}
                                         ${item.resolution_effective_date ? `<div style="margin-top: 4px; color: #2f6f46;">Effective: ${formatDateTime(item.resolution_effective_date)}</div>` : ''}
                                         ${item.resolution_description ? `<div style="margin-top: 6px; color: #2f6f46;">${item.resolution_description}</div>` : ''}
+                                        <div style="margin-top: 8px;">
+                                            <button onclick="editResolution(${item.resolution_id})" class="btn btn-sm">Edit Resolution</button>
+                                        </div>
                                     </div>` : ''}
                                     ${documents.length > 0 ? `
                                         <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #007bff;">
@@ -1445,9 +1448,9 @@ outputHeader('Meetings', 'meetings.php');
                 document.getElementById('resolutionStatus').value = resolution.status;
                 document.getElementById('resolutionEffectiveDate').value = resolution.effective_date || '';
                 document.getElementById('modalResolutionTitle').textContent = 'Edit Resolution';
-                // Disable parent selection when editing (parent cannot be changed after creation)
+                // Allow updating linked agenda item while editing
                 document.getElementById('resolutionParentAgendaItem').disabled = false;
-                document.getElementById('resolutionParentGroup').style.opacity = '0.6';
+                document.getElementById('resolutionParentGroup').style.opacity = '1';
             } else {
                 form.reset();
                 document.getElementById('resolutionId').value = '';
