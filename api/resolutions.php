@@ -61,6 +61,13 @@ try {
         return $result;
     }
 
+    function minutesAreApproved($db, $meetingId) {
+        $stmt = $db->prepare("SELECT status FROM minutes WHERE meeting_id = ? LIMIT 1");
+        $stmt->execute([(int)$meetingId]);
+        $minutes = $stmt->fetch();
+        return $minutes && $minutes['status'] === 'Approved';
+    }
+
     switch ($method) {
     case 'GET':
         if (isset($_GET['id'])) {
@@ -308,6 +315,22 @@ try {
             exit;
         }
         
+        $stmt = $db->prepare("SELECT meeting_id FROM resolutions WHERE id = ?");
+        $stmt->execute([$id]);
+        $resolution = $stmt->fetch();
+        if (!$resolution) {
+            ob_end_clean();
+            http_response_code(404);
+            echo json_encode(['error' => 'Resolution not found']);
+            exit;
+        }
+        if (minutesAreApproved($db, $resolution['meeting_id'])) {
+            ob_end_clean();
+            http_response_code(409);
+            echo json_encode(['error' => 'Resolutions cannot be updated after minutes are approved']);
+            exit;
+        }
+
         $updates = [];
         $params = [];
         
@@ -353,6 +376,22 @@ try {
             exit;
         }
         
+        $stmt = $db->prepare("SELECT meeting_id FROM resolutions WHERE id = ?");
+        $stmt->execute([$id]);
+        $resolution = $stmt->fetch();
+        if (!$resolution) {
+            ob_end_clean();
+            http_response_code(404);
+            echo json_encode(['error' => 'Resolution not found']);
+            exit;
+        }
+        if (minutesAreApproved($db, $resolution['meeting_id'])) {
+            ob_end_clean();
+            http_response_code(409);
+            echo json_encode(['error' => 'Resolutions cannot be deleted after minutes are approved']);
+            exit;
+        }
+
         $stmt = $db->prepare("DELETE FROM resolutions WHERE id = ?");
         $stmt->execute([$id]);
         ob_end_clean();

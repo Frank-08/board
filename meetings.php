@@ -127,11 +127,11 @@ outputHeader('Meetings', 'meetings.php');
                     <textarea id="resolutionDescription" rows="5" required></textarea>
                 </div>
                 <div class="form-group" id="resolutionParentGroup">
-                    <label for="resolutionParentAgendaItem">Parent Agenda Item (Optional)</label>
+                    <label for="resolutionParentAgendaItem">Link Agenda Item (Optional)</label>
                     <select id="resolutionParentAgendaItem">
-                        <option value="">No parent (top-level agenda item)</option>
+                        <option value="">No linked agenda item</option>
                     </select>
-                    <small style="color: #666;">Select a parent agenda item to make this resolution a sub-item</small>
+                    <small style="color: #666;">Select an agenda item or sub-item to link this resolution.</small>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -1406,32 +1406,24 @@ outputHeader('Meetings', 'meetings.php');
             const modal = document.getElementById('resolutionModal');
             const form = document.getElementById('resolutionForm');
             
-            // Populate parent agenda item dropdown
+            // Populate agenda item dropdown (include sub-items)
             const parentSelect = document.getElementById('resolutionParentAgendaItem');
-            parentSelect.innerHTML = '<option value="">No parent (top-level agenda item)</option>';
+            parentSelect.innerHTML = '<option value="">No linked agenda item</option>';
             
             if (currentMeetingId) {
                 fetch(`api/agenda.php?meeting_id=${currentMeetingId}`)
                     .then(r => r.json())
                     .then(allItems => {
-                        // Only allow selecting top-level items as parent
-                        allItems.filter(i => !i.parent_id).forEach(i => {
+                        allItems.forEach(i => {
                             const opt = document.createElement('option');
                             opt.value = i.id;
-                            opt.textContent = (i.item_number ? i.item_number + '. ' : '') + i.title;
+                            const prefix = i.parent_id ? '— ' : '';
+                            opt.textContent = prefix + (i.item_number ? i.item_number + '. ' : '') + i.title;
                             parentSelect.appendChild(opt);
                         });
-                        
-                        // If editing a resolution, try to find and select the parent
+
                         if (resolution && resolution.agenda_item_id) {
-                            fetch(`api/agenda.php?id=${resolution.agenda_item_id}`)
-                                .then(r => r.json())
-                                .then(agendaItem => {
-                                    if (agendaItem && agendaItem.parent_id) {
-                                        parentSelect.value = agendaItem.parent_id;
-                                    }
-                                })
-                                .catch(err => console.error('Error loading agenda item:', err));
+                            parentSelect.value = resolution.agenda_item_id;
                         }
                     })
                     .catch(err => {
