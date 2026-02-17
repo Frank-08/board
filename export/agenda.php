@@ -162,6 +162,15 @@ function formatTime($dateString) {
         <?php endif; ?>
     </div>
 
+    <?php if ($meeting['notes']): ?>
+    <div class="agenda-section notes-section">
+        <h3>Notes</h3>
+        <div style="background-color: #fff8e1; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px;">
+            <?php echo nl2br(htmlspecialchars($meeting['notes'])); ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <div class="agenda-section">
         <h3>Agenda Items</h3>
         

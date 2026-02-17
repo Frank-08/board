@@ -188,6 +188,16 @@ if ($meeting['virtual_link']) {
 $html .= '</table>';
 $html .= '</div>';
 
+// Meeting notes section (if notes exist)
+if (!empty($meeting['notes'])) {
+    $html .= '<div class="agenda-section" style="margin-bottom: 25px;">';
+    $html .= '<h3>Notes</h3>';
+    $html .= '<div style="background-color: #fff8e1; border-left: 4px solid #ffc107; padding: 12px; border-radius: 4px;">';
+    $html .= nl2br(htmlspecialchars($meeting['notes']));
+    $html .= '</div>';
+    $html .= '</div>';
+}
+
 // Agenda items
 $html .= '<div class="agenda-section">';
 $html .= '<h3>Agenda Items</h3>';
