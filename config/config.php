@@ -20,7 +20,7 @@ define('ALLOWED_FILE_TYPES', ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']);
 define('LOGO_PATH', __DIR__ . '/../assets/images/logo.png');
 define('LOGO_URL', 'assets/images/logo.png'); // Web-accessible path for HTML
 define('LOGO_WIDTH', 25); // Width in mm for PDF
-define('LOGO_WIDTH_HTML', 250); //px for HTML
+define('LOGO_WIDTH_HTML', 25); //px for HTML
 define('LOGO_HEIGHT', 0); // Height in mm for PDF (0 = auto), or px for HTML (0 = auto)
 
 // Date format
