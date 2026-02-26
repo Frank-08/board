@@ -364,6 +364,7 @@ outputHeader('Meetings', 'meetings.php');
         let currentMeetingTypeId = null;
         let currentMeetingId = null;
         let allMeetingTypes = [];
+        let collapsedAgendaParentIds = new Set();
 
         window.addEventListener('DOMContentLoaded', function() {
             loadMeetingTypes();
@@ -437,6 +438,7 @@ outputHeader('Meetings', 'meetings.php');
 
         function showMeetingDetail(id) {
             currentMeetingId = id;
+            collapsedAgendaParentIds = new Set();
             document.getElementById('meetings-list').style.display = 'none';
             document.getElementById('meeting-detail').style.display = 'block';
 
@@ -510,6 +512,7 @@ outputHeader('Meetings', 'meetings.php');
             document.getElementById('meeting-detail').style.display = 'none';
             document.getElementById('meetings-list').style.display = 'block';
             currentMeetingId = null;
+            collapsedAgendaParentIds = new Set();
         }
 
         function showTab(tabName) {
@@ -532,9 +535,19 @@ outputHeader('Meetings', 'meetings.php');
                     Promise.all(items.map(item => 
                         fetch(`api/documents.php?agenda_item_id=${item.id}`).then(r => r.json())
                     )).then(documentsArrays => {
+                        const childCountByParent = {};
+                        items.forEach(item => {
+                            if (item.parent_id) {
+                                const parentKey = String(item.parent_id);
+                                childCountByParent[parentKey] = (childCountByParent[parentKey] || 0) + 1;
+                            }
+                        });
+
                         list.innerHTML = items.map((item, index) => {
-                                const isChild = item.parent_id && item.parent_id !== null;
-                                const indentStyle = isChild ? 'style="margin-left: 22px;"' : '';
+                            const isChild = item.parent_id && item.parent_id !== null;
+                            const hasChildren = !!childCountByParent[String(item.id)];
+                            const isCollapsed = hasChildren && collapsedAgendaParentIds.has(String(item.id));
+                            const indentStyle = isChild ? 'style="margin-left: 22px;"' : '';
                             const documents = documentsArrays[index] || [];
                             const isFirst = index === 0;
                             const isLast = index === items.length - 1;
@@ -548,7 +561,10 @@ outputHeader('Meetings', 'meetings.php');
                                         <div class="item-drag-handle" title="Drag to reorder">
                                             <span class="drag-icon">☰</span>
                                         </div>
-                                            <h4>${item.item_number ? item.item_number + '. ' : ''}${item.title}</h4>
+                                            <h4>
+                                                ${hasChildren ? `<button type="button" class="agenda-collapse-toggle ${isCollapsed ? 'collapsed' : ''}" onclick="toggleAgendaChildren(${item.id}, event)" aria-expanded="${isCollapsed ? 'false' : 'true'}" title="${isCollapsed ? 'Expand sub-items' : 'Collapse sub-items'}">${isCollapsed ? '▸' : '▾'}</button>` : '<span class="agenda-collapse-spacer" aria-hidden="true"></span>'}
+                                                ${item.item_number ? item.item_number + '. ' : ''}${item.title}
+                                            </h4>
                                         <div class="item-actions">
                                             <div class="reorder-buttons">
                                                 <button onclick="moveAgendaItemUp(${item.id})" 
@@ -610,10 +626,54 @@ outputHeader('Meetings', 'meetings.php');
                                 </div>
                             `;
                         }).join('');
+                        applyAgendaCollapseState();
                         // Initialize drag-and-drop after items are rendered
                         makeAgendaItemsSortable(meetingId);
                     });
                 });
+        }
+
+        function toggleAgendaChildren(parentId, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            const parentKey = String(parentId);
+            if (collapsedAgendaParentIds.has(parentKey)) {
+                collapsedAgendaParentIds.delete(parentKey);
+            } else {
+                collapsedAgendaParentIds.add(parentKey);
+            }
+            applyAgendaCollapseState();
+        }
+
+        function applyAgendaCollapseState() {
+            const list = document.getElementById('agenda-items-list');
+            if (!list) return;
+
+            const items = list.querySelectorAll('.agenda-item');
+            items.forEach(item => {
+                const parentId = item.getAttribute('data-parent-id');
+                if (!parentId) {
+                    return;
+                }
+                item.style.display = collapsedAgendaParentIds.has(parentId) ? 'none' : '';
+            });
+
+            const parentItems = list.querySelectorAll('.agenda-item[data-parent-id=""]');
+            parentItems.forEach(parentItem => {
+                const parentId = parentItem.getAttribute('data-item-id');
+                const toggleButton = parentItem.querySelector('.agenda-collapse-toggle');
+                if (!toggleButton) {
+                    return;
+                }
+                const isCollapsed = collapsedAgendaParentIds.has(String(parentId));
+                toggleButton.classList.toggle('collapsed', isCollapsed);
+                toggleButton.textContent = isCollapsed ? '▸' : '▾';
+                toggleButton.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+                toggleButton.setAttribute('title', isCollapsed ? 'Expand sub-items' : 'Collapse sub-items');
+            });
         }
 
         function loadMeetingAttendees(meetingId) {

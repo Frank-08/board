@@ -612,6 +612,37 @@ main {
     align-items: center;
 }
 
+#agenda-items-list .agenda-collapse-toggle {
+    border: 1px solid #ddd;
+    background: #f8f9fa;
+    color: #444;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+}
+
+#agenda-items-list .agenda-collapse-toggle:hover {
+    background: #eef1f5;
+}
+
+#agenda-items-list .agenda-collapse-toggle.collapsed {
+    background: #f1f3f5;
+}
+
+#agenda-items-list .agenda-collapse-spacer {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+}
+
 /* Attendee Items */
 .attendee-item {
     background: white;
