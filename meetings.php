@@ -171,8 +171,8 @@ outputHeader('Meetings', 'meetings.php');
     <div id="documentUploadModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeDocumentUploadModal()">&times;</span>
-            <h2 id="modalDocumentTitle">Upload Document</h2>
-            <form id="documentUploadForm" enctype="multipart/form-data">
+            <h2 id="modalDocumentTitle">Add Document Link</h2>
+            <form id="documentUploadForm">
                 <input type="hidden" id="documentAgendaItemId">
                 <div class="form-group">
                     <label for="documentTitle">Document Title *</label>
@@ -194,11 +194,11 @@ outputHeader('Meetings', 'meetings.php');
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="documentFile">File *</label>
-                    <input type="file" id="documentFile" required accept=".pdf,application/pdf">
-                    <small style="color: #666;">Max size: 10MB. Only PDF files are allowed for agenda items.</small>
+                    <label for="documentSharePointUrl">SharePoint URL *</label>
+                    <input type="url" id="documentSharePointUrl" required placeholder="https://yourtenant.sharepoint.com/...">
+                    <small style="color: #666;">Paste the SharePoint link for this agenda document.</small>
                 </div>
-                <button type="submit" class="btn btn-primary">Upload Document</button>
+                <button type="submit" class="btn btn-primary">Save Document Link</button>
             </form>
         </div>
     </div>
@@ -608,8 +608,8 @@ outputHeader('Meetings', 'meetings.php');
                                             <ul style="margin: 5px 0; padding-left: 20px;">
                                                 ${documents.map(doc => `
                                                     <li>
-                                                        <a href="api/download.php?id=${doc.id}" target="_blank" style="text-decoration: none; color: #007bff;">
-                                                            ${doc.title || doc.file_name}
+                                                        <a href="${doc.sharepoint_url || ('api/download.php?id=' + doc.id)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #007bff;">
+                                                            ${doc.title || doc.file_name || extractFileNameFromUrl(doc.sharepoint_url) || 'Document Link'}
                                                         </a>
                                                         <button onclick="deleteDocument(${doc.id}, ${item.id})" class="btn btn-sm btn-danger" style="margin-left: 10px; padding: 2px 8px; font-size: 11px;">Delete</button>
                                                     </li>
@@ -1758,33 +1758,27 @@ outputHeader('Meetings', 'meetings.php');
 
         document.getElementById('documentUploadForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData();
             const agendaItemId = document.getElementById('documentAgendaItemId').value;
-            const fileInput = document.getElementById('documentFile');
-            
-            if (!fileInput.files[0]) {
-                alert('Please select a file');
+            const sharepointUrl = document.getElementById('documentSharePointUrl').value.trim();
+
+            if (!isValidSharePointUrl(sharepointUrl)) {
+                alert('Please enter a valid HTTPS SharePoint URL');
                 return;
             }
-            
-            // Validate PDF for agenda items
-            const file = fileInput.files[0];
-            const fileExtension = file.name.split('.').pop().toLowerCase();
-            if (fileExtension !== 'pdf' && file.type !== 'application/pdf') {
-                alert('Only PDF files are allowed for agenda items');
-                return;
-            }
-            
-            formData.append('file', file);
-            formData.append('title', document.getElementById('documentTitle').value);
-            formData.append('description', document.getElementById('documentDescription').value);
-            formData.append('document_type', document.getElementById('documentType').value);
-            formData.append('meeting_id', currentMeetingId);
-            formData.append('agenda_item_id', agendaItemId);
+
+            const payload = {
+                title: document.getElementById('documentTitle').value,
+                description: document.getElementById('documentDescription').value,
+                document_type: document.getElementById('documentType').value,
+                meeting_id: currentMeetingId,
+                agenda_item_id: agendaItemId,
+                sharepoint_url: sharepointUrl
+            };
             
             fetch('api/documents.php', {
                 method: 'POST',
-                body: formData
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
             })
             .then(response => {
                 if (!response.ok) {
@@ -1807,6 +1801,28 @@ outputHeader('Meetings', 'meetings.php');
                 alert('Error uploading document: ' + error.message);
             });
         });
+
+        function isValidSharePointUrl(url) {
+            if (!url) return false;
+            try {
+                const parsed = new URL(url);
+                return parsed.protocol === 'https:' && parsed.hostname.includes('sharepoint.com');
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function extractFileNameFromUrl(url) {
+            if (!url) return '';
+            try {
+                const parsed = new URL(url);
+                const pathParts = parsed.pathname.split('/').filter(Boolean);
+                if (pathParts.length === 0) return '';
+                return decodeURIComponent(pathParts[pathParts.length - 1]);
+            } catch (error) {
+                return '';
+            }
+        }
 
         function deleteDocument(documentId, agendaItemId) {
             if (!confirm('Are you sure you want to delete this document?')) return;

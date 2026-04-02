@@ -437,9 +437,9 @@ POST /api/agenda.php
 **Documents:**
 - `GET /api/documents.php?agenda_item_id={id}` - Get documents for an agenda item
 - `GET /api/documents.php?meeting_id={id}` - Get documents for a meeting
-- `POST /api/documents.php` - Upload document (PDF-only for agenda items)
-- `GET /api/view_pdf.php?id={id}` - View PDF document inline
-- `GET /api/download.php?id={id}` - Download document
+- `POST /api/documents.php` - Create document using `sharepoint_url` (HTTPS SharePoint link)
+- `GET /api/view_pdf.php?id={id}` - Redirect to document SharePoint URL
+- `GET /api/download.php?id={id}` - Redirect to document SharePoint URL
 
 **Minutes Comments:**
 - `GET /api/minutes_comments.php?meeting_id={id}` - Get all comments for a meeting's minutes
@@ -467,17 +467,13 @@ define('LOGO_HEIGHT', 0);  // Height (0 = auto)
 
 Place your logo file at the specified path. Supported formats: PNG, JPG, JPEG, GIF.
 
-### File Upload Configuration
+### Document Link Configuration
 
-Edit `config/config.php` to customize file uploads:
+Document records now use SharePoint links instead of local uploads.
 
-```php
-define('UPLOAD_DIR', __DIR__ . '/../uploads/');
-define('MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB
-define('ALLOWED_FILE_TYPES', ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']);
-```
-
-**Note**: When attaching documents to agenda items, only PDF files are allowed.
+- `POST /api/documents.php` expects JSON with `sharepoint_url`.
+- `sharepoint_url` must be a valid HTTPS SharePoint URL.
+- Download/view endpoints redirect users to SharePoint.
 
 ## Authentication
 
@@ -523,7 +519,7 @@ After installation, log in with:
 5. **Input Validation**: All user inputs are sanitized through PDO prepared statements
 6. **SQL Injection**: Protected by PDO prepared statements
 7. **XSS Protection**: Output is escaped in the frontend
-8. **File Upload Security**: File types are validated, and agenda item attachments are restricted to PDFs
+8. **Document Link Security**: SharePoint URLs are validated server-side for HTTPS SharePoint domains
 9. **Session Security**: Sessions use httponly cookies and regenerate IDs on login
 10. **CSRF Protection**: Login form includes CSRF token validation
 

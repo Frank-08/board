@@ -19,8 +19,8 @@ outputHeader('Documents', 'documents.php');
     <div id="uploadModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeUploadModal()">&times;</span>
-            <h2>Upload Document</h2>
-            <form id="uploadForm" enctype="multipart/form-data">
+            <h2>Add Document Link</h2>
+            <form id="uploadForm">
                 <div class="form-group">
                     <label for="uploadTitle">Title *</label>
                     <input type="text" id="uploadTitle" required>
@@ -59,10 +59,10 @@ outputHeader('Documents', 'documents.php');
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="uploadFile">File *</label>
-                    <input type="file" id="uploadFile" required>
+                    <label for="uploadSharePointUrl">SharePoint URL *</label>
+                    <input type="url" id="uploadSharePointUrl" required placeholder="https://yourtenant.sharepoint.com/...">
                 </div>
-                <button type="submit" class="btn btn-primary">Upload Document</button>
+                <button type="submit" class="btn btn-primary">Save Document Link</button>
             </form>
         </div>
     </div>
@@ -210,8 +210,8 @@ outputHeader('Documents', 'documents.php');
                                                 ${doc.document_type}
                                             </span>
                                         </td>
-                                        <td style="padding: 12px; color: #666;">${escapeHtml(doc.file_name || 'N/A')}</td>
-                                        <td style="padding: 12px; color: #666;">${formatFileSize(doc.file_size || 0)}</td>
+                                        <td style="padding: 12px; color: #666;">${escapeHtml(doc.file_name || extractFileNameFromUrl(doc.sharepoint_url) || 'N/A')}</td>
+                                        <td style="padding: 12px; color: #666;">${doc.file_size ? formatFileSize(doc.file_size) : 'N/A'}</td>
                                         <td style="padding: 12px; color: #666;">
                                             ${doc.meeting_title ? `<div><strong>Meeting:</strong> ${escapeHtml(doc.meeting_title)}</div>` : ''}
                                             ${doc.agenda_item_title ? `<div><strong>Agenda Item:</strong> ${escapeHtml(doc.agenda_item_title)}</div>` : ''}
@@ -222,7 +222,7 @@ outputHeader('Documents', 'documents.php');
                                         </td>
                                         <td style="padding: 12px; color: #666;">${formatDate(doc.created_at)}</td>
                                         <td style="padding: 12px;">
-                                            <a href="api/download.php?id=${doc.id}" target="_blank" class="btn btn-sm" style="margin-right: 5px;">Download</a>
+                                            <a href="${escapeHtml(doc.sharepoint_url || ('api/download.php?id=' + doc.id))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="margin-right: 5px;">Open</a>
                                             <button onclick="showEditModal(${doc.id})" class="btn btn-sm">Edit</button>
                                             <button onclick="deleteDocument(${doc.id})" class="btn btn-sm btn-danger">Delete</button>
                                         </td>
@@ -272,30 +272,32 @@ outputHeader('Documents', 'documents.php');
 
         document.getElementById('uploadForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData();
-            const fileInput = document.getElementById('uploadFile');
-            
-            if (!fileInput.files[0]) {
-                alert('Please select a file');
+
+            const sharepointUrl = document.getElementById('uploadSharePointUrl').value.trim();
+            if (!isValidSharePointUrl(sharepointUrl)) {
+                alert('Please enter a valid HTTPS SharePoint URL');
                 return;
             }
-            
-            formData.append('file', fileInput.files[0]);
-            formData.append('title', document.getElementById('uploadTitle').value);
-            formData.append('description', document.getElementById('uploadDescription').value);
-            formData.append('document_type', document.getElementById('uploadDocumentType').value);
+
+            const payload = {
+                title: document.getElementById('uploadTitle').value,
+                description: document.getElementById('uploadDescription').value,
+                document_type: document.getElementById('uploadDocumentType').value,
+                sharepoint_url: sharepointUrl
+            };
             
             const meetingTypeId = document.getElementById('uploadMeetingType').value;
             const meetingId = document.getElementById('uploadMeeting').value;
             const agendaItemId = document.getElementById('uploadAgendaItem').value;
             
-            if (meetingTypeId) formData.append('meeting_type_id', meetingTypeId);
-            if (meetingId) formData.append('meeting_id', meetingId);
-            if (agendaItemId) formData.append('agenda_item_id', agendaItemId);
+            if (meetingTypeId) payload.meeting_type_id = meetingTypeId;
+            if (meetingId) payload.meeting_id = meetingId;
+            if (agendaItemId) payload.agenda_item_id = agendaItemId;
             
             fetch('api/documents.php', {
                 method: 'POST',
-                body: formData
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
             })
             .then(response => {
                 if (!response.ok) {
@@ -383,6 +385,28 @@ outputHeader('Documents', 'documents.php');
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
             return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function isValidSharePointUrl(url) {
+            if (!url) return false;
+            try {
+                const parsed = new URL(url);
+                return parsed.protocol === 'https:' && parsed.hostname.includes('sharepoint.com');
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function extractFileNameFromUrl(url) {
+            if (!url) return '';
+            try {
+                const parsed = new URL(url);
+                const pathParts = parsed.pathname.split('/').filter(Boolean);
+                if (pathParts.length === 0) return '';
+                return decodeURIComponent(pathParts[pathParts.length - 1]);
+            } catch (error) {
+                return '';
+            }
         }
 
         function formatDate(dateString) {

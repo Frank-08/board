@@ -16,13 +16,6 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 
-// Set PHP upload limits programmatically (works even if .htaccess doesn't apply)
-// These must be set before PHP tries to parse the upload
-ini_set('upload_max_filesize', '20M');
-ini_set('post_max_size', '30M');
-ini_set('max_execution_time', '300');
-ini_set('max_input_time', '300');
-
 // Require authentication for all requests
 requireAuth();
 
@@ -37,18 +30,32 @@ if ($method === 'DELETE') {
     requirePermission('delete_document');
 }
 
-// Ensure uploads directory exists and is writable
-if (!file_exists(UPLOAD_DIR)) {
-    if (!mkdir(UPLOAD_DIR, 0777, true)) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Failed to create uploads directory']);
-        exit;
+function isValidSharePointUrl($url) {
+    if (!is_string($url) || trim($url) === '') {
+        return false;
     }
+
+    $parsedUrl = parse_url(trim($url));
+    if (!$parsedUrl || ($parsedUrl['scheme'] ?? '') !== 'https') {
+        return false;
+    }
+
+    $host = strtolower($parsedUrl['host'] ?? '');
+    return $host !== '' && (strpos($host, 'sharepoint.com') !== false || strpos($host, 'sharepoint-df.com') !== false);
 }
-if (!is_writable(UPLOAD_DIR)) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Uploads directory is not writable']);
-    exit;
+
+function extractFileNameFromUrl($url) {
+    $path = parse_url($url, PHP_URL_PATH);
+    if (!$path) {
+        return null;
+    }
+
+    $baseName = basename($path);
+    if ($baseName === '' || $baseName === '/' || $baseName === '.') {
+        return null;
+    }
+
+    return urldecode($baseName);
 }
 
 switch ($method) {
@@ -121,205 +128,86 @@ switch ($method) {
         break;
         
     case 'POST':
-        // Debug logging (remove in production)
-        error_log('POST request received. $_FILES: ' . print_r($_FILES, true));
-        error_log('Content-Type: ' . ($_SERVER['CONTENT_TYPE'] ?? 'not set'));
-        error_log('Request method: ' . $_SERVER['REQUEST_METHOD']);
-        
-        // Handle file upload
-        if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
-            $file = $_FILES['file'];
-            $title = $_POST['title'] ?? $file['name'];
-            $description = $_POST['description'] ?? null;
-            $meetingId = !empty($_POST['meeting_id']) ? (int)$_POST['meeting_id'] : null;
-            $agendaItemId = !empty($_POST['agenda_item_id']) ? (int)$_POST['agenda_item_id'] : null;
-            $meetingTypeId = !empty($_POST['meeting_type_id']) ? (int)$_POST['meeting_type_id'] : null;
-            $documentType = $_POST['document_type'] ?? 'Other';
-            
-            // Get uploaded_by from current user's session
-            $currentUser = getCurrentUser();
-            $uploadedBy = $currentUser['board_member_id'] ?? null;
-            if (!$uploadedBy) {
-                error_log('Document upload: board_member_id not found in session for user_id: ' . ($currentUser['id'] ?? 'unknown'));
-            }
-            
-            // Validate file
-            $fileSize = $file['size'];
-            if ($fileSize > MAX_FILE_SIZE) {
-                http_response_code(400);
-                echo json_encode(['error' => 'File size exceeds maximum allowed size']);
-                exit;
-            }
-            
-            $fileName = $file['name'];
-            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-            
-            // If uploading to an agenda item, only PDFs are allowed
-            if ($agendaItemId && $fileExtension !== 'pdf' && $file['type'] !== 'application/pdf') {
-                http_response_code(400);
-                echo json_encode(['error' => 'Only PDF files are allowed for agenda items']);
-                exit;
-            }
-            
-            if (!in_array($fileExtension, ALLOWED_FILE_TYPES)) {
-                http_response_code(400);
-                echo json_encode(['error' => 'File type not allowed']);
-                exit;
-            }
-            
-            // Generate unique filename
-            $uniqueFileName = uniqid() . '_' . time() . '.' . $fileExtension;
-            $filePath = UPLOAD_DIR . $uniqueFileName;
-            
-            // Move uploaded file
-            if (!move_uploaded_file($file['tmp_name'], $filePath)) {
-                http_response_code(500);
-                echo json_encode(['error' => 'Failed to save file']);
-                exit;
-            }
-            
-            // Get meeting's meeting type if not provided
-            if (!$meetingTypeId && $meetingId) {
-                $stmt = $db->prepare("SELECT meeting_type_id FROM meetings WHERE id = ?");
-                $stmt->execute([$meetingId]);
-                $meeting = $stmt->fetch();
-                if ($meeting) {
-                    $meetingTypeId = $meeting['meeting_type_id'];
-                }
-            }
-            
-            // Insert document record
-            try {
-                $stmt = $db->prepare("
-                    INSERT INTO documents (meeting_type_id, meeting_id, agenda_item_id, document_type, title, description, file_path, file_name, file_size, mime_type, uploaded_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ");
-                $stmt->execute([
-                    $meetingTypeId,
-                    $meetingId,
-                    $agendaItemId,
-                    $documentType,
-                    $title,
-                    $description,
-                    $uniqueFileName,
-                    $fileName,
-                    $fileSize,
-                    $file['type'],
-                    $uploadedBy
-                ]);
-                
-                $documentId = $db->lastInsertId();
-                $stmt = $db->prepare("
-                    SELECT d.*, 
-                        bm.first_name as uploaded_first_name, bm.last_name as uploaded_last_name,
-                        ai.title as agenda_item_title
-                    FROM documents d
-                    LEFT JOIN board_members bm ON d.uploaded_by = bm.id
-                    LEFT JOIN agenda_items ai ON d.agenda_item_id = ai.id
-                    WHERE d.id = ?
-                ");
-                $stmt->execute([$documentId]);
-                echo json_encode($stmt->fetch());
-            } catch (Exception $e) {
-                // Delete uploaded file if database insert fails
-                if (file_exists($filePath)) {
-                    unlink($filePath);
-                }
-                http_response_code(500);
-                echo json_encode(['error' => 'Error saving document: ' . $e->getMessage()]);
-                exit;
-            }
-        } elseif (isset($_FILES['file']) && $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-            $errorMessages = [
-                UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize directive',
-                UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE directive',
-                UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
-                UPLOAD_ERR_NO_FILE => 'No file was uploaded',
-                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
-                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
-                UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload'
-            ];
-            $errorCode = $_FILES['file']['error'];
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        if (!is_array($data)) {
             http_response_code(400);
-            echo json_encode(['error' => $errorMessages[$errorCode] ?? 'Unknown upload error']);
+            echo json_encode(['error' => 'Request body must be valid JSON']);
             exit;
-        } elseif (!isset($_FILES['file'])) {
-            // No file was sent - check if this is a JSON metadata update request
-            $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-            
-            // Log for debugging
-            error_log('No file in $_FILES. Content-Type: ' . $contentType);
-            error_log('$_FILES contents: ' . print_r($_FILES, true));
-            
-            if (strpos($contentType, 'application/json') !== false) {
-                // JSON request for updating document metadata
-                $data = json_decode(file_get_contents('php://input'), true);
-                $id = (int)($data['id'] ?? 0);
-                
-                if (!$id) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'ID is required']);
-                    exit;
-                }
-                
-                $updates = [];
-                $params = [];
-                
-                $fields = ['title', 'description', 'document_type', 'agenda_item_id'];
-                foreach ($fields as $field) {
-                    if (isset($data[$field])) {
-                        $updates[] = "$field = ?";
-                        $params[] = $data[$field];
-                    }
-                }
-                
-                if (empty($updates)) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'No fields to update']);
-                    exit;
-                }
-                
-                $params[] = $id;
-                $sql = "UPDATE documents SET " . implode(', ', $updates) . " WHERE id = ?";
-                $stmt = $db->prepare($sql);
-                $stmt->execute($params);
-                
-                $stmt = $db->prepare("
-                    SELECT d.*, 
-                        bm.first_name as uploaded_first_name, bm.last_name as uploaded_last_name,
-                        ai.title as agenda_item_title
-                    FROM documents d
-                    LEFT JOIN board_members bm ON d.uploaded_by = bm.id
-                    LEFT JOIN agenda_items ai ON d.agenda_item_id = ai.id
-                    WHERE d.id = ?
-                ");
-                $stmt->execute([$id]);
-                echo json_encode($stmt->fetch());
-            } else {
-                // Expected file upload but no file was provided
-                // This could be due to:
-                // 1. File not selected in the form
-                // 2. PHP upload_max_filesize or post_max_size too small
-                // 3. Form not submitted correctly
-                $contentType = $_SERVER['CONTENT_TYPE'] ?? 'not set';
-                $isMultipart = strpos($contentType, 'multipart/form-data') !== false;
-                $errorMsg = 'No file was uploaded. Please select a file to upload.';
-                if ($isMultipart) {
-                    // Get actual PHP limits for diagnostic info
-                    $uploadMax = ini_get('upload_max_filesize');
-                    $postMax = ini_get('post_max_size');
-                    $contentLength = $_SERVER['CONTENT_LENGTH'] ?? 'unknown';
-                    $errorMsg .= ' (Request received as multipart/form-data but file was not parsed. ';
-                    $errorMsg .= 'PHP limits: upload_max_filesize=' . $uploadMax . ', post_max_size=' . $postMax;
-                    $errorMsg .= ', Content-Length=' . $contentLength . '. ';
-                    $errorMsg .= 'If file is larger than these limits, increase them in php.ini or .htaccess.)';
-                } else {
-                    $errorMsg .= ' (Request Content-Type: ' . $contentType . ')';
-                }
-                http_response_code(400);
-                echo json_encode(['error' => $errorMsg]);
-                exit;
+        }
+
+        $title = trim((string)($data['title'] ?? ''));
+        $description = isset($data['description']) ? trim((string)$data['description']) : null;
+        $meetingId = !empty($data['meeting_id']) ? (int)$data['meeting_id'] : null;
+        $agendaItemId = !empty($data['agenda_item_id']) ? (int)$data['agenda_item_id'] : null;
+        $meetingTypeId = !empty($data['meeting_type_id']) ? (int)$data['meeting_type_id'] : null;
+        $documentType = $data['document_type'] ?? 'Other';
+        $sharePointUrl = trim((string)($data['sharepoint_url'] ?? ''));
+
+        if ($title === '') {
+            http_response_code(400);
+            echo json_encode(['error' => 'Title is required']);
+            exit;
+        }
+
+        if (!isValidSharePointUrl($sharePointUrl)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A valid HTTPS SharePoint URL is required']);
+            exit;
+        }
+
+        // Get meeting's meeting type if not provided
+        if (!$meetingTypeId && $meetingId) {
+            $stmt = $db->prepare("SELECT meeting_type_id FROM meetings WHERE id = ?");
+            $stmt->execute([$meetingId]);
+            $meeting = $stmt->fetch();
+            if ($meeting) {
+                $meetingTypeId = $meeting['meeting_type_id'];
             }
+        }
+
+        // Get uploaded_by from current user's session
+        $currentUser = getCurrentUser();
+        $uploadedBy = $currentUser['board_member_id'] ?? null;
+        if (!$uploadedBy) {
+            error_log('Document create: board_member_id not found in session for user_id: ' . ($currentUser['id'] ?? 'unknown'));
+        }
+
+        $derivedFileName = extractFileNameFromUrl($sharePointUrl);
+
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO documents (meeting_type_id, meeting_id, agenda_item_id, document_type, title, description, sharepoint_url, file_path, file_name, file_size, mime_type, uploaded_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL, NULL, ?)
+            ");
+            $stmt->execute([
+                $meetingTypeId,
+                $meetingId,
+                $agendaItemId,
+                $documentType,
+                $title,
+                $description,
+                $sharePointUrl,
+                $derivedFileName,
+                $uploadedBy
+            ]);
+
+            $documentId = $db->lastInsertId();
+            $stmt = $db->prepare("
+                SELECT d.*, 
+                    bm.first_name as uploaded_first_name, bm.last_name as uploaded_last_name,
+                    ai.title as agenda_item_title
+                FROM documents d
+                LEFT JOIN board_members bm ON d.uploaded_by = bm.id
+                LEFT JOIN agenda_items ai ON d.agenda_item_id = ai.id
+                WHERE d.id = ?
+            ");
+            $stmt->execute([$documentId]);
+            echo json_encode($stmt->fetch());
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Error saving document: ' . $e->getMessage()]);
+            exit;
         }
         break;
         
@@ -342,6 +230,22 @@ switch ($method) {
                 $updates[] = "$field = ?";
                 $params[] = $data[$field];
             }
+        }
+
+        if (isset($data['sharepoint_url'])) {
+            $sharePointUrl = trim((string)$data['sharepoint_url']);
+            if (!isValidSharePointUrl($sharePointUrl)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'A valid HTTPS SharePoint URL is required']);
+                exit;
+            }
+
+            $updates[] = 'sharepoint_url = ?';
+            $params[] = $sharePointUrl;
+
+            $derivedFileName = extractFileNameFromUrl($sharePointUrl);
+            $updates[] = 'file_name = ?';
+            $params[] = $derivedFileName;
         }
         
         if (empty($updates)) {
@@ -376,18 +280,6 @@ switch ($method) {
             http_response_code(400);
             echo json_encode(['error' => 'ID is required']);
             exit;
-        }
-        
-        // Get file path before deleting
-        $stmt = $db->prepare("SELECT file_path FROM documents WHERE id = ?");
-        $stmt->execute([$id]);
-        $document = $stmt->fetch();
-        
-        if ($document && $document['file_path']) {
-            $filePath = UPLOAD_DIR . $document['file_path'];
-            if (file_exists($filePath)) {
-                unlink($filePath);
-            }
         }
         
         $stmt = $db->prepare("DELETE FROM documents WHERE id = ?");

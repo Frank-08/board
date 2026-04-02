@@ -40,28 +40,6 @@ $stmt = $db->prepare("
 $stmt->execute([$meetingId]);
 $agendaItems = $stmt->fetchAll();
 
-// Get documents linked to agenda items
-$agendaItemIds = array_filter(array_column($agendaItems, 'id'));
-$documentsByAgendaItem = [];
-if (!empty($agendaItemIds)) {
-    $placeholders = implode(',', array_fill(0, count($agendaItemIds), '?'));
-    $stmt = $db->prepare("
-        SELECT d.*, d.agenda_item_id
-        FROM documents d
-        WHERE d.agenda_item_id IN ($placeholders)
-        ORDER BY d.agenda_item_id, d.created_at ASC
-    ");
-    $stmt->execute($agendaItemIds);
-    $allDocuments = $stmt->fetchAll();
-    
-    foreach ($allDocuments as $doc) {
-        if (!isset($documentsByAgendaItem[$doc['agenda_item_id']])) {
-            $documentsByAgendaItem[$doc['agenda_item_id']] = [];
-        }
-        $documentsByAgendaItem[$doc['agenda_item_id']][] = $doc;
-    }
-}
-
 // Get attendees with their role in the meeting's committee
 $stmt = $db->prepare("
     SELECT ma.*, bm.first_name, bm.last_name, bm.title,
@@ -114,7 +92,7 @@ function formatTime($dateString) {
 <body>
     <div class="no-print print-buttons">
         <button onclick="window.print()" class="btn">Print / Save as PDF</button>
-        <a href="agenda_pdf.php?meeting_id=<?php echo $meetingId; ?>" class="btn" style="background-color: #28a745;">Download Combined PDF (with attachments)</a>
+        <a href="agenda_pdf.php?meeting_id=<?php echo $meetingId; ?>" class="btn" style="background-color: #28a745;">Download Agenda PDF</a>
         <a href="javascript:history.back()" class="btn btn-secondary">Back</a>
     </div>
 
@@ -229,61 +207,6 @@ function formatTime($dateString) {
             <p>No agenda items have been added yet.</p>
         <?php endif; ?>
     </div>
-
-    <?php
-    // Collect PDF documents attached to agenda items for display at the end
-    $pdfDocuments = [];
-    foreach ($agendaItems as $item) {
-        if (isset($documentsByAgendaItem[$item['id']])) {
-            foreach ($documentsByAgendaItem[$item['id']] as $doc) {
-                // Only include PDF files
-                $fileExtension = strtolower(pathinfo($doc['file_name'], PATHINFO_EXTENSION));
-                if ($fileExtension === 'pdf' || $doc['mime_type'] === 'application/pdf') {
-                    $pdfDocuments[] = [
-                        'document' => $doc,
-                        'agenda_item' => $item
-                    ];
-                }
-            }
-        }
-    }
-    ?>
-    
-    <?php if (!empty($pdfDocuments)): ?>
-    <div class="agenda-section">
-        <h3>Attached PDF Documents</h3>
-        <?php foreach ($pdfDocuments as $item): ?>
-        <div class="pdf-embed-container">
-            <div class="pdf-embed-header">
-                <div class="pdf-embed-title"><?php echo htmlspecialchars($item['document']['title']); ?></div>
-                <div class="pdf-embed-meta">
-                    <strong>From Agenda Item:</strong> <?php echo htmlspecialchars($item['agenda_item']['item_number'] ?? '') . ($item['agenda_item']['item_number'] ? '. ' : ''); ?><?php echo htmlspecialchars($item['agenda_item']['title']); ?>
-                    <?php if ($item['document']['description']): ?>
-                    | <?php echo htmlspecialchars($item['document']['description']); ?>
-                    <?php endif; ?>
-                    | File: <?php echo htmlspecialchars($item['document']['file_name']); ?> 
-                    (<?php echo number_format($item['document']['file_size'] / 1024, 2); ?> KB)
-                </div>
-            </div>
-            <?php
-            // Construct direct file path URL
-            $filePath = $item['document']['file_path'];
-            // Ensure we use just the filename if file_path contains a path
-            $fileName = basename($filePath);
-            // Construct absolute URL path starting with /board/uploads/
-            $pdfUrl = '/uploads/' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8');
-            ?>
-            <iframe 
-                class="pdf-embed-iframe" 
-                src="<?php echo $pdfUrl; ?>"
-                title="<?php echo htmlspecialchars($item['document']['title']); ?>">
-                <p>Your browser does not support PDFs. 
-                <a href="<?php echo $pdfUrl; ?>" target="_blank">Click here to view the PDF</a>.</p>
-            </iframe>
-        </div>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
 
     <div class="footer">
         <p>Generated on <?php echo date('F j, Y \a\t g:i A'); ?></p>

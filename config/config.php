@@ -6,10 +6,7 @@ define('APP_NAME', 'Together in Council');
 define('APP_VERSION', '1.0.0');
 define('BASE_URL', 'http://localhost/board');
 
-// File upload settings
-define('UPLOAD_DIR', __DIR__ . '/../uploads/');
-define('MAX_FILE_SIZE', 20 * 1024 * 1024); // 20MB
-define('ALLOWED_FILE_TYPES', ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']);
+// Document links are stored as SharePoint URLs (no local file upload settings required).
 
 // Logo settings for PDF exports
 // Set to null or empty string to disable logo
