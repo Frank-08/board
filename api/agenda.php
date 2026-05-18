@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/agenda_helpers.php';
 
 // Require authentication for all requests
 requireAuth();
@@ -49,40 +50,35 @@ switch ($method) {
         if (isset($_GET['id'])) {
             $id = (int)$_GET['id'];
             $stmt = $db->prepare("
-                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
-                    r.id as resolution_id, r.title as resolution_title, r.description as resolution_description,
-                    r.resolution_number, r.status as resolution_status, r.vote_type as resolution_vote_type,
-                    r.effective_date as resolution_effective_date
+                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name
                 FROM agenda_items ai
                 LEFT JOIN board_members bm ON ai.presenter_id = bm.id
-                LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
                 WHERE ai.id = ?
             ");
             $stmt->execute([$id]);
-            $item = $stmt->fetch();
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$item) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Agenda item not found']);
                 exit;
             }
-            
-            echo json_encode($item);
+
+            $meetingId = (int)$item['meeting_id'];
+            $items = attachResolutionsToAgendaItems($db, $meetingId, [$item]);
+            echo json_encode($items[0]);
         } elseif (isset($_GET['meeting_id'])) {
             $meetingId = (int)$_GET['meeting_id'];
             $stmt = $db->prepare("
-                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
-                    r.id as resolution_id, r.title as resolution_title, r.description as resolution_description,
-                    r.resolution_number, r.status as resolution_status, r.vote_type as resolution_vote_type,
-                    r.effective_date as resolution_effective_date
+                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name
                 FROM agenda_items ai
                 LEFT JOIN board_members bm ON ai.presenter_id = bm.id
-                LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
                 WHERE ai.meeting_id = ?
                 ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
             ");
             $stmt->execute([$meetingId]);
-            echo json_encode($stmt->fetchAll());
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(attachResolutionsToAgendaItems($db, $meetingId, $items));
         } else {
             http_response_code(400);
             echo json_encode(['error' => 'id or meeting_id is required']);

@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/agenda_helpers.php';
 
 $meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : null;
 
@@ -22,23 +23,20 @@ if (!$meeting) {
     die('Meeting not found');
 }
 
-// Get agenda items with linked resolutions
+// Get agenda items (resolutions attached separately to avoid row duplication)
 $stmt = $db->prepare("
     SELECT ai.*, 
         bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
-        mtm.role as presenter_role,
-        r.id as resolution_id, r.title as resolution_title, r.resolution_number, r.description as resolution_description,
-        r.status as resolution_status, r.vote_type
+        mtm.role as presenter_role
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
     LEFT JOIN meetings m ON ai.meeting_id = m.id
     LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
-    LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
     WHERE ai.meeting_id = ?
     ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
 ");
 $stmt->execute([$meetingId]);
-$agendaItems = $stmt->fetchAll();
+$agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $stmt->fetchAll(PDO::FETCH_ASSOC));
 
 // Get attendees with their role in the meeting's committee
 $stmt = $db->prepare("
@@ -171,23 +169,7 @@ function formatTime($dateString) {
                     <p><strong>Description:</strong> <?php echo nl2br(htmlspecialchars($item['description'])); ?></p>
                     <?php endif; ?>
                     
-                    <?php if ($item['resolution_id']): ?>
-                    <div style="background: #e8f5e9; padding: 8px; border-radius: 4px; margin: 6px 0; border-left: 3px solid #28a745;">
-                        <p style="margin: 0 0 3px 0;"><strong>📋 Linked Resolution:</strong> <?php echo htmlspecialchars($item['resolution_title']); ?></p>
-                        <?php if ($item['resolution_number']): ?>
-                        <p style="margin: 3px 0;"><strong>Resolution #:</strong> <?php echo htmlspecialchars($item['resolution_number']); ?></p>
-                        <?php endif; ?>
-                        <?php if ($item['resolution_description']): ?>
-                        <p style="margin: 3px 0;"><?php echo nl2br(htmlspecialchars($item['resolution_description'])); ?></p>
-                        <?php endif; ?>
-                        <?php if ($item['resolution_status']): ?>
-                        <p style="margin: 3px 0;"><strong>Resolution Status:</strong> <?php echo htmlspecialchars($item['resolution_status']); ?></p>
-                        <?php endif; ?>
-                        <?php if ($item['vote_type']): ?>
-                        <p style="margin: 3px 0;"><strong>Vote Type:</strong> <?php echo htmlspecialchars($item['vote_type']); ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <?php endif; ?>
+                    <?php echo renderExportResolutionBoxes($item); ?>
                     
                     <?php if ($item['presenter_first_name']): ?>
                     <p><strong>Presenter:</strong> <?php echo htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); ?>

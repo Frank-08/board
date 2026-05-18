@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/agenda_helpers.php';
 
 $meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : 0;
 date_default_timezone_set('Australia/Sydney');
@@ -40,24 +41,22 @@ if (!$minutes) {
     die('No minutes found for this meeting');
 }
 
-// Get agenda items with comments and resolutions
+// Get agenda items with comments (resolutions attached separately to avoid row duplication)
 $stmt = $db->prepare("
     SELECT ai.*, 
         bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
         mtm.role as presenter_role,
-        mac.comment as minutes_comment,
-        r.resolution_number, r.title as resolution_title, r.status as resolution_status, r.description as resolution_description
+        mac.comment as minutes_comment
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
     LEFT JOIN meetings m ON ai.meeting_id = m.id
     LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     LEFT JOIN minutes_agenda_comments mac ON ai.id = mac.agenda_item_id AND mac.minutes_id = ?
-    LEFT JOIN resolutions r ON ai.id = r.agenda_item_id
     WHERE ai.meeting_id = ?
     ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
 ");
 $stmt->execute([$minutes['id'], $meetingId]);
-$agendaItems = $stmt->fetchAll();
+$agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $stmt->fetchAll(PDO::FETCH_ASSOC));
 
 // Get attendees with their role in the meeting's meeting type
 $stmt = $db->prepare("
@@ -432,44 +431,37 @@ function formatDateTime($dateString) {
             <h4>
                 <?php echo htmlspecialchars($item['item_number'] ?? '') . ($item['item_number'] ? '. ' : ''); ?>
                 <?php echo htmlspecialchars($item['title']); ?>
-                <?php if ($item['resolution_number']): ?>
-                <span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #<?php echo htmlspecialchars($item['resolution_number']); ?>)</span>
+                <?php foreach ($item['resolutions'] ?? [] as $res): ?>
+                <?php if (!empty($res['resolution_number'])): ?>
+                <span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #<?php echo htmlspecialchars($res['resolution_number']); ?>)</span>
                 <?php endif; ?>
-                <?php if ($item['resolution_status']): ?>
-                <span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $item['resolution_status'])); ?>" style="margin-left: 8px; padding: 4px 10px; border-radius: 3px; font-size: 12px; font-weight: bold;">
-                    <?php echo htmlspecialchars($item['resolution_status']); ?>
+                <?php if (!empty($res['status'])): ?>
+                <span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $res['status'])); ?>" style="margin-left: 8px; padding: 4px 10px; border-radius: 3px; font-size: 12px; font-weight: bold;">
+                    <?php echo htmlspecialchars($res['status']); ?>
                 </span>
                 <?php endif; ?>
+                <?php endforeach; ?>
             </h4>
-            <?php 
-            $description = '';
-            $hasResolution = false;
-            if (!empty($item['resolution_description'])) {
-                $description = ltrim($item['resolution_description']);
-                $hasResolution = true;
-            } elseif (!empty($item['description'])) {
-                $description = $item['description'];
-            }
-            $numberLabel = '';
-            if (!empty($item['resolution_number'])) {
-                $numberLabel = 'Resolution #' . $item['resolution_number'];
-            } elseif (!empty($item['item_number'])) {
-                $numberLabel = 'Item ' . $item['item_number'];
-            }
-            if ($description): ?>
-            <?php if ($hasResolution): ?>
+            <?php if (!empty($item['description'])): ?>
+            <div class="item-description"><?php echo nl2br(htmlspecialchars($item['description'])); ?></div>
+            <?php endif; ?>
+            <?php foreach ($item['resolutions'] ?? [] as $res): ?>
+            <?php if (!empty($res['description'])): ?>
+            <?php
+            $numberLabel = !empty($res['resolution_number'])
+                ? 'Resolution #' . $res['resolution_number']
+                : (!empty($item['item_number']) ? 'Item ' . $item['item_number'] : '');
+            ?>
             <div class="resolution-callout">
                 <p class="callout-title">Resolution</p>
                 <p class="callout-lead">It was resolved</p>
                 <div class="callout-body">
                     <?php if ($numberLabel): ?><span class="callout-number"><?php echo htmlspecialchars($numberLabel); ?></span><?php endif; ?>
-                    <p class="callout-text"><?php echo nl2br(htmlspecialchars($description)); ?></p>
+                    <p class="callout-text"><?php echo nl2br(htmlspecialchars(ltrim($res['description']))); ?></p>
                 </div>
             </div>
-            <?php else: ?>
-            <div class="item-description"><?php echo nl2br(htmlspecialchars($description)); ?></div>
             <?php endif; ?>
-            <?php endif; ?>
+            <?php endforeach; ?>
             <?php if ($item['presenter_first_name']): ?>
             <p style="font-size: 14px; color: #666; margin: 8px 0;">
                 <strong>Presenter:</strong> <?php echo htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); ?>

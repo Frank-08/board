@@ -522,6 +522,76 @@ outputHeader('Meetings', 'meetings.php');
             event.target.classList.add('active');
         }
 
+        function getItemResolutions(item) {
+            if (item.resolutions && item.resolutions.length > 0) {
+                return item.resolutions;
+            }
+            if (item.resolution_id) {
+                return [{
+                    id: item.resolution_id,
+                    title: item.resolution_title,
+                    resolution_number: item.resolution_number,
+                    status: item.resolution_status,
+                    vote_type: item.resolution_vote_type,
+                    effective_date: item.resolution_effective_date,
+                    description: item.resolution_description
+                }];
+            }
+            return [];
+        }
+
+        function renderAgendaResolutionPanels(item, showEditButtons = true) {
+            const resolutions = getItemResolutions(item);
+            if (resolutions.length === 0) {
+                return '';
+            }
+            return resolutions.map(res => {
+                const statusBadge = res.status
+                    ? `<span class="badge badge-${String(res.status).toLowerCase()}" style="margin-left: 8px;">${res.status}</span>`
+                    : '';
+                let panel = `
+                <div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #28a745;">
+                    <div>
+                        <strong>📋 Linked Resolution:</strong> ${res.title || 'Resolution'}
+                        ${res.resolution_number ? `(#${res.resolution_number})` : ''}
+                        ${statusBadge}
+                    </div>`;
+                if (res.vote_type) {
+                    panel += `<div style="margin-top: 4px; color: #2f6f46;">Vote Type: ${res.vote_type}</div>`;
+                }
+                if (res.effective_date) {
+                    panel += `<div style="margin-top: 4px; color: #2f6f46;">Effective: ${formatDateTime(res.effective_date)}</div>`;
+                }
+                if (res.description) {
+                    panel += `<div style="margin-top: 6px; color: #2f6f46;">${res.description}</div>`;
+                }
+                if (showEditButtons && res.id) {
+                    panel += `<div style="margin-top: 8px;"><button onclick="editResolution(${res.id})" class="btn btn-sm">Edit Resolution</button></div>`;
+                }
+                panel += '</div>';
+                return panel;
+            }).join('');
+        }
+
+        function renderMinutesResolutionSummary(item, minutesApproved) {
+            const resolutions = getItemResolutions(item);
+            if (resolutions.length === 0) {
+                return '';
+            }
+            return resolutions.map(res => {
+                const numberPart = res.resolution_number
+                    ? `<span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #${res.resolution_number})</span>`
+                    : '';
+                const statusPart = res.status
+                    ? `<span class="badge badge-${res.status.toLowerCase().replace(' ', '-')}" style="margin-left: 8px; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;">${res.status}</span>`
+                    : '';
+                const editPart = (!minutesApproved && res.id)
+                    ? `<button onclick="editResolution(${res.id})" class="btn btn-sm" style="margin-left: 8px;">Edit Resolution</button>`
+                    : '';
+                return `${numberPart}${statusPart}${editPart}`;
+            }).join('');
+        }
+
         function loadMeetingAgenda(meetingId) {
             fetch(`api/agenda.php?meeting_id=${meetingId}`)
                 .then(response => response.json())
@@ -549,10 +619,13 @@ outputHeader('Meetings', 'meetings.php');
                             const isCollapsed = hasChildren && collapsedAgendaParentIds.has(String(item.id));
                             const indentStyle = isChild ? 'style="margin-left: 22px;"' : '';
                             const documents = documentsArrays[index] || [];
-                            const isFirst = index === 0;
-                            const isLast = index === items.length - 1;
+                            const reorderDisabled = getAgendaReorderDisabledState(items, index);
+                            const disableUp = reorderDisabled.disableUp;
+                            const disableDown = reorderDisabled.disableDown;
+                            const itemResolutions = getItemResolutions(item);
+                            const hasResolutions = itemResolutions.length > 0;
                             return `
-                                      <div class="agenda-item ${item.resolution_id ? 'agenda-item-with-resolution' : ''}" ${indentStyle}
+                                      <div class="agenda-item ${hasResolutions ? 'agenda-item-with-resolution' : ''}" ${indentStyle}
                                           draggable="true" 
                                           data-item-id="${item.id}" 
                                           data-parent-id="${item.parent_id || ''}"
@@ -570,38 +643,26 @@ outputHeader('Meetings', 'meetings.php');
                                                 <button onclick="moveAgendaItemUp(${item.id})" 
                                                         class="btn btn-sm btn-reorder" 
                                                         title="Move up"
-                                                        ${isFirst ? 'disabled' : ''}
+                                                        ${disableUp ? 'disabled' : ''}
                                                         style="padding: 4px 8px; min-width: auto;">
                                                     ↑
                                                 </button>
                                                 <button onclick="moveAgendaItemDown(${item.id})" 
                                                         class="btn btn-sm btn-reorder" 
                                                         title="Move down"
-                                                        ${isLast ? 'disabled' : ''}
+                                                        ${disableDown ? 'disabled' : ''}
                                                         style="padding: 4px 8px; min-width: auto;">
                                                     ↓
                                                 </button>
                                             </div>
-                                            ${item.resolution_id ? `<a href="#resolutions" onclick="showTab('resolutions'); event.preventDefault();" class="btn btn-sm" style="text-decoration: none; display: inline-block;">View Resolution</a>` : ''}
+                                            ${hasResolutions ? `<a href="#resolutions" onclick="showTab('resolutions'); event.preventDefault();" class="btn btn-sm" style="text-decoration: none; display: inline-block;">View Resolution${itemResolutions.length > 1 ? 's' : ''}</a>` : ''}
                                             <button onclick="showDocumentUploadModal(${item.id})" class="btn btn-sm">📎 Attach Document</button>
                                             <button onclick="editAgendaItem(${item.id})" class="btn btn-sm">Edit</button>
                                             <button onclick="deleteAgendaItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
                                         </div>
                                     </div>
                                     ${item.description ? `<p>${item.description}</p>` : ''}
-                                    ${item.resolution_id ? `<div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #28a745;">
-                                        <div>
-                                            <strong>📋 Linked Resolution:</strong> ${item.resolution_title || 'Resolution'}
-                                            ${item.resolution_number ? `(#${item.resolution_number})` : ''}
-                                            ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase()}" style="margin-left: 8px;">${item.resolution_status}</span>` : ''}
-                                        </div>
-                                        ${item.resolution_vote_type ? `<div style="margin-top: 4px; color: #2f6f46;">Vote Type: ${item.resolution_vote_type}</div>` : ''}
-                                        ${item.resolution_effective_date ? `<div style="margin-top: 4px; color: #2f6f46;">Effective: ${formatDateTime(item.resolution_effective_date)}</div>` : ''}
-                                        ${item.resolution_description ? `<div style="margin-top: 6px; color: #2f6f46;">${item.resolution_description}</div>` : ''}
-                                        <div style="margin-top: 8px;">
-                                            <button onclick="editResolution(${item.resolution_id})" class="btn btn-sm">Edit Resolution</button>
-                                        </div>
-                                    </div>` : ''}
+                                                                        ${renderAgendaResolutionPanels(item)}
                                     ${documents.length > 0 ? `
                                         <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #007bff;">
                                             <strong>📎 Attached Documents:</strong>
@@ -740,9 +801,7 @@ outputHeader('Meetings', 'meetings.php');
                             <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
                                 <h4 style="margin: 0 0 10px 0; color: #333;">
                                     ${item.item_number ? item.item_number + '. ' : ''}${item.title}
-                                    ${item.resolution_number ? `<span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #${item.resolution_number})</span>` : ''}
-                                    ${item.resolution_status ? `<span class="badge badge-${item.resolution_status.toLowerCase().replace(' ', '-')}" style="margin-left: 8px; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;">${item.resolution_status}</span>` : ''}
-                                    ${item.resolution_id && minutes.status !== 'Approved' ? `<button onclick="editResolution(${item.resolution_id})" class="btn btn-sm" style="margin-left: 8px;">Edit Resolution</button>` : ''}
+                                    ${renderMinutesResolutionSummary(item, minutes.status === 'Approved')}
                                 </h4>
                                 ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
                                 <div style="margin-top: 10px;">
@@ -1118,8 +1177,153 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         // Agenda Item Reordering
-        let draggedElement = null;
-        let draggedIndex = null;
+        let draggedBlock = null;
+        let draggedBlockIds = null;
+
+        function isTopLevelAgendaItem(el) {
+            return !el.getAttribute('data-parent-id');
+        }
+
+        function getAgendaBlockEndIndex(items, startIndex) {
+            const start = items[startIndex];
+            if (!isTopLevelAgendaItem(start)) {
+                return startIndex;
+            }
+            const parentId = start.getAttribute('data-item-id');
+            let end = startIndex;
+            for (let i = startIndex + 1; i < items.length; i++) {
+                if (items[i].getAttribute('data-parent-id') == parentId) {
+                    end = i;
+                } else {
+                    break;
+                }
+            }
+            return end;
+        }
+
+        function getAgendaBlock(items, startIndex) {
+            const endIndex = getAgendaBlockEndIndex(items, startIndex);
+            return {
+                block: items.slice(startIndex, endIndex + 1),
+                startIndex,
+                endIndex
+            };
+        }
+
+        function getAgendaBlockStartIndex(items, index) {
+            const el = items[index];
+            if (isTopLevelAgendaItem(el)) {
+                return index;
+            }
+            const parentId = el.getAttribute('data-parent-id');
+            for (let i = index; i >= 0; i--) {
+                if (items[i].getAttribute('data-item-id') == parentId) {
+                    return i;
+                }
+            }
+            return index;
+        }
+
+        function getPreviousBlockStartIndex(items, blockStart) {
+            if (blockStart <= 0) {
+                return null;
+            }
+            return getAgendaBlockStartIndex(items, blockStart - 1);
+        }
+
+        function getNextBlockStartIndex(items, blockEnd) {
+            const next = blockEnd + 1;
+            return next < items.length ? next : null;
+        }
+
+        function insertAgendaBlockBefore(parentNode, block, refNode) {
+            block.forEach(el => parentNode.removeChild(el));
+            block.forEach(el => parentNode.insertBefore(el, refNode));
+        }
+
+        function insertAgendaBlockAfter(parentNode, block, refNode, allItems) {
+            const items = allItems || Array.from(parentNode.querySelectorAll('.agenda-item'));
+            const refIndex = items.indexOf(refNode);
+            if (refIndex < 0) {
+                return;
+            }
+            const blockStart = getAgendaBlockStartIndex(items, refIndex);
+            const { endIndex } = getAgendaBlock(items, blockStart);
+            const refAfter = items[endIndex].nextSibling;
+            block.forEach(el => parentNode.removeChild(el));
+            block.forEach(el => parentNode.insertBefore(el, refAfter));
+        }
+
+        function getDataAgendaBlock(items, startIndex) {
+            const item = items[startIndex];
+            if (item.parent_id) {
+                return { startIndex, endIndex: startIndex };
+            }
+            const parentId = item.id;
+            let endIndex = startIndex;
+            for (let i = startIndex + 1; i < items.length; i++) {
+                if (items[i].parent_id == parentId) {
+                    endIndex = i;
+                } else {
+                    break;
+                }
+            }
+            return { startIndex, endIndex };
+        }
+
+        function getDataAgendaBlockStartIndex(items, index) {
+            const item = items[index];
+            if (!item.parent_id) {
+                return index;
+            }
+            for (let i = index; i >= 0; i--) {
+                if (items[i].id == item.parent_id) {
+                    return i;
+                }
+            }
+            return index;
+        }
+
+        function getAgendaReorderDisabledState(items, index) {
+            const item = items[index];
+            const isChild = item.parent_id && item.parent_id !== null;
+
+            if (isChild) {
+                const parentId = item.parent_id;
+                const siblingIndices = [];
+                items.forEach((it, i) => {
+                    if (it.parent_id == parentId) {
+                        siblingIndices.push(i);
+                    }
+                });
+                const posInSiblings = siblingIndices.indexOf(index);
+                return {
+                    disableUp: posInSiblings <= 0,
+                    disableDown: posInSiblings < 0 || posInSiblings >= siblingIndices.length - 1
+                };
+            }
+
+            const blockStart = getDataAgendaBlockStartIndex(items, index);
+            const { endIndex } = getDataAgendaBlock(items, blockStart);
+            return {
+                disableUp: blockStart === 0,
+                disableDown: endIndex >= items.length - 1
+            };
+        }
+
+        function collectAgendaDragBlock(item, items) {
+            const itemIndex = items.indexOf(item);
+            if (itemIndex < 0) {
+                return [item];
+            }
+            const blockStart = getAgendaBlockStartIndex(items, itemIndex);
+            const { block } = getAgendaBlock(items, blockStart);
+            if (isTopLevelAgendaItem(item)) {
+                return block;
+            }
+            // Child drag: sibling reorder only (single row)
+            return [item];
+        }
 
         function makeAgendaItemsSortable(meetingId) {
             const list = document.getElementById('agenda-items-list');
@@ -1136,136 +1340,130 @@ outputHeader('Meetings', 'meetings.php');
             // Re-query after cloning
             const updatedItems = list.querySelectorAll('.agenda-item');
             
-            updatedItems.forEach((item, index) => {
+            updatedItems.forEach((item) => {
                 item.addEventListener('dragstart', (e) => {
-                    // If dragging a parent, include its children in the dragged group
-                    const draggedId = parseInt(item.getAttribute('data-item-id'));
-                    const draggedParentId = item.getAttribute('data-parent-id');
-                    let group = [item];
-                    if (!draggedParentId) {
-                        // collect immediate child rows that follow this parent
-                        let next = item.nextElementSibling;
-                        while (next && next.classList.contains('agenda-item') && next.getAttribute('data-parent-id') == draggedId) {
-                            group.push(next);
-                            next = next.nextElementSibling;
-                        }
-                    }
-                    draggedElement = group;
-                    draggedIndex = index;
-                    item.classList.add('dragging');
+                    const items = Array.from(list.querySelectorAll('.agenda-item'));
+                    draggedBlock = collectAgendaDragBlock(item, items);
+                    draggedBlockIds = new Set(
+                        draggedBlock.map(el => el.getAttribute('data-item-id'))
+                    );
+                    draggedBlock.forEach(el => el.classList.add('dragging'));
                     e.dataTransfer.effectAllowed = 'move';
                     e.dataTransfer.setData('text/html', item.innerHTML);
                 });
 
-                item.addEventListener('dragend', (e) => {
-                    // remove dragging class from group
-                    if (Array.isArray(draggedElement)) {
-                        draggedElement.forEach(el => el.classList.remove('dragging'));
-                    } else if (draggedElement) {
-                        draggedElement.classList.remove('dragging');
+                item.addEventListener('dragend', () => {
+                    if (draggedBlock) {
+                        draggedBlock.forEach(el => el.classList.remove('dragging'));
                     }
-                    // Remove drop indicator classes
-                    updatedItems.forEach(i => i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom'));
+                    draggedBlock = null;
+                    draggedBlockIds = null;
+                    list.querySelectorAll('.agenda-item').forEach(i => {
+                        i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+                    });
                 });
 
                 item.addEventListener('dragover', (e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
-                    
+
+                    const itemId = item.getAttribute('data-item-id');
+                    if (draggedBlockIds && draggedBlockIds.has(itemId)) {
+                        return;
+                    }
+
                     const rect = item.getBoundingClientRect();
                     const midY = rect.top + rect.height / 2;
-                    
-                    // Remove all drag-over classes
-                    updatedItems.forEach(i => i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom'));
-                    
-                    if (item !== draggedElement) {
-                        if (e.clientY < midY) {
-                            item.classList.add('drag-over-top');
-                        } else {
-                            item.classList.add('drag-over-bottom');
-                        }
+
+                    list.querySelectorAll('.agenda-item').forEach(i => {
+                        i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+                    });
+
+                    if (e.clientY < midY) {
+                        item.classList.add('drag-over-top');
+                    } else {
+                        item.classList.add('drag-over-bottom');
                     }
                 });
 
-                item.addEventListener('dragleave', (e) => {
+                item.addEventListener('dragleave', () => {
                     item.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
                 });
 
                 item.addEventListener('drop', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    
-                    if (draggedElement && draggedElement !== item) {
-                        const dropIndex = Array.from(updatedItems).indexOf(item);
-                        const rect = item.getBoundingClientRect();
-                        const midY = rect.top + rect.height / 2;
-                        const insertBefore = e.clientY < midY;
-                        
-                        const finalIndex = insertBefore ? dropIndex : dropIndex + 1;
 
-                        // Reorder in DOM
-                        if (Array.isArray(draggedElement)) {
-                            // Insert group: detach all and insert in order
-                            const parent = item.parentNode;
-                            // Determine reference node
-                            const refNode = insertBefore ? item : item.nextSibling;
-                            draggedElement.forEach(el => parent.removeChild(el));
-                            // Insert them preserving order
-                            for (let i = 0; i < draggedElement.length; i++) {
-                                parent.insertBefore(draggedElement[i], refNode);
-                            }
-                        } else {
-                            if (draggedIndex < finalIndex) {
-                                item.parentNode.insertBefore(draggedElement, item.nextSibling);
-                            } else {
-                                item.parentNode.insertBefore(draggedElement, item);
-                            }
-                        }
-                        
-                        // Update positions via API
-                        const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el => 
-                            parseInt(el.getAttribute('data-item-id'))
-                        );
-                        reorderAgendaItems(meetingId, newOrder);
+                    const itemId = item.getAttribute('data-item-id');
+                    if (!draggedBlock || !draggedBlockIds || draggedBlockIds.has(itemId)) {
+                        return;
                     }
-                    
-                    // Clean up
-                    updatedItems.forEach(i => i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom'));
+
+                    const items = Array.from(list.querySelectorAll('.agenda-item'));
+                    const parentNode = item.parentNode;
+                    const rect = item.getBoundingClientRect();
+                    const insertBefore = e.clientY < rect.top + rect.height / 2;
+                    const targetIndex = items.indexOf(item);
+                    const targetBlockStart = getAgendaBlockStartIndex(items, targetIndex);
+                    const { endIndex: targetBlockEnd } = getAgendaBlock(items, targetBlockStart);
+
+                    const draggingChild = draggedBlock.length === 1 && !isTopLevelAgendaItem(draggedBlock[0]);
+                    if (draggingChild) {
+                        const dragParentId = draggedBlock[0].getAttribute('data-parent-id');
+                        const targetParentId = item.getAttribute('data-parent-id');
+                        if (!dragParentId || dragParentId !== targetParentId) {
+                            return;
+                        }
+                        if (insertBefore) {
+                            insertAgendaBlockBefore(parentNode, draggedBlock, item);
+                        } else {
+                            insertAgendaBlockAfter(parentNode, draggedBlock, item, items);
+                        }
+                    } else if (insertBefore) {
+                        insertAgendaBlockBefore(parentNode, draggedBlock, items[targetBlockStart]);
+                    } else {
+                        insertAgendaBlockAfter(parentNode, draggedBlock, items[targetBlockEnd], items);
+                    }
+
+                    const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el =>
+                        parseInt(el.getAttribute('data-item-id'))
+                    );
+                    reorderAgendaItems(meetingId, newOrder);
+
+                    list.querySelectorAll('.agenda-item').forEach(i => {
+                        i.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+                    });
                 });
             });
         }
 
         function moveAgendaItemUp(itemId) {
             if (!currentMeetingId) return;
-            
+
             const list = document.getElementById('agenda-items-list');
             const items = Array.from(list.querySelectorAll('.agenda-item'));
-            const currentIndex = items.findIndex(item => 
+            const currentIndex = items.findIndex(item =>
                 parseInt(item.getAttribute('data-item-id')) === itemId
             );
-            
-            if (currentIndex <= 0) return; // Already at top
-            
-            // Move group (parent + children) up together
+            if (currentIndex <= 0) return;
+
             const currentItem = items[currentIndex];
-            // collect group for current
-            const group = [currentItem];
-            let next = currentItem.nextElementSibling;
-            const currentId = currentItem.getAttribute('data-item-id');
-            while (next && next.classList.contains('agenda-item') && next.getAttribute('data-parent-id') == currentId) {
-                group.push(next);
-                next = next.nextElementSibling;
+            const parentNode = currentItem.parentNode;
+
+            if (isTopLevelAgendaItem(currentItem)) {
+                const blockStart = getAgendaBlockStartIndex(items, currentIndex);
+                const { block, startIndex } = getAgendaBlock(items, blockStart);
+                const prevStart = getPreviousBlockStartIndex(items, startIndex);
+                if (prevStart === null) return;
+                insertAgendaBlockBefore(parentNode, block, items[prevStart]);
+            } else {
+                const parentId = currentItem.getAttribute('data-parent-id');
+                const prev = items[currentIndex - 1];
+                if (!prev || prev.getAttribute('data-parent-id') !== parentId) return;
+                insertAgendaBlockBefore(parentNode, [currentItem], prev);
             }
 
-            const previousItem = items[currentIndex - 1];
-            const parent = currentItem.parentNode;
-            // Insert group before previousItem
-            group.forEach(el => parent.removeChild(el));
-            parent.insertBefore(group[0], previousItem);
-            for (let i = 1; i < group.length; i++) parent.insertBefore(group[i], previousItem);
-            
-            // Update positions via API
-            const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el => 
+            const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el =>
                 parseInt(el.getAttribute('data-item-id'))
             );
             reorderAgendaItems(currentMeetingId, newOrder);
@@ -1273,35 +1471,32 @@ outputHeader('Meetings', 'meetings.php');
 
         function moveAgendaItemDown(itemId) {
             if (!currentMeetingId) return;
-            
+
             const list = document.getElementById('agenda-items-list');
             const items = Array.from(list.querySelectorAll('.agenda-item'));
-            const currentIndex = items.findIndex(item => 
+            const currentIndex = items.findIndex(item =>
                 parseInt(item.getAttribute('data-item-id')) === itemId
             );
-            
-            if (currentIndex < 0 || currentIndex >= items.length - 1) return; // Already at bottom
-            
-            // Move group (parent + children) down together
+            if (currentIndex < 0 || currentIndex >= items.length - 1) return;
+
             const currentItem = items[currentIndex];
-            const group = [currentItem];
-            let next = currentItem.nextElementSibling;
-            const currentId = currentItem.getAttribute('data-item-id');
-            while (next && next.classList.contains('agenda-item') && next.getAttribute('data-parent-id') == currentId) {
-                group.push(next);
-                next = next.nextElementSibling;
+            const parentNode = currentItem.parentNode;
+
+            if (isTopLevelAgendaItem(currentItem)) {
+                const blockStart = getAgendaBlockStartIndex(items, currentIndex);
+                const { block, endIndex } = getAgendaBlock(items, blockStart);
+                const nextStart = getNextBlockStartIndex(items, endIndex);
+                if (nextStart === null) return;
+                const { endIndex: nextEnd } = getAgendaBlock(items, nextStart);
+                insertAgendaBlockAfter(parentNode, block, items[nextEnd], items);
+            } else {
+                const parentId = currentItem.getAttribute('data-parent-id');
+                const next = items[currentIndex + 1];
+                if (!next || next.getAttribute('data-parent-id') !== parentId) return;
+                insertAgendaBlockAfter(parentNode, [currentItem], next, items);
             }
 
-            const nextItem = items[currentIndex + 1];
-            const parent = currentItem.parentNode;
-            // Insert group after nextItem
-            // Remove group first
-            group.forEach(el => parent.removeChild(el));
-            const ref = nextItem.nextSibling;
-            for (let i = 0; i < group.length; i++) parent.insertBefore(group[i], ref);
-            
-            // Update positions via API
-            const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el => 
+            const newOrder = Array.from(list.querySelectorAll('.agenda-item')).map(el =>
                 parseInt(el.getAttribute('data-item-id'))
             );
             reorderAgendaItems(currentMeetingId, newOrder);
@@ -1483,7 +1678,12 @@ outputHeader('Meetings', 'meetings.php');
                 fetch(`api/agenda.php?meeting_id=${currentMeetingId}`)
                     .then(r => r.json())
                     .then(allItems => {
+                        const seenAgendaIds = new Set();
                         allItems.forEach(i => {
+                            if (seenAgendaIds.has(i.id)) {
+                                return;
+                            }
+                            seenAgendaIds.add(i.id);
                             const opt = document.createElement('option');
                             opt.value = i.id;
                             const prefix = i.parent_id ? '— ' : '';
