@@ -42,6 +42,7 @@ define('PERMISSIONS', [
     'upload_documents' => ['Clerk', 'Admin'],
     'create_resolution' => ['Clerk', 'Admin'],
     'edit_resolution' => ['Clerk', 'Admin'],
+    'manage_procedural_proposals' => ['Clerk', 'Admin'],
     
     // Member-specific permissions
     'edit_own_attendance' => ['Member', 'Clerk', 'Admin'],

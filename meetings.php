@@ -54,6 +54,15 @@ outputHeader('Meetings', 'meetings.php');
                         </select>
                     </div>
                     <div class="form-group">
+                        <label for="agendaItemDecisionMethod">Decision Method</label>
+                        <select id="agendaItemDecisionMethod">
+                            <option value="None">None</option>
+                            <option value="Consensus">Consensus</option>
+                            <option value="Formal Majority">Formal Majority</option>
+                            <option value="Referral">Referral</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="agendaItemDuration">Duration (minutes)</label>
                         <input type="number" id="agendaItemDuration" min="0">
                     </div>
@@ -129,7 +138,7 @@ outputHeader('Meetings', 'meetings.php');
                 </div>
                 <div class="form-group" id="resolutionParentGroup">
                     <label for="resolutionParentAgendaItem">Link Agenda Item (Optional)</label>
-                    <select id="resolutionParentAgendaItem">
+                    <select id="resolutionParentAgendaItem" onchange="onResolutionAgendaItemChange()">
                         <option value="">No linked agenda item</option>
                     </select>
                     <small style="color: #666;">Select an agenda item or sub-item to link this resolution.</small>
@@ -149,12 +158,22 @@ outputHeader('Meetings', 'meetings.php');
                         </select>
                     </div>
                     <div class="form-group">
+                        <label for="resolutionDecisionMethod">Decision Method</label>
+                        <select id="resolutionDecisionMethod" onchange="resolutionDecisionMethodTouched = true;">
+                            <option value="Consensus">Consensus</option>
+                            <option value="Formal Majority">Formal Majority</option>
+                            <option value="Referral">Referral</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="resolutionVoteType">Vote Type</label>
                         <select id="resolutionVoteType">
                             <option value="">Select vote type...</option>
-                            <option value="Cards">Cards</option>
-                            <option value="Formal Procedures">Formal Procedures</option>
+                            <option value="Voices">Voices</option>
                             <option value="Show of Hands">Show of Hands</option>
+                            <option value="Cards">Cards</option>
+                            <option value="Written Ballot">Written Ballot</option>
+                            <option value="Formal Procedures">Formal Procedures</option>
                         </select>
                     </div>
                 </div>
@@ -163,6 +182,82 @@ outputHeader('Meetings', 'meetings.php');
                     <input type="date" id="resolutionEffectiveDate">
                 </div>
                 <button type="submit" class="btn btn-primary">Save Resolution</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Procedural Proposal Modal -->
+    <div id="proceduralProposalModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close" onclick="closeProceduralProposalModal()">&times;</span>
+            <h2 id="modalProceduralProposalTitle">New Procedural Proposal</h2>
+            <form id="proceduralProposalForm" onsubmit="saveProceduralProposal(event)">
+                <input type="hidden" id="proceduralProposalId">
+                <div class="form-group">
+                    <label for="proceduralProposalType">Proposal Type *</label>
+                    <select id="proceduralProposalType" required>
+                        <option value="PointOfOrder">Point of Order</option>
+                        <option value="UseOfProcedures">Use of Procedures</option>
+                        <option value="OrderOfDay">Order of the Day</option>
+                        <option value="Adjournment">Adjournment</option>
+                        <option value="PrivateSitting">Private Sitting</option>
+                        <option value="Referral">Referral</option>
+                        <option value="DecisionNow">Determining the Need for a Decision Now</option>
+                        <option value="WithdrawMotion">Withdraw Motion</option>
+                        <option value="PreviousQuestion">The Previous Question (that the motion be not put)</option>
+                        <option value="Closure">Closure (that the vote be now taken)</option>
+                        <option value="Reconsideration">Reconsideration</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="proceduralProposalAgendaItem">Linked Agenda Item (Optional)</label>
+                    <select id="proceduralProposalAgendaItem">
+                        <option value="">No linked agenda item</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="proceduralProposalResolution">Linked Resolution/Motion (Optional)</label>
+                    <select id="proceduralProposalResolution">
+                        <option value="">No linked resolution</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="proceduralProposalProposedBy">Proposed By</label>
+                        <select id="proceduralProposalProposedBy">
+                            <option value="">Select member...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="proceduralProposalSecondedBy">Seconded By</label>
+                        <select id="proceduralProposalSecondedBy">
+                            <option value="">Select member...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="proceduralProposalOutcome">Outcome</label>
+                        <select id="proceduralProposalOutcome">
+                            <option value="Pending">Pending</option>
+                            <option value="Carried">Carried</option>
+                            <option value="Lost">Lost</option>
+                            <option value="Lapsed">Lapsed</option>
+                            <option value="RuledOn">Ruled On</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:center; margin-top: 22px;">
+                        <label for="proceduralProposalRequiresLeave" style="margin: 0 8px 0 0;">
+                            <input type="checkbox" id="proceduralProposalRequiresLeave" style="width:auto;">
+                            Required leave of the council
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="proceduralProposalNotes">Notes</label>
+                    <textarea id="proceduralProposalNotes" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Procedural Proposal</button>
             </form>
         </div>
     </div>
@@ -365,6 +460,8 @@ outputHeader('Meetings', 'meetings.php');
         let currentMeetingId = null;
         let allMeetingTypes = [];
         let collapsedAgendaParentIds = new Set();
+        let resolutionDecisionMethodTouched = false;
+        let currentResolutionAgendaItems = [];
 
         window.addEventListener('DOMContentLoaded', function() {
             loadMeetingTypes();
@@ -493,6 +590,14 @@ outputHeader('Meetings', 'meetings.php');
                             <button onclick="createMinutes()" class="btn btn-sm btn-primary" id="createMinutesBtn" style="display:none;">Create Minutes</button>
                             <button onclick="editMinutes()" class="btn btn-sm btn-primary" id="editMinutesBtn" style="display:none;">Edit Minutes</button>
                             <div id="minutes-content"></div>
+                            <div class="minutes-procedural-proposals-section" style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #ddd;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="margin: 0;">Procedural Proposals</h3>
+                                    <button onclick="addProceduralProposal()" class="btn btn-sm btn-primary" id="addProceduralProposalBtn">+ Add Procedural Proposal</button>
+                                </div>
+                                <p style="color: #666; margin: 5px 0 10px 0;">Points of order, adjournment, previous question, and other procedural motions raised at this meeting.</p>
+                                <div id="procedural-proposals-list"></div>
+                            </div>
                         </div>
                         <div id="tab-resolutions" class="tab-content">
                             <h3>Resolutions</h3>
@@ -500,11 +605,12 @@ outputHeader('Meetings', 'meetings.php');
                             <div id="resolutions-list"></div>
                         </div>
                     `;
-                    
+
                     loadMeetingAgenda(id);
                     loadMeetingAttendees(id);
                     loadMeetingMinutes(id);
                     loadMeetingResolutions(id);
+                    loadMeetingProceduralProposals(id);
                 });
         }
 
@@ -1042,6 +1148,7 @@ outputHeader('Meetings', 'meetings.php');
                     document.getElementById('agendaItemTitle').value = item.title;
                     document.getElementById('agendaItemDescription').value = item.description || '';
                     document.getElementById('agendaItemType').value = item.item_type;
+                    document.getElementById('agendaItemDecisionMethod').value = item.decision_method || 'None';
                     document.getElementById('agendaItemDuration').value = item.duration_minutes || '';
                     document.getElementById('agendaItemPresenter').value = item.presenter_id || '';
                     document.getElementById('modalAgendaTitle').textContent = 'Edit Agenda Item';
@@ -1107,6 +1214,7 @@ outputHeader('Meetings', 'meetings.php');
                 title: document.getElementById('agendaItemTitle').value,
                 description: document.getElementById('agendaItemDescription').value,
                 item_type: document.getElementById('agendaItemType').value,
+                decision_method: document.getElementById('agendaItemDecisionMethod').value,
                 duration_minutes: document.getElementById('agendaItemDuration').value || null,
                 presenter_id: document.getElementById('agendaItemPresenter').value || null
             };
@@ -1669,11 +1777,13 @@ outputHeader('Meetings', 'meetings.php');
         function showResolutionModal(resolution = null) {
             const modal = document.getElementById('resolutionModal');
             const form = document.getElementById('resolutionForm');
-            
+            resolutionDecisionMethodTouched = false;
+            currentResolutionAgendaItems = [];
+
             // Populate agenda item dropdown (include sub-items)
             const parentSelect = document.getElementById('resolutionParentAgendaItem');
             parentSelect.innerHTML = '<option value="">No linked agenda item</option>';
-            
+
             if (currentMeetingId) {
                 fetch(`api/agenda.php?meeting_id=${currentMeetingId}`)
                     .then(r => r.json())
@@ -1690,6 +1800,7 @@ outputHeader('Meetings', 'meetings.php');
                             opt.textContent = prefix + (i.item_number ? i.item_number + '. ' : '') + i.title;
                             parentSelect.appendChild(opt);
                         });
+                        currentResolutionAgendaItems = allItems;
 
                         if (resolution && resolution.agenda_item_id) {
                             parentSelect.value = resolution.agenda_item_id;
@@ -1699,12 +1810,13 @@ outputHeader('Meetings', 'meetings.php');
                         console.error('Error loading parent items:', err);
                     });
             }
-            
+
             if (resolution) {
                 document.getElementById('resolutionId').value = resolution.id;
                 document.getElementById('resolutionTitle').value = resolution.title;
                 document.getElementById('resolutionDescription').value = resolution.description;
                 document.getElementById('resolutionNumber').value = resolution.resolution_number || '';
+                document.getElementById('resolutionDecisionMethod').value = resolution.decision_method || 'Consensus';
                 document.getElementById('resolutionVoteType').value = resolution.vote_type || '';
                 document.getElementById('resolutionStatus').value = resolution.status;
                 document.getElementById('resolutionEffectiveDate').value = resolution.effective_date || '';
@@ -1712,6 +1824,9 @@ outputHeader('Meetings', 'meetings.php');
                 // Allow updating linked agenda item while editing
                 document.getElementById('resolutionParentAgendaItem').disabled = false;
                 document.getElementById('resolutionParentGroup').style.opacity = '1';
+                // Editing an existing resolution counts as "touched" so linking a
+                // different agenda item won't silently overwrite a chosen method
+                resolutionDecisionMethodTouched = true;
             } else {
                 form.reset();
                 document.getElementById('resolutionId').value = '';
@@ -1720,8 +1835,21 @@ outputHeader('Meetings', 'meetings.php');
                 document.getElementById('resolutionParentAgendaItem').disabled = false;
                 document.getElementById('resolutionParentGroup').style.opacity = '1';
             }
-            
+
             modal.style.display = 'block';
+        }
+
+        // Pre-fill a new resolution's Decision Method from the linked agenda
+        // item's Decision Method, unless the user has already changed it.
+        function onResolutionAgendaItemChange() {
+            const isNew = !document.getElementById('resolutionId').value;
+            if (!isNew || resolutionDecisionMethodTouched) return;
+            const agendaItemId = document.getElementById('resolutionParentAgendaItem').value;
+            if (!agendaItemId) return;
+            const item = currentResolutionAgendaItems.find(i => String(i.id) === String(agendaItemId));
+            if (item && item.decision_method && item.decision_method !== 'None') {
+                document.getElementById('resolutionDecisionMethod').value = item.decision_method;
+            }
         }
 
         function closeResolutionModal() {
@@ -1738,6 +1866,7 @@ outputHeader('Meetings', 'meetings.php');
                 title: document.getElementById('resolutionTitle').value,
                 description: document.getElementById('resolutionDescription').value,
                 resolution_number: document.getElementById('resolutionNumber').value || null,
+                decision_method: document.getElementById('resolutionDecisionMethod').value,
                 vote_type: document.getElementById('resolutionVoteType').value || null,
                 status: document.getElementById('resolutionStatus').value,
                 effective_date: document.getElementById('resolutionEffectiveDate').value || null
@@ -1796,7 +1925,7 @@ outputHeader('Meetings', 'meetings.php');
 
         function deleteResolution(id) {
             if (!confirm('Are you sure you want to delete this resolution?')) return;
-            
+
             fetch('api/resolutions.php', {
                 method: 'DELETE',
                 headers: {'Content-Type': 'application/json'},
@@ -1809,6 +1938,238 @@ outputHeader('Meetings', 'meetings.php');
             .catch(error => {
                 console.error('Error deleting resolution:', error);
                 alert('Error deleting resolution');
+            });
+        }
+
+        // Procedural Proposal Management
+        const PROCEDURAL_PROPOSAL_LABELS = {
+            UseOfProcedures: 'Use of Procedures',
+            OrderOfDay: 'Order of the Day',
+            Adjournment: 'Adjournment',
+            PrivateSitting: 'Private Sitting',
+            Referral: 'Referral',
+            DecisionNow: 'Determining the Need for a Decision Now',
+            WithdrawMotion: 'Withdraw Motion',
+            PreviousQuestion: 'The Previous Question',
+            Closure: 'Closure (vote be now taken)',
+            Reconsideration: 'Reconsideration',
+            PointOfOrder: 'Point of Order'
+        };
+
+        function loadMeetingProceduralProposals(meetingId) {
+            fetch(`api/procedural_proposals.php?meeting_id=${meetingId}`)
+                .then(response => response.json())
+                .then(proposals => {
+                    const list = document.getElementById('procedural-proposals-list');
+                    if (!list) return;
+                    if (!Array.isArray(proposals) || proposals.length === 0) {
+                        list.innerHTML = '<p>No procedural proposals recorded for this meeting.</p>';
+                        return;
+                    }
+                    list.innerHTML = proposals.map(p => {
+                        const typeLabel = PROCEDURAL_PROPOSAL_LABELS[p.proposal_type] || p.proposal_type;
+                        const proposer = p.proposed_by_first_name ? `${p.proposed_by_first_name} ${p.proposed_by_last_name}` : null;
+                        const seconder = p.seconded_by_first_name ? `${p.seconded_by_first_name} ${p.seconded_by_last_name}` : null;
+                        return `
+                            <div class="resolution-item">
+                                <div class="item-header">
+                                    <h4>${typeLabel}</h4>
+                                    <div class="item-actions">
+                                        <button onclick="editProceduralProposal(${p.id})" class="btn btn-sm">Edit</button>
+                                        <button onclick="deleteProceduralProposal(${p.id})" class="btn btn-sm btn-danger">Delete</button>
+                                    </div>
+                                </div>
+                                ${proposer ? `<p><strong>Proposed by:</strong> ${proposer}</p>` : ''}
+                                ${seconder ? `<p><strong>Seconded by:</strong> ${seconder}</p>` : ''}
+                                ${p.requires_leave ? `<p><em>Required leave of the council.</em></p>` : ''}
+                                ${p.notes ? `<p>${p.notes}</p>` : ''}
+                                <p><strong>Outcome:</strong> <span class="badge badge-${p.outcome.toLowerCase()}">${p.outcome}</span></p>
+                            </div>
+                        `;
+                    }).join('');
+                })
+                .catch(error => {
+                    console.error('Error loading procedural proposals:', error);
+                });
+        }
+
+        function addProceduralProposal() {
+            if (!currentMeetingId) return;
+            showProceduralProposalModal();
+        }
+
+        function editProceduralProposal(id) {
+            fetch(`api/procedural_proposals.php?id=${id}`)
+                .then(response => response.json())
+                .then(proposal => showProceduralProposalModal(proposal));
+        }
+
+        function showProceduralProposalModal(proposal = null) {
+            const modal = document.getElementById('proceduralProposalModal');
+            const form = document.getElementById('proceduralProposalForm');
+
+            // Populate linked agenda item dropdown
+            const agendaItemSelect = document.getElementById('proceduralProposalAgendaItem');
+            agendaItemSelect.innerHTML = '<option value="">No linked agenda item</option>';
+            if (currentMeetingId) {
+                fetch(`api/agenda.php?meeting_id=${currentMeetingId}`)
+                    .then(r => r.json())
+                    .then(allItems => {
+                        const seenAgendaIds = new Set();
+                        allItems.forEach(i => {
+                            if (seenAgendaIds.has(i.id)) return;
+                            seenAgendaIds.add(i.id);
+                            const opt = document.createElement('option');
+                            opt.value = i.id;
+                            const prefix = i.parent_id ? '— ' : '';
+                            opt.textContent = prefix + (i.item_number ? i.item_number + '. ' : '') + i.title;
+                            agendaItemSelect.appendChild(opt);
+                        });
+                        if (proposal && proposal.agenda_item_id) {
+                            agendaItemSelect.value = proposal.agenda_item_id;
+                        }
+                    })
+                    .catch(err => console.error('Error loading agenda items:', err));
+
+                // Populate linked resolution dropdown
+                const resolutionSelect = document.getElementById('proceduralProposalResolution');
+                resolutionSelect.innerHTML = '<option value="">No linked resolution</option>';
+                fetch(`api/resolutions.php?meeting_id=${currentMeetingId}`)
+                    .then(r => r.json())
+                    .then(resolutions => {
+                        resolutions.forEach(r => {
+                            const opt = document.createElement('option');
+                            opt.value = r.id;
+                            opt.textContent = r.title;
+                            resolutionSelect.appendChild(opt);
+                        });
+                        if (proposal && proposal.resolution_id) {
+                            resolutionSelect.value = proposal.resolution_id;
+                        }
+                    })
+                    .catch(err => console.error('Error loading resolutions:', err));
+
+                // Populate proposed-by / seconded-by dropdowns from this meeting's attendees
+                const proposedBySelect = document.getElementById('proceduralProposalProposedBy');
+                const secondedBySelect = document.getElementById('proceduralProposalSecondedBy');
+                proposedBySelect.innerHTML = '<option value="">Select member...</option>';
+                secondedBySelect.innerHTML = '<option value="">Select member...</option>';
+                fetch(`api/attendees.php?meeting_id=${currentMeetingId}`)
+                    .then(r => r.json())
+                    .then(attendees => {
+                        attendees.forEach(a => {
+                            const label = `${a.first_name} ${a.last_name}`;
+                            const opt1 = document.createElement('option');
+                            opt1.value = a.member_id;
+                            opt1.textContent = label;
+                            proposedBySelect.appendChild(opt1);
+                            const opt2 = document.createElement('option');
+                            opt2.value = a.member_id;
+                            opt2.textContent = label;
+                            secondedBySelect.appendChild(opt2);
+                        });
+                        if (proposal && proposal.proposed_by) proposedBySelect.value = proposal.proposed_by;
+                        if (proposal && proposal.seconded_by) secondedBySelect.value = proposal.seconded_by;
+                    })
+                    .catch(err => console.error('Error loading attendees:', err));
+            }
+
+            if (proposal) {
+                document.getElementById('proceduralProposalId').value = proposal.id;
+                document.getElementById('proceduralProposalType').value = proposal.proposal_type;
+                document.getElementById('proceduralProposalOutcome').value = proposal.outcome || 'Pending';
+                document.getElementById('proceduralProposalRequiresLeave').checked = !!proposal.requires_leave;
+                document.getElementById('proceduralProposalNotes').value = proposal.notes || '';
+                document.getElementById('modalProceduralProposalTitle').textContent = 'Edit Procedural Proposal';
+            } else {
+                form.reset();
+                document.getElementById('proceduralProposalId').value = '';
+                document.getElementById('modalProceduralProposalTitle').textContent = 'New Procedural Proposal';
+            }
+
+            modal.style.display = 'block';
+        }
+
+        function closeProceduralProposalModal() {
+            document.getElementById('proceduralProposalModal').style.display = 'none';
+            document.getElementById('proceduralProposalForm').reset();
+        }
+
+        function saveProceduralProposal(event) {
+            event.preventDefault();
+            const proposalId = document.getElementById('proceduralProposalId').value;
+            const agendaItemVal = document.getElementById('proceduralProposalAgendaItem').value;
+            const resolutionVal = document.getElementById('proceduralProposalResolution').value;
+            const proposedByVal = document.getElementById('proceduralProposalProposedBy').value;
+            const secondedByVal = document.getElementById('proceduralProposalSecondedBy').value;
+
+            const data = {
+                meeting_id: currentMeetingId,
+                proposal_type: document.getElementById('proceduralProposalType').value,
+                agenda_item_id: agendaItemVal ? parseInt(agendaItemVal) : null,
+                resolution_id: resolutionVal ? parseInt(resolutionVal) : null,
+                proposed_by: proposedByVal ? parseInt(proposedByVal) : null,
+                seconded_by: secondedByVal ? parseInt(secondedByVal) : null,
+                outcome: document.getElementById('proceduralProposalOutcome').value,
+                requires_leave: document.getElementById('proceduralProposalRequiresLeave').checked,
+                notes: document.getElementById('proceduralProposalNotes').value || null
+            };
+
+            const method = proposalId ? 'PUT' : 'POST';
+            if (proposalId) data.id = proposalId;
+
+            fetch('api/procedural_proposals.php', {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(async response => {
+                const text = await response.text();
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(text);
+                } catch (e) {
+                    console.error('Invalid JSON response:', text);
+                    throw new Error('Server returned invalid response. Check console for details.');
+                }
+
+                if (!response.ok) {
+                    throw new Error(jsonData.error || 'Error saving procedural proposal');
+                }
+                if (jsonData.error) {
+                    throw new Error(jsonData.error);
+                }
+                return jsonData;
+            })
+            .then(data => {
+                closeProceduralProposalModal();
+                loadMeetingProceduralProposals(currentMeetingId);
+            })
+            .catch(error => {
+                console.error('Error saving procedural proposal:', error);
+                alert('Error saving procedural proposal: ' + error.message);
+            });
+        }
+
+        function deleteProceduralProposal(id) {
+            if (!confirm('Are you sure you want to delete this procedural proposal?')) return;
+
+            fetch('api/procedural_proposals.php', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    loadMeetingProceduralProposals(currentMeetingId);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting procedural proposal:', error);
+                alert('Error deleting procedural proposal');
             });
         }
 
@@ -2271,7 +2632,7 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         window.onclick = function(event) {
-            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'minutesModal', 'documentUploadModal', 'templateModal', 'templateItemModal'];
+            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'proceduralProposalModal', 'minutesModal', 'documentUploadModal', 'templateModal', 'templateItemModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target == modal) {
@@ -2280,6 +2641,7 @@ outputHeader('Meetings', 'meetings.php');
                     else if (modalId === 'documentUploadModal') closeDocumentUploadModal();
                     else if (modalId === 'attendeeModal') closeAttendeeModal();
                     else if (modalId === 'resolutionModal') closeResolutionModal();
+                    else if (modalId === 'proceduralProposalModal') closeProceduralProposalModal();
                     else if (modalId === 'minutesModal') closeMinutesModal();
                     else if (modalId === 'templateModal') closeTemplateModal();
                     else if (modalId === 'templateItemModal') closeTemplateItemModal();

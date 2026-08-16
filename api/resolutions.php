@@ -136,7 +136,7 @@ try {
             }
         }
 
-        $stmt = $db->prepare("INSERT INTO resolutions (meeting_id, agenda_item_id, resolution_number, title, description, vote_type, status, effective_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO resolutions (meeting_id, agenda_item_id, resolution_number, title, description, decision_method, vote_type, status, effective_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         try {
             $stmt->execute([
                 $meetingId,
@@ -144,6 +144,7 @@ try {
                 $data['resolution_number'] ?? null,
                 $title,
                 $description,
+                $data['decision_method'] ?? 'Consensus',
                 $data['vote_type'] ?? null,
                 $data['status'] ?? 'Proposed',
                 $data['effective_date'] ?? null
@@ -210,7 +211,7 @@ try {
         $updates = [];
         $params = [];
         
-        $fields = ['title', 'description', 'resolution_number', 
+        $fields = ['title', 'description', 'resolution_number', 'decision_method',
                    'vote_type', 'status', 'effective_date', 'agenda_item_id'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {

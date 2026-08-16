@@ -352,12 +352,13 @@ switch ($method) {
             // Use parent's position so children are grouped with parent
             $position = (int)$parent['position'];
 
-            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, sub_position, parent_id, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, presenter_id, duration_minutes, position, sub_position, parent_id, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $meetingId,
                 $title,
                 $data['description'] ?? null,
                 $data['item_type'] ?? 'Discussion',
+                $data['decision_method'] ?? 'None',
                 !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
                 !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
                 $position,
@@ -384,12 +385,13 @@ switch ($method) {
                 $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
             }
 
-            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $meetingId,
                 $title,
                 $data['description'] ?? null,
                 $data['item_type'] ?? 'Discussion',
+                $data['decision_method'] ?? 'None',
                 !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
                 !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
                 $position,
@@ -421,7 +423,7 @@ switch ($method) {
         $updates = [];
         $params = [];
         
-        $fields = ['title', 'description', 'item_type', 'presenter_id', 'duration_minutes', 'position', 'outcome'];
+        $fields = ['title', 'description', 'item_type', 'decision_method', 'presenter_id', 'duration_minutes', 'position', 'outcome'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {
                 $updates[] = "$field = ?";
