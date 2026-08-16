@@ -162,6 +162,9 @@ function formatTime($dateString) {
                     <?php if ($item['item_type']): ?>
                     <span class="agenda-item-type"><?php echo htmlspecialchars($item['item_type']); ?></span>
                     <?php endif; ?>
+                    <?php if (!empty($item['decision_method']) && $item['decision_method'] !== 'None'): ?>
+                    <span class="agenda-item-type"><?php echo htmlspecialchars($item['decision_method']); ?></span>
+                    <?php endif; ?>
                 </div>
                 
                 <div class="agenda-item-details">

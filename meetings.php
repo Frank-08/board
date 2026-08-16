@@ -786,6 +786,7 @@ outputHeader('Meetings', 'meetings.php');
                                     ` : ''}
                                     <div class="agenda-meta">
                                         <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
+                                        ${item.decision_method && item.decision_method !== 'None' ? `<span class="badge badge-${item.decision_method.toLowerCase().replace(' ', '-')}">${item.decision_method}</span>` : ''}
                                         ${item.presenter_first_name ? `<span>Presenter: ${item.presenter_first_name} ${item.presenter_last_name}</span>` : ''}
                                         ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
                                         ${item.status ? `<span class="badge badge-${item.status.toLowerCase()}">${item.status}</span>` : ''}
@@ -996,6 +997,7 @@ outputHeader('Meetings', 'meetings.php');
                             </div>
                             <p>${res.description}</p>
                             ${res.resolution_number ? `<p><strong>Resolution #:</strong> ${res.resolution_number}</p>` : ''}
+                            ${res.decision_method ? `<p><strong>Decision Method:</strong> ${res.decision_method}</p>` : ''}
                             ${res.vote_type ? `<p><strong>Vote Type:</strong> ${res.vote_type}</p>` : ''}
                             <p><strong>Status:</strong> <span class="badge badge-${res.status.toLowerCase()}">${res.status}</span></p>
                         </div>

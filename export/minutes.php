@@ -58,6 +58,38 @@ $stmt = $db->prepare("
 $stmt->execute([$minutes['id'], $meetingId]);
 $agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $stmt->fetchAll(PDO::FETCH_ASSOC));
 
+// Get procedural proposals recorded for this meeting (points of order, adjournment, etc.)
+$stmt = $db->prepare("
+    SELECT pp.*,
+        proposer.first_name AS proposed_by_first_name, proposer.last_name AS proposed_by_last_name,
+        seconder.first_name AS seconded_by_first_name, seconder.last_name AS seconded_by_last_name,
+        ai.title AS agenda_item_title, ai.item_number AS agenda_item_number,
+        r.title AS resolution_title
+    FROM procedural_proposals pp
+    LEFT JOIN board_members proposer ON pp.proposed_by = proposer.id
+    LEFT JOIN board_members seconder ON pp.seconded_by = seconder.id
+    LEFT JOIN agenda_items ai ON pp.agenda_item_id = ai.id
+    LEFT JOIN resolutions r ON pp.resolution_id = r.id
+    WHERE pp.meeting_id = ?
+    ORDER BY pp.recorded_at ASC, pp.id ASC
+");
+$stmt->execute([$meetingId]);
+$proceduralProposals = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$proceduralProposalLabels = [
+    'UseOfProcedures' => 'Use of Procedures',
+    'OrderOfDay' => 'Order of the Day',
+    'Adjournment' => 'Adjournment',
+    'PrivateSitting' => 'Private Sitting',
+    'Referral' => 'Referral',
+    'DecisionNow' => 'Determining the Need for a Decision Now',
+    'WithdrawMotion' => 'Withdraw Motion',
+    'PreviousQuestion' => 'The Previous Question',
+    'Closure' => 'Closure (vote be now taken)',
+    'Reconsideration' => 'Reconsideration',
+    'PointOfOrder' => 'Point of Order'
+];
+
 // Get attendees with their role in the meeting's meeting type
 $stmt = $db->prepare("
     SELECT ma.*, bm.first_name, bm.last_name, bm.title,
@@ -362,6 +394,13 @@ function formatDateTime($dateString) {
         .status-agreement { background: #28a745; color: #fff; }
         .status-failed { background: #dc3545; color: #fff; }
         .status-withdrawn { background: #6c757d; color: #fff; }
+        .status-lapsed { background: #6c757d; color: #fff; }
+
+        /* Procedural proposal outcome badges */
+        .status-pending { background: #ffc107; color: #000; }
+        .status-carried { background: #28a745; color: #fff; }
+        .status-lost { background: #dc3545; color: #fff; }
+        .status-ruledon { background: #17a2b8; color: #fff; }
     </style>
 </head>
 <body>
@@ -459,6 +498,13 @@ function formatDateTime($dateString) {
                     <?php if ($numberLabel): ?><span class="callout-number"><?php echo htmlspecialchars($numberLabel); ?></span><?php endif; ?>
                     <p class="callout-text"><?php echo nl2br(htmlspecialchars(ltrim($res['description']))); ?></p>
                 </div>
+                <?php if (!empty($res['decision_method']) || !empty($res['vote_type'])): ?>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #0056b3;">
+                    <?php if (!empty($res['decision_method'])): ?><strong>Decision Method:</strong> <?php echo htmlspecialchars($res['decision_method']); ?><?php endif; ?>
+                    <?php if (!empty($res['decision_method']) && !empty($res['vote_type'])): ?> &nbsp;|&nbsp; <?php endif; ?>
+                    <?php if (!empty($res['vote_type'])): ?><strong>Vote Type:</strong> <?php echo htmlspecialchars($res['vote_type']); ?><?php endif; ?>
+                </p>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
             <?php endforeach; ?>
@@ -480,7 +526,50 @@ function formatDateTime($dateString) {
         <?php endforeach; ?>
     </div>
     <?php endif; ?>
-    
+
+    <?php if (count($proceduralProposals) > 0): ?>
+    <div class="section">
+        <h2>Procedural Proposals</h2>
+        <?php foreach ($proceduralProposals as $pp): ?>
+        <div class="agenda-item">
+            <h4>
+                <?php echo htmlspecialchars($proceduralProposalLabels[$pp['proposal_type']] ?? $pp['proposal_type']); ?>
+                <span class="status-badge status-<?php echo strtolower($pp['outcome']); ?>">
+                    <?php echo htmlspecialchars($pp['outcome']); ?>
+                </span>
+            </h4>
+            <?php if ($pp['agenda_item_title']): ?>
+            <p style="font-size: 14px; color: #666; margin: 4px 0;">
+                <strong>Agenda Item:</strong>
+                <?php echo htmlspecialchars(($pp['agenda_item_number'] ? $pp['agenda_item_number'] . '. ' : '') . $pp['agenda_item_title']); ?>
+            </p>
+            <?php endif; ?>
+            <?php if ($pp['resolution_title']): ?>
+            <p style="font-size: 14px; color: #666; margin: 4px 0;">
+                <strong>Motion/Resolution:</strong> <?php echo htmlspecialchars($pp['resolution_title']); ?>
+            </p>
+            <?php endif; ?>
+            <?php if ($pp['proposed_by_first_name']): ?>
+            <p style="font-size: 14px; color: #666; margin: 4px 0;">
+                <strong>Proposed by:</strong> <?php echo htmlspecialchars($pp['proposed_by_first_name'] . ' ' . $pp['proposed_by_last_name']); ?>
+            </p>
+            <?php endif; ?>
+            <?php if ($pp['seconded_by_first_name']): ?>
+            <p style="font-size: 14px; color: #666; margin: 4px 0;">
+                <strong>Seconded by:</strong> <?php echo htmlspecialchars($pp['seconded_by_first_name'] . ' ' . $pp['seconded_by_last_name']); ?>
+            </p>
+            <?php endif; ?>
+            <?php if (!empty($pp['requires_leave'])): ?>
+            <p style="font-size: 14px; color: #666; margin: 4px 0;"><em>Required leave of the council.</em></p>
+            <?php endif; ?>
+            <?php if (!empty($pp['notes'])): ?>
+            <div class="item-description"><?php echo nl2br(htmlspecialchars($pp['notes'])); ?></div>
+            <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
     <?php if ($minutes['action_items']): ?>
     <div class="section">
         <h2>Action Items</h2>

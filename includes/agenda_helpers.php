@@ -18,7 +18,7 @@ function attachResolutionsToAgendaItems(PDO $db, int $meetingId, array $items): 
 
     $stmt = $db->prepare("
         SELECT id, agenda_item_id, resolution_number, title, description,
-            status, vote_type, effective_date, created_at
+            status, decision_method, vote_type, effective_date, created_at
         FROM resolutions
         WHERE meeting_id = ? AND agenda_item_id IS NOT NULL
         ORDER BY created_at ASC
@@ -99,6 +99,10 @@ function renderExportResolutionBoxes(array $item): string {
         if (!empty($res['status'])) {
             $html .= '<p style="margin: 3px 0;"><strong>Resolution Status:</strong> '
                 . htmlspecialchars($res['status']) . '</p>';
+        }
+        if (!empty($res['decision_method'])) {
+            $html .= '<p style="margin: 3px 0;"><strong>Decision Method:</strong> '
+                . htmlspecialchars($res['decision_method']) . '</p>';
         }
         if (!empty($res['vote_type'])) {
             $html .= '<p style="margin: 3px 0;"><strong>Vote Type:</strong> '

@@ -173,6 +173,9 @@ if (count($agendaItems) > 0) {
         if (!empty($item['item_type'])) {
             $html .= '<span class="item-type-badge">' . htmlspecialchars($item['item_type']) . '</span>';
         }
+        if (!empty($item['decision_method']) && $item['decision_method'] !== 'None') {
+            $html .= '<br><span class="item-type-badge">' . htmlspecialchars($item['decision_method']) . '</span>';
+        }
         $html .= '</td>';
         $html .= '</tr>';
         
@@ -196,6 +199,9 @@ if (count($agendaItems) > 0) {
                 }
                 if (!empty($res['status'])) {
                     $html .= '<p><strong>Status:</strong> ' . htmlspecialchars($res['status']) . '</p>';
+                }
+                if (!empty($res['decision_method'])) {
+                    $html .= '<p><strong>Decision Method:</strong> ' . htmlspecialchars($res['decision_method']) . '</p>';
                 }
                 if (!empty($res['vote_type'])) {
                     $html .= '<p><strong>Vote Type:</strong> ' . htmlspecialchars($res['vote_type']) . '</p>';

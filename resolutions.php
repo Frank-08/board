@@ -73,6 +73,7 @@ outputHeader('Resolutions', 'resolutions.php');
                     </div>
                     <p>${res.description}</p>
                     ${res.resolution_number ? `<p><strong>Resolution #:</strong> ${res.resolution_number}</p>` : ''}
+                    ${res.decision_method ? `<p><strong>Decision Method:</strong> ${res.decision_method}</p>` : ''}
                     ${res.vote_type ? `<p><strong>Vote Type:</strong> ${res.vote_type}</p>` : ''}
                 </div>
             `).join('');
