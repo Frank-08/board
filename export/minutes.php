@@ -76,6 +76,32 @@ $stmt = $db->prepare("
 $stmt->execute([$meetingId]);
 $proceduralProposals = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Group by where they actually happened in the meeting flow, relative to the
+// agenda item they're anchored to: 'During' renders inline within that
+// item's card; 'Before'/'After' render in the gap just before/after it, so a
+// proposal raised between two items (rather than during either one's
+// discussion) is still shown at the exact point it happened, in agenda
+// order, rather than lumped into a single end-of-document list.
+$duringProceduralProposalsByAgendaItem = [];
+$beforeProceduralProposalsByAgendaItem = [];
+$afterProceduralProposalsByAgendaItem = [];
+$unlinkedProceduralProposals = [];
+foreach ($proceduralProposals as $pp) {
+    if (empty($pp['agenda_item_id'])) {
+        $unlinkedProceduralProposals[] = $pp;
+        continue;
+    }
+    $anchorId = (int)$pp['agenda_item_id'];
+    $position = $pp['agenda_position'] ?? 'During';
+    if ($position === 'Before') {
+        $beforeProceduralProposalsByAgendaItem[$anchorId][] = $pp;
+    } elseif ($position === 'After') {
+        $afterProceduralProposalsByAgendaItem[$anchorId][] = $pp;
+    } else {
+        $duringProceduralProposalsByAgendaItem[$anchorId][] = $pp;
+    }
+}
+
 $proceduralProposalLabels = [
     'UseOfProcedures' => 'Use of Procedures',
     'OrderOfDay' => 'Order of the Day',
@@ -89,6 +115,44 @@ $proceduralProposalLabels = [
     'Reconsideration' => 'Reconsideration',
     'PointOfOrder' => 'Point of Order'
 ];
+
+/**
+ * Render a single procedural proposal as a callout. When $showAgendaItem is
+ * true, the linked agenda item is named in the callout (used for the
+ * "General" section); inline callouts under an agenda item omit it since
+ * it's already clear from context.
+ */
+function renderProceduralProposalCallout(array $pp, array $proceduralProposalLabels, bool $showAgendaItem = false): string {
+    $typeLabel = $proceduralProposalLabels[$pp['proposal_type']] ?? $pp['proposal_type'];
+    $html = '<div class="resolution-callout" style="background: #f4f4f4; border-left-color: #6c757d;">';
+    $html .= '<p class="callout-title" style="color: #495057;">Procedural Proposal</p>';
+    $html .= '<div class="callout-body"><p class="callout-text" style="font-style: normal;"><strong>' . htmlspecialchars($typeLabel) . '</strong>';
+    $html .= ' <span class="status-badge status-' . strtolower($pp['outcome']) . '">' . htmlspecialchars($pp['outcome']) . '</span></p></div>';
+    if ($showAgendaItem && !empty($pp['agenda_item_title'])) {
+        $html .= '<p style="margin: 6px 0 0 0; font-size: 13px;"><strong>Agenda Item:</strong> '
+            . htmlspecialchars(($pp['agenda_item_number'] ? $pp['agenda_item_number'] . '. ' : '') . $pp['agenda_item_title']) . '</p>';
+    }
+    if (!empty($pp['resolution_title'])) {
+        $html .= '<p style="margin: 6px 0 0 0; font-size: 13px;"><strong>Motion/Resolution:</strong> '
+            . htmlspecialchars($pp['resolution_title']) . '</p>';
+    }
+    if (!empty($pp['proposed_by_first_name'])) {
+        $html .= '<p style="margin: 6px 0 0 0; font-size: 13px;"><strong>Proposed by:</strong> '
+            . htmlspecialchars($pp['proposed_by_first_name'] . ' ' . $pp['proposed_by_last_name']);
+        if (!empty($pp['seconded_by_first_name'])) {
+            $html .= ', seconded by ' . htmlspecialchars($pp['seconded_by_first_name'] . ' ' . $pp['seconded_by_last_name']);
+        }
+        $html .= '</p>';
+    }
+    if (!empty($pp['requires_leave'])) {
+        $html .= '<p style="margin: 6px 0 0 0; font-size: 13px;"><em>Required leave of the council.</em></p>';
+    }
+    if (!empty($pp['notes'])) {
+        $html .= '<p style="margin: 6px 0 0 0; font-size: 13px;">' . nl2br(htmlspecialchars($pp['notes'])) . '</p>';
+    }
+    $html .= '</div>';
+    return $html;
+}
 
 // Get attendees with their role in the meeting's meeting type
 $stmt = $db->prepare("
@@ -279,6 +343,12 @@ function formatDateTime($dateString) {
             font-style: italic;
         }
 
+        .procedural-gap {
+            margin: 8px 0;
+            padding-left: 10px;
+            border-left: 3px dashed #bbb;
+        }
+
         .resolution-callout {
             background: #e6f2ff;
             border-left: 4px solid #007bff;
@@ -462,10 +532,15 @@ function formatDateTime($dateString) {
     </div>
     <?php endif; ?>
     
-    <?php if (count($agendaItems) > 0): ?>
+    <?php if (count($agendaItems) > 0 || count($unlinkedProceduralProposals) > 0): ?>
     <div class="section">
         <h2>Agenda Items & Discussion</h2>
-        <?php foreach ($agendaItems as $item): ?>
+        <?php foreach ($agendaItems as $agendaIndex => $item): ?>
+        <?php if ($agendaIndex === 0): ?>
+        <?php foreach ($beforeProceduralProposalsByAgendaItem[(int)$item['id']] ?? [] as $pp): ?>
+        <div class="procedural-gap"><?php echo renderProceduralProposalCallout($pp, $proceduralProposalLabels); ?></div>
+        <?php endforeach; ?>
+        <?php endif; ?>
         <div class="agenda-item">
             <h4>
                 <?php echo htmlspecialchars($item['item_number'] ?? '') . ($item['item_number'] ? '. ' : ''); ?>
@@ -508,6 +583,9 @@ function formatDateTime($dateString) {
             </div>
             <?php endif; ?>
             <?php endforeach; ?>
+            <?php foreach ($duringProceduralProposalsByAgendaItem[(int)$item['id']] ?? [] as $pp): ?>
+            <?php echo renderProceduralProposalCallout($pp, $proceduralProposalLabels); ?>
+            <?php endforeach; ?>
             <?php if ($item['presenter_first_name']): ?>
             <p style="font-size: 14px; color: #666; margin: 8px 0;">
                 <strong>Presenter:</strong> <?php echo htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); ?>
@@ -523,50 +601,19 @@ function formatDateTime($dateString) {
             </div>
             <?php endif; ?>
         </div>
+        <?php foreach ($afterProceduralProposalsByAgendaItem[(int)$item['id']] ?? [] as $pp): ?>
+        <div class="procedural-gap"><?php echo renderProceduralProposalCallout($pp, $proceduralProposalLabels); ?></div>
         <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-
-    <?php if (count($proceduralProposals) > 0): ?>
-    <div class="section">
-        <h2>Procedural Proposals</h2>
-        <?php foreach ($proceduralProposals as $pp): ?>
-        <div class="agenda-item">
-            <h4>
-                <?php echo htmlspecialchars($proceduralProposalLabels[$pp['proposal_type']] ?? $pp['proposal_type']); ?>
-                <span class="status-badge status-<?php echo strtolower($pp['outcome']); ?>">
-                    <?php echo htmlspecialchars($pp['outcome']); ?>
-                </span>
-            </h4>
-            <?php if ($pp['agenda_item_title']): ?>
-            <p style="font-size: 14px; color: #666; margin: 4px 0;">
-                <strong>Agenda Item:</strong>
-                <?php echo htmlspecialchars(($pp['agenda_item_number'] ? $pp['agenda_item_number'] . '. ' : '') . $pp['agenda_item_title']); ?>
-            </p>
-            <?php endif; ?>
-            <?php if ($pp['resolution_title']): ?>
-            <p style="font-size: 14px; color: #666; margin: 4px 0;">
-                <strong>Motion/Resolution:</strong> <?php echo htmlspecialchars($pp['resolution_title']); ?>
-            </p>
-            <?php endif; ?>
-            <?php if ($pp['proposed_by_first_name']): ?>
-            <p style="font-size: 14px; color: #666; margin: 4px 0;">
-                <strong>Proposed by:</strong> <?php echo htmlspecialchars($pp['proposed_by_first_name'] . ' ' . $pp['proposed_by_last_name']); ?>
-            </p>
-            <?php endif; ?>
-            <?php if ($pp['seconded_by_first_name']): ?>
-            <p style="font-size: 14px; color: #666; margin: 4px 0;">
-                <strong>Seconded by:</strong> <?php echo htmlspecialchars($pp['seconded_by_first_name'] . ' ' . $pp['seconded_by_last_name']); ?>
-            </p>
-            <?php endif; ?>
-            <?php if (!empty($pp['requires_leave'])): ?>
-            <p style="font-size: 14px; color: #666; margin: 4px 0;"><em>Required leave of the council.</em></p>
-            <?php endif; ?>
-            <?php if (!empty($pp['notes'])): ?>
-            <div class="item-description"><?php echo nl2br(htmlspecialchars($pp['notes'])); ?></div>
-            <?php endif; ?>
+        <?php endforeach; ?>
+        <?php if (count($unlinkedProceduralProposals) > 0): ?>
+        <div class="agenda-item" style="background: #fafafa;">
+            <h4>General Procedural Proposals</h4>
+            <div class="item-description">Procedural motions with no specific point in the agenda recorded.</div>
+            <?php foreach ($unlinkedProceduralProposals as $pp): ?>
+            <?php echo renderProceduralProposalCallout($pp, $proceduralProposalLabels); ?>
+            <?php endforeach; ?>
         </div>
-        <?php endforeach; ?>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
 

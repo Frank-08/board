@@ -209,11 +209,21 @@ outputHeader('Meetings', 'meetings.php');
                         <option value="Reconsideration">Reconsideration</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="proceduralProposalAgendaItem">Linked Agenda Item (Optional)</label>
-                    <select id="proceduralProposalAgendaItem">
-                        <option value="">No linked agenda item</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="proceduralProposalAgendaItem">Agenda Item (Optional)</label>
+                        <select id="proceduralProposalAgendaItem" onchange="onProceduralProposalAgendaItemChange()">
+                            <option value="">Not linked to a specific point in the agenda</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="proceduralProposalPositionGroup" style="display:none;">
+                        <label for="proceduralProposalPosition">When</label>
+                        <select id="proceduralProposalPosition">
+                            <option value="Before">Before this item</option>
+                            <option value="During" selected>During this item's discussion</option>
+                            <option value="After">After this item (before the next)</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="proceduralProposalResolution">Linked Resolution/Motion (Optional)</label>
@@ -590,14 +600,6 @@ outputHeader('Meetings', 'meetings.php');
                             <button onclick="createMinutes()" class="btn btn-sm btn-primary" id="createMinutesBtn" style="display:none;">Create Minutes</button>
                             <button onclick="editMinutes()" class="btn btn-sm btn-primary" id="editMinutesBtn" style="display:none;">Edit Minutes</button>
                             <div id="minutes-content"></div>
-                            <div class="minutes-procedural-proposals-section" style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #ddd;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <h3 style="margin: 0;">Procedural Proposals</h3>
-                                    <button onclick="addProceduralProposal()" class="btn btn-sm btn-primary" id="addProceduralProposalBtn">+ Add Procedural Proposal</button>
-                                </div>
-                                <p style="color: #666; margin: 5px 0 10px 0;">Points of order, adjournment, previous question, and other procedural motions raised at this meeting.</p>
-                                <div id="procedural-proposals-list"></div>
-                            </div>
                         </div>
                         <div id="tab-resolutions" class="tab-content">
                             <h3>Resolutions</h3>
@@ -610,7 +612,6 @@ outputHeader('Meetings', 'meetings.php');
                     loadMeetingAttendees(id);
                     loadMeetingMinutes(id);
                     loadMeetingResolutions(id);
-                    loadMeetingProceduralProposals(id);
                 });
         }
 
@@ -874,22 +875,23 @@ outputHeader('Meetings', 'meetings.php');
         function loadMeetingMinutes(meetingId) {
             Promise.all([
                 fetch(`api/minutes.php?meeting_id=${meetingId}`).then(r => r.json()),
-                fetch(`api/agenda.php?meeting_id=${meetingId}`).then(r => r.json())
-            ]).then(([minutes, agendaItems]) => {
+                fetch(`api/agenda.php?meeting_id=${meetingId}`).then(r => r.json()),
+                fetch(`api/procedural_proposals.php?meeting_id=${meetingId}`).then(r => r.json())
+            ]).then(([minutes, agendaItems, proceduralProposals]) => {
                 const content = document.getElementById('minutes-content');
                 const createBtn = document.getElementById('createMinutesBtn');
                 const editBtn = document.getElementById('editMinutesBtn');
-                
+
                 if (!minutes || minutes === null) {
                     content.innerHTML = '';
                     if (createBtn) createBtn.style.display = 'inline-block';
                     if (editBtn) editBtn.style.display = 'none';
                     return;
                 }
-                
+
                 if (createBtn) createBtn.style.display = 'none';
                 if (editBtn) editBtn.style.display = 'inline-block';
-                
+
                 // Create a map of agenda item comments
                 const commentsMap = {};
                 if (minutes.agenda_comments) {
@@ -897,38 +899,79 @@ outputHeader('Meetings', 'meetings.php');
                         commentsMap[comment.agenda_item_id] = comment.comment;
                     });
                 }
-                
-                // Build agenda items with comments section
+
+                // Group procedural proposals by where they actually happened in the
+                // meeting flow, relative to the agenda item they're anchored to:
+                // - 'During'  -> arose while that item was under discussion (inline in its card)
+                // - 'Before'  -> happened just before that item was reached (gap slot before it)
+                // - 'After'   -> happened just after that item concluded (gap slot after it)
+                // Proposals with no agenda item at all go in the general/unpositioned bucket.
+                const duringByItem = {};
+                const beforeByItem = {};
+                const afterByItem = {};
+                const unlinkedProposals = [];
+                (proceduralProposals || []).forEach(p => {
+                    if (!p.agenda_item_id) {
+                        unlinkedProposals.push(p);
+                        return;
+                    }
+                    const key = String(p.agenda_item_id);
+                    if (p.agenda_position === 'Before') {
+                        (beforeByItem[key] = beforeByItem[key] || []).push(p);
+                    } else if (p.agenda_position === 'After') {
+                        (afterByItem[key] = afterByItem[key] || []).push(p);
+                    } else {
+                        (duringByItem[key] = duringByItem[key] || []).push(p);
+                    }
+                });
+
+                const minutesApproved = minutes.status === 'Approved';
+                const hasAgendaItems = agendaItems && agendaItems.length > 0;
+
+                // Build a single top-to-bottom flow: each agenda item's card, in
+                // agenda order, with a thin "gap slot" before the first item and
+                // after every item — since meetings run through the agenda
+                // top-to-bottom, a procedural proposal that isn't really "about"
+                // any one item (e.g. raised between two items) is recorded at the
+                // exact point it happened rather than tacked on at the end.
                 let agendaItemsHtml = '';
-                if (agendaItems && agendaItems.length > 0) {
+                if (hasAgendaItems || unlinkedProposals.length > 0 || !minutesApproved) {
                     agendaItemsHtml = '<div class="minutes-agenda-section"><h3>Agenda Items Discussion</h3>';
-                    agendaItems.forEach(item => {
-                        const comment = commentsMap[item.id] || '';
-                        agendaItemsHtml += `
-                            <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
-                                <h4 style="margin: 0 0 10px 0; color: #333;">
-                                    ${item.item_number ? item.item_number + '. ' : ''}${item.title}
-                                    ${renderMinutesResolutionSummary(item, minutes.status === 'Approved')}
-                                </h4>
-                                ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
-                                <div style="margin-top: 10px;">
-                                    <strong>Discussion/Comments:</strong>
-                                    ${minutes.status !== 'Approved' ? `
-                                        <textarea class="agenda-comment-textarea" 
-                                            data-agenda-item-id="${item.id}" 
-                                            data-minutes-id="${minutes.id}"
-                                            style="width: 100%; min-height: 60px; margin-top: 5px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;"
-                                            onblur="saveAgendaComment(${item.id}, ${minutes.id}, this.value)">${comment}</textarea>
-                                    ` : `
-                                        <div style="margin-top: 5px; padding: 10px; background: #f9f9f9; border-radius: 4px; white-space: pre-wrap;">${comment || '<em style="color: #999;">No comments recorded</em>'}</div>
-                                    `}
+                    if (hasAgendaItems) {
+                        agendaItems.forEach((item, index) => {
+                            const comment = commentsMap[item.id] || '';
+                            if (index === 0) {
+                                agendaItemsHtml += renderProceduralGapSlot(item.id, 'Before', beforeByItem[String(item.id)], minutesApproved);
+                            }
+                            agendaItemsHtml += `
+                                <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <h4 style="margin: 0 0 10px 0; color: #333;">
+                                        ${item.item_number ? item.item_number + '. ' : ''}${item.title}
+                                        ${renderMinutesResolutionSummary(item, minutesApproved)}
+                                    </h4>
+                                    ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
+                                    <div style="margin-top: 10px;">
+                                        <strong>Discussion/Comments:</strong>
+                                        ${minutes.status !== 'Approved' ? `
+                                            <textarea class="agenda-comment-textarea"
+                                                data-agenda-item-id="${item.id}"
+                                                data-minutes-id="${minutes.id}"
+                                                style="width: 100%; min-height: 60px; margin-top: 5px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;"
+                                                onblur="saveAgendaComment(${item.id}, ${minutes.id}, this.value)">${comment}</textarea>
+                                        ` : `
+                                            <div style="margin-top: 5px; padding: 10px; background: #f9f9f9; border-radius: 4px; white-space: pre-wrap;">${comment || '<em style="color: #999;">No comments recorded</em>'}</div>
+                                        `}
+                                    </div>
+                                    ${renderMinutesProceduralProposals(item.id, duringByItem[String(item.id)], minutesApproved)}
                                 </div>
-                            </div>
-                        `;
-                    });
+                            `;
+                            agendaItemsHtml += renderProceduralGapSlot(item.id, 'After', afterByItem[String(item.id)], minutesApproved);
+                        });
+                    }
+                    agendaItemsHtml += renderMinutesGeneralProceduralProposals(unlinkedProposals, minutesApproved);
                     agendaItemsHtml += '</div>';
                 }
-                
+
                 content.innerHTML = `
                     <div class="minutes-display">
                         <div class="minutes-header">
@@ -950,6 +993,78 @@ outputHeader('Meetings', 'meetings.php');
             }).catch(error => {
                 console.error('Error loading minutes:', error);
             });
+        }
+
+        function renderProceduralProposalRow(p, minutesApproved) {
+            const typeLabel = PROCEDURAL_PROPOSAL_LABELS[p.proposal_type] || p.proposal_type;
+            const outcomeBadge = `<span class="badge badge-${p.outcome.toLowerCase()}" style="margin-left: 8px; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">${p.outcome}</span>`;
+            const proposer = p.proposed_by_first_name ? `${p.proposed_by_first_name} ${p.proposed_by_last_name}` : null;
+            const seconder = p.seconded_by_first_name ? `${p.seconded_by_first_name} ${p.seconded_by_last_name}` : null;
+            const editPart = !minutesApproved ? `
+                <button onclick="editProceduralProposal(${p.id})" class="btn btn-sm" style="margin-left: 8px;">Edit</button>
+                <button onclick="deleteProceduralProposal(${p.id})" class="btn btn-sm btn-danger" style="margin-left: 4px;">Delete</button>
+            ` : '';
+            return `
+                <div style="padding: 6px 0; border-bottom: 1px solid #eee;">
+                    <strong>${typeLabel}</strong>${outcomeBadge}${editPart}
+                    ${proposer ? `<div style="font-size: 12px; color: #666;">Proposed by: ${proposer}${seconder ? ', seconded by ' + seconder : ''}</div>` : ''}
+                    ${p.notes ? `<div style="font-size: 13px; color: #444; margin-top: 2px;">${p.notes}</div>` : ''}
+                </div>
+            `;
+        }
+
+        // Renders the "Procedural Proposals" subsection inline within a single
+        // agenda item's minutes block, with an "+ Add" link scoped to that item.
+        function renderMinutesProceduralProposals(agendaItemId, proposals, minutesApproved) {
+            const rows = (proposals || []).map(p => renderProceduralProposalRow(p, minutesApproved)).join('');
+            return `
+                <div style="margin-top: 10px;">
+                    <strong>Procedural Proposals:</strong>
+                    ${!minutesApproved ? `<button onclick="addProceduralProposalForItem(${agendaItemId})" class="btn btn-sm" style="margin-left: 8px;">+ Add</button>` : ''}
+                    ${rows ? `<div style="margin-top: 5px;">${rows}</div>` : '<span style="color: #999; font-size: 13px; margin-left: 6px;">None recorded</span>'}
+                </div>
+            `;
+        }
+
+        // Renders the thin "gap slot" just before or after a given agenda item —
+        // where a procedural proposal can be recorded at the exact moment it
+        // happened in the meeting, even though it isn't about that item itself.
+        function renderProceduralGapSlot(anchorAgendaItemId, position, proposals, minutesApproved) {
+            const rows = (proposals || []).map(p => renderProceduralProposalRow(p, minutesApproved)).join('');
+            const addBtn = !minutesApproved
+                ? `<button onclick="addProceduralProposalBetween(${anchorAgendaItemId}, '${position}')" class="btn btn-sm" style="font-size: 11px; padding: 2px 8px;">+ Add Procedural Proposal Here</button>`
+                : '';
+            if (!rows && !addBtn) {
+                return '';
+            }
+            return `
+                <div style="margin: 6px 0; padding: 6px 10px; border-left: 3px dashed #bbb;">
+                    ${rows}
+                    ${addBtn}
+                </div>
+            `;
+        }
+
+        // Renders proposals not linked to any specific agenda item (e.g. Adjournment, Private Sitting).
+        // Renders general (unlinked) procedural proposals as the final card in
+        // the same flowing agenda list — not a separately headed section — since
+        // meetings run through the agenda top-to-bottom and these typically
+        // occur toward the close of business.
+        function renderMinutesGeneralProceduralProposals(unlinkedProposals, minutesApproved) {
+            if (unlinkedProposals.length === 0 && minutesApproved) {
+                return '';
+            }
+            const rows = unlinkedProposals.map(p => renderProceduralProposalRow(p, minutesApproved)).join('');
+            return `
+                <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; background: #fafafa;">
+                    <h4 style="margin: 0 0 10px 0; color: #333;">
+                        General Procedural Proposals
+                        ${!minutesApproved ? `<button onclick="addProceduralProposal()" class="btn btn-sm" style="margin-left: 8px;">+ Add</button>` : ''}
+                    </h4>
+                    <p style="color: #666; margin: 0 0 8px 0; font-size: 13px;">Procedural motions with no specific point in the agenda recorded. To place one exactly where it happened, use "+ Add Procedural Proposal Here" between the relevant agenda items instead.</p>
+                    ${rows ? rows : '<span style="color: #999; font-size: 13px;">None recorded</span>'}
+                </div>
+            `;
         }
         
         function saveAgendaComment(agendaItemId, minutesId, comment) {
@@ -1958,46 +2073,24 @@ outputHeader('Meetings', 'meetings.php');
             PointOfOrder: 'Point of Order'
         };
 
-        function loadMeetingProceduralProposals(meetingId) {
-            fetch(`api/procedural_proposals.php?meeting_id=${meetingId}`)
-                .then(response => response.json())
-                .then(proposals => {
-                    const list = document.getElementById('procedural-proposals-list');
-                    if (!list) return;
-                    if (!Array.isArray(proposals) || proposals.length === 0) {
-                        list.innerHTML = '<p>No procedural proposals recorded for this meeting.</p>';
-                        return;
-                    }
-                    list.innerHTML = proposals.map(p => {
-                        const typeLabel = PROCEDURAL_PROPOSAL_LABELS[p.proposal_type] || p.proposal_type;
-                        const proposer = p.proposed_by_first_name ? `${p.proposed_by_first_name} ${p.proposed_by_last_name}` : null;
-                        const seconder = p.seconded_by_first_name ? `${p.seconded_by_first_name} ${p.seconded_by_last_name}` : null;
-                        return `
-                            <div class="resolution-item">
-                                <div class="item-header">
-                                    <h4>${typeLabel}</h4>
-                                    <div class="item-actions">
-                                        <button onclick="editProceduralProposal(${p.id})" class="btn btn-sm">Edit</button>
-                                        <button onclick="deleteProceduralProposal(${p.id})" class="btn btn-sm btn-danger">Delete</button>
-                                    </div>
-                                </div>
-                                ${proposer ? `<p><strong>Proposed by:</strong> ${proposer}</p>` : ''}
-                                ${seconder ? `<p><strong>Seconded by:</strong> ${seconder}</p>` : ''}
-                                ${p.requires_leave ? `<p><em>Required leave of the council.</em></p>` : ''}
-                                ${p.notes ? `<p>${p.notes}</p>` : ''}
-                                <p><strong>Outcome:</strong> <span class="badge badge-${p.outcome.toLowerCase()}">${p.outcome}</span></p>
-                            </div>
-                        `;
-                    }).join('');
-                })
-                .catch(error => {
-                    console.error('Error loading procedural proposals:', error);
-                });
-        }
-
         function addProceduralProposal() {
             if (!currentMeetingId) return;
             showProceduralProposalModal();
+        }
+
+        // Opens the modal with a specific agenda item pre-selected and Timing
+        // set to "During", for the "+ Add" link shown inline under that item.
+        function addProceduralProposalForItem(agendaItemId) {
+            if (!currentMeetingId) return;
+            showProceduralProposalModal(null, agendaItemId, 'During');
+        }
+
+        // Opens the modal pre-set to a specific point *between* agenda items,
+        // for the "+ Add Procedural Proposal Here" links shown in the gaps
+        // between item cards (and before the first / after the last item).
+        function addProceduralProposalBetween(anchorAgendaItemId, position) {
+            if (!currentMeetingId) return;
+            showProceduralProposalModal(null, anchorAgendaItemId, position);
         }
 
         function editProceduralProposal(id) {
@@ -2006,13 +2099,20 @@ outputHeader('Meetings', 'meetings.php');
                 .then(proposal => showProceduralProposalModal(proposal));
         }
 
-        function showProceduralProposalModal(proposal = null) {
+        // Shows/hides the "When" (Before/During/After) select — it only makes
+        // sense once a specific agenda item has been chosen as the anchor.
+        function onProceduralProposalAgendaItemChange() {
+            const hasAgendaItem = !!document.getElementById('proceduralProposalAgendaItem').value;
+            document.getElementById('proceduralProposalPositionGroup').style.display = hasAgendaItem ? '' : 'none';
+        }
+
+        function showProceduralProposalModal(proposal = null, presetAgendaItemId = null, presetPosition = null) {
             const modal = document.getElementById('proceduralProposalModal');
             const form = document.getElementById('proceduralProposalForm');
 
-            // Populate linked agenda item dropdown
+            // Populate agenda item dropdown (the anchor point in the meeting flow)
             const agendaItemSelect = document.getElementById('proceduralProposalAgendaItem');
-            agendaItemSelect.innerHTML = '<option value="">No linked agenda item</option>';
+            agendaItemSelect.innerHTML = '<option value="">Not linked to a specific point in the agenda</option>';
             if (currentMeetingId) {
                 fetch(`api/agenda.php?meeting_id=${currentMeetingId}`)
                     .then(r => r.json())
@@ -2029,7 +2129,10 @@ outputHeader('Meetings', 'meetings.php');
                         });
                         if (proposal && proposal.agenda_item_id) {
                             agendaItemSelect.value = proposal.agenda_item_id;
+                        } else if (presetAgendaItemId) {
+                            agendaItemSelect.value = presetAgendaItemId;
                         }
+                        onProceduralProposalAgendaItemChange();
                     })
                     .catch(err => console.error('Error loading agenda items:', err));
 
@@ -2079,6 +2182,7 @@ outputHeader('Meetings', 'meetings.php');
             if (proposal) {
                 document.getElementById('proceduralProposalId').value = proposal.id;
                 document.getElementById('proceduralProposalType').value = proposal.proposal_type;
+                document.getElementById('proceduralProposalPosition').value = proposal.agenda_position || 'During';
                 document.getElementById('proceduralProposalOutcome').value = proposal.outcome || 'Pending';
                 document.getElementById('proceduralProposalRequiresLeave').checked = !!proposal.requires_leave;
                 document.getElementById('proceduralProposalNotes').value = proposal.notes || '';
@@ -2086,9 +2190,11 @@ outputHeader('Meetings', 'meetings.php');
             } else {
                 form.reset();
                 document.getElementById('proceduralProposalId').value = '';
+                document.getElementById('proceduralProposalPosition').value = presetPosition || 'During';
                 document.getElementById('modalProceduralProposalTitle').textContent = 'New Procedural Proposal';
             }
 
+            onProceduralProposalAgendaItemChange();
             modal.style.display = 'block';
         }
 
@@ -2109,6 +2215,7 @@ outputHeader('Meetings', 'meetings.php');
                 meeting_id: currentMeetingId,
                 proposal_type: document.getElementById('proceduralProposalType').value,
                 agenda_item_id: agendaItemVal ? parseInt(agendaItemVal) : null,
+                agenda_position: agendaItemVal ? document.getElementById('proceduralProposalPosition').value : 'During',
                 resolution_id: resolutionVal ? parseInt(resolutionVal) : null,
                 proposed_by: proposedByVal ? parseInt(proposedByVal) : null,
                 seconded_by: secondedByVal ? parseInt(secondedByVal) : null,
@@ -2145,7 +2252,7 @@ outputHeader('Meetings', 'meetings.php');
             })
             .then(data => {
                 closeProceduralProposalModal();
-                loadMeetingProceduralProposals(currentMeetingId);
+                loadMeetingMinutes(currentMeetingId);
             })
             .catch(error => {
                 console.error('Error saving procedural proposal:', error);
@@ -2166,7 +2273,7 @@ outputHeader('Meetings', 'meetings.php');
                 if (data.error) {
                     alert('Error: ' + data.error);
                 } else {
-                    loadMeetingProceduralProposals(currentMeetingId);
+                    loadMeetingMinutes(currentMeetingId);
                 }
             })
             .catch(error => {

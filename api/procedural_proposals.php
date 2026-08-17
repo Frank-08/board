@@ -42,6 +42,8 @@ const PROPOSAL_TYPES = [
 
 const PROPOSAL_OUTCOMES = ['Carried', 'Lost', 'Lapsed', 'RuledOn', 'Pending'];
 
+const AGENDA_POSITIONS = ['Before', 'During', 'After'];
+
 try {
     $method = $_SERVER['REQUEST_METHOD'];
     $db = getDBConnection();
@@ -124,6 +126,14 @@ try {
             exit;
         }
 
+        $agendaPosition = $data['agenda_position'] ?? 'During';
+        if (!in_array($agendaPosition, AGENDA_POSITIONS, true)) {
+            ob_end_clean();
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid agenda_position']);
+            exit;
+        }
+
         if (minutesAreApprovedForProposal($db, $meetingId)) {
             ob_end_clean();
             http_response_code(409);
@@ -161,13 +171,14 @@ try {
 
         $stmt = $db->prepare("
             INSERT INTO procedural_proposals
-                (meeting_id, agenda_item_id, resolution_id, proposal_type, proposed_by, seconded_by, outcome, requires_leave, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (meeting_id, agenda_item_id, agenda_position, resolution_id, proposal_type, proposed_by, seconded_by, outcome, requires_leave, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         try {
             $stmt->execute([
                 $meetingId,
                 $agendaItemId,
+                $agendaPosition,
                 $resolutionId,
                 $proposalType,
                 !empty($data['proposed_by']) ? (int)$data['proposed_by'] : null,
@@ -229,6 +240,12 @@ try {
             echo json_encode(['error' => 'Invalid outcome']);
             exit;
         }
+        if (isset($data['agenda_position']) && !in_array($data['agenda_position'], AGENDA_POSITIONS, true)) {
+            ob_end_clean();
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid agenda_position']);
+            exit;
+        }
         if (array_key_exists('requires_leave', $data)) {
             $data['requires_leave'] = !empty($data['requires_leave']) ? 1 : 0;
         }
@@ -236,7 +253,7 @@ try {
         $updates = [];
         $params = [];
 
-        $fields = ['agenda_item_id', 'resolution_id', 'proposal_type', 'proposed_by',
+        $fields = ['agenda_item_id', 'agenda_position', 'resolution_id', 'proposal_type', 'proposed_by',
                    'seconded_by', 'outcome', 'requires_leave', 'notes'];
         foreach ($fields as $field) {
             if (isset($data[$field]) || array_key_exists($field, $data)) {

@@ -233,6 +233,7 @@ CREATE TABLE IF NOT EXISTS procedural_proposals (
     id INT AUTO_INCREMENT PRIMARY KEY,
     meeting_id INT NOT NULL,
     agenda_item_id INT NULL,
+    agenda_position ENUM('Before', 'During', 'After') NOT NULL DEFAULT 'During',
     resolution_id INT NULL,
     proposal_type ENUM(
         'UseOfProcedures', 'OrderOfDay', 'Adjournment', 'PrivateSitting',
