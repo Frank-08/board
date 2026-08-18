@@ -58,40 +58,97 @@ define('PERMISSIONS', [
 ]);
 
 /**
- * Check if user is logged in
- * 
+ * Resolve the user for an X-API-Key request header, if present and valid.
+ * Non-browser clients (e.g. the Word minutes macros) authenticate this way
+ * instead of via session cookie; the key authenticates as the user it was
+ * generated for, so it carries that user's normal role/permissions - see
+ * database/generate_api_key.php. Result is cached per-request since this
+ * can be called multiple times (isLoggedIn, getCurrentUser, getCurrentRole).
+ *
+ * @return array|null User data (same shape as getCurrentUser()) or null
+ */
+function currentApiKeyUser(): ?array {
+    static $resolved = false;
+    static $user = null;
+
+    if ($resolved) {
+        return $user;
+    }
+    $resolved = true;
+
+    $rawKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
+    if ($rawKey === '') {
+        return null;
+    }
+
+    $db = getDBConnection();
+    $keyHash = hash('sha256', $rawKey);
+    $stmt = $db->prepare("
+        SELECT ak.id as api_key_id, u.id, u.username, u.email, u.role, u.board_member_id
+        FROM api_keys ak
+        JOIN users u ON u.id = ak.user_id
+        WHERE ak.key_hash = ? AND ak.revoked_at IS NULL AND u.is_active = TRUE
+    ");
+    $stmt->execute([$keyHash]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return null;
+    }
+
+    $update = $db->prepare("UPDATE api_keys SET last_used_at = NOW() WHERE id = ?");
+    $update->execute([$row['api_key_id']]);
+
+    $user = [
+        'id' => (int)$row['id'],
+        'username' => $row['username'],
+        'email' => $row['email'],
+        'role' => $row['role'],
+        'board_member_id' => $row['board_member_id'] !== null ? (int)$row['board_member_id'] : null
+    ];
+    return $user;
+}
+
+/**
+ * Check if user is logged in, via session cookie or X-API-Key header
+ *
  * @return bool
  */
 function isLoggedIn(): bool {
-    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+    if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+        return true;
+    }
+    return currentApiKeyUser() !== null;
 }
 
 /**
- * Get current user data from session
- * 
+ * Get current user data from session or X-API-Key header
+ *
  * @return array|null User data or null if not logged in
  */
 function getCurrentUser(): ?array {
-    if (!isLoggedIn()) {
-        return null;
+    if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+        return [
+            'id' => $_SESSION['user_id'],
+            'username' => $_SESSION['username'] ?? '',
+            'email' => $_SESSION['email'] ?? '',
+            'role' => $_SESSION['role'] ?? 'Viewer',
+            'board_member_id' => $_SESSION['board_member_id'] ?? null
+        ];
     }
-    
-    return [
-        'id' => $_SESSION['user_id'],
-        'username' => $_SESSION['username'] ?? '',
-        'email' => $_SESSION['email'] ?? '',
-        'role' => $_SESSION['role'] ?? 'Viewer',
-        'board_member_id' => $_SESSION['board_member_id'] ?? null
-    ];
+    return currentApiKeyUser();
 }
 
 /**
- * Get current user's role
- * 
+ * Get current user's role, via session cookie or X-API-Key header
+ *
  * @return string
  */
 function getCurrentRole(): string {
-    return $_SESSION['role'] ?? 'Viewer';
+    if (isset($_SESSION['role'])) {
+        return $_SESSION['role'];
+    }
+    $apiUser = currentApiKeyUser();
+    return $apiUser['role'] ?? 'Viewer';
 }
 
 /**

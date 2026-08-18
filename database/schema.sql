@@ -206,6 +206,22 @@ CREATE TABLE IF NOT EXISTS resolutions (
     INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Table for API keys (non-browser clients, e.g. the Word minutes macros).
+-- A key authenticates as the user_id it belongs to - no separate permission
+-- model, normal role/permission checks in config/auth.php apply.
+CREATE TABLE IF NOT EXISTS api_keys (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    label VARCHAR(100) NOT NULL,
+    key_hash CHAR(64) NOT NULL,
+    last_used_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_key_hash (key_hash),
+    INDEX idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Table for resolution amendments (formal majority)
 CREATE TABLE IF NOT EXISTS resolution_amendments (
     id INT AUTO_INCREMENT PRIMARY KEY,

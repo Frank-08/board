@@ -68,10 +68,27 @@ switch ($method) {
         $minutesId = (int)($data['minutes_id'] ?? 0);
         $agendaItemId = (int)($data['agenda_item_id'] ?? 0);
         $comment = $data['comment'] ?? '';
-        
+
+        // Allow meeting_id as a convenience in place of minutes_id (e.g. the
+        // Word minutes macros only know the meeting_id) - find or create the
+        // meeting's minutes row rather than requiring the client to know its id.
+        if (!$minutesId && !empty($data['meeting_id'])) {
+            $meetingId = (int)$data['meeting_id'];
+            $stmt = $db->prepare("SELECT id FROM minutes WHERE meeting_id = ?");
+            $stmt->execute([$meetingId]);
+            $existing = $stmt->fetch();
+            if ($existing) {
+                $minutesId = (int)$existing['id'];
+            } else {
+                $stmt = $db->prepare("INSERT INTO minutes (meeting_id, content, status) VALUES (?, '', 'Draft')");
+                $stmt->execute([$meetingId]);
+                $minutesId = (int)$db->lastInsertId();
+            }
+        }
+
         if (!$minutesId || !$agendaItemId || empty($comment)) {
             http_response_code(400);
-            echo json_encode(['error' => 'minutes_id, agenda_item_id, and comment are required']);
+            echo json_encode(['error' => 'minutes_id (or meeting_id), agenda_item_id, and comment are required']);
             exit;
         }
         
