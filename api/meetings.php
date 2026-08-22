@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/agenda_helpers.php';
 
 // Require authentication for all requests
 requireAuth();
@@ -106,53 +107,105 @@ switch ($method) {
             exit;
         }
         
-        $stmt = $db->prepare("INSERT INTO meetings (meeting_type_id, title, scheduled_date, location, virtual_link, quorum_required, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO meetings (meeting_type_id, title, scheduled_date, end_time, location, virtual_link, quorum_required, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $meetingTypeId,
             $title,
             $scheduledDate,
+            $data['end_time'] ?? null,
             $data['location'] ?? null,
             $data['virtual_link'] ?? null,
             $data['quorum_required'] ?? 0,
             $data['status'] ?? 'Scheduled',
             $data['notes'] ?? null
         ]);
-        
+
         $meetingId = $db->lastInsertId();
-        
+
         // Apply agenda template if requested
         if (!empty($data['apply_template'])) {
-            // Get templates for this meeting type
-            $stmt = $db->prepare("SELECT * FROM agenda_templates WHERE meeting_type_id = ? ORDER BY position ASC");
+            // Get templates for this meeting type, top-level items first, then their children
+            $stmt = $db->prepare("
+                SELECT * FROM agenda_templates
+                WHERE meeting_type_id = ?
+                ORDER BY position ASC, CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END ASC, sub_position ASC
+            ");
             $stmt->execute([$meetingTypeId]);
             $templates = $stmt->fetchAll();
-            
+
             if (!empty($templates)) {
-                // Get meeting date for item number format
+                $typeStmt = $db->prepare("SELECT shortcode FROM meeting_types WHERE id = ?");
+                $typeStmt->execute([$meetingTypeId]);
+                $shortcode = $typeStmt->fetchColumn() ?: '';
+
                 $meetingDate = new DateTime($scheduledDate);
                 $year = $meetingDate->format('y');
-                $month = $meetingDate->format('n');
-                
-                // Create agenda items from templates
-                $insertStmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                
-                foreach ($templates as $index => $template) {
-                    $sequence = $index + 1;
-                    $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
-                    
-                    $insertStmt->execute([
-                        $meetingId,
-                        $template['title'],
-                        $template['description'],
-                        $template['item_type'],
-                        $template['duration_minutes'],
-                        $index,
-                        $itemNumber
-                    ]);
+                $month = $meetingDate->format('m');
+
+                $topLevelInsert = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, duration_minutes, position, item_number, is_starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $childInsert = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, duration_minutes, position, sub_position, parent_id, item_number, is_starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+                $newItemIdByTemplateId = [];
+                $itemNumberByTemplateId = [];
+                $positionByTemplateId = [];
+                $sequence = 0;
+                $childCounters = [];
+
+                foreach ($templates as $template) {
+                    if (empty($template['parent_id'])) {
+                        $sequence++;
+                        $position = $sequence - 1;
+                        $itemNumber = !empty($shortcode)
+                            ? sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $sequence)
+                            : sprintf('%s.%s.%02d', $year, $month, $sequence);
+
+                        $topLevelInsert->execute([
+                            $meetingId,
+                            $template['title'],
+                            $template['description'],
+                            $template['item_type'],
+                            $template['decision_method'] ?? 'None',
+                            $template['duration_minutes'],
+                            $position,
+                            $itemNumber,
+                            !empty($template['is_starred']) ? 1 : 0
+                        ]);
+
+                        $newItemIdByTemplateId[$template['id']] = (int)$db->lastInsertId();
+                        $itemNumberByTemplateId[$template['id']] = $itemNumber;
+                        $positionByTemplateId[$template['id']] = $position;
+                        $childCounters[$template['id']] = 0;
+                    } else {
+                        $parentTemplateId = $template['parent_id'];
+                        if (!isset($newItemIdByTemplateId[$parentTemplateId])) {
+                            // Parent template wasn't top-level (shouldn't happen given ordering) - skip
+                            continue;
+                        }
+
+                        $subPos = $childCounters[$parentTemplateId];
+                        $letter = numberToLetterSuffix($subPos);
+                        $itemNumber = $itemNumberByTemplateId[$parentTemplateId] . $letter;
+
+                        $childInsert->execute([
+                            $meetingId,
+                            $template['title'],
+                            $template['description'],
+                            $template['item_type'],
+                            $template['decision_method'] ?? 'None',
+                            $template['duration_minutes'],
+                            $positionByTemplateId[$parentTemplateId],
+                            $subPos,
+                            $newItemIdByTemplateId[$parentTemplateId],
+                            $itemNumber,
+                            !empty($template['is_starred']) ? 1 : 0
+                        ]);
+
+                        $childCounters[$parentTemplateId] = $subPos + 1;
+                    }
                 }
             }
         }
-        
+
         $stmt = $db->prepare("SELECT * FROM meetings WHERE id = ?");
         $stmt->execute([$meetingId]);
         echo json_encode($stmt->fetch());
@@ -171,7 +224,7 @@ switch ($method) {
         $updates = [];
         $params = [];
         
-        $fields = ['title', 'meeting_type_id', 'scheduled_date', 'location', 'virtual_link', 'quorum_required', 'quorum_met', 'status', 'notes'];
+        $fields = ['title', 'meeting_type_id', 'scheduled_date', 'end_time', 'location', 'virtual_link', 'quorum_required', 'quorum_met', 'status', 'notes'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {
                 $updates[] = "$field = ?";

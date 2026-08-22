@@ -252,3 +252,50 @@
                 height: 600px;
             }
         }
+
+        .letterhead {
+            text-align: center;
+        }
+
+        .letterhead-org {
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            margin: 0 0 4px 0;
+        }
+
+        .letterhead-doctype {
+            font-size: 15px;
+            font-weight: bold;
+            color: #555;
+            margin: 0;
+        }
+
+        .letterhead-datetime {
+            font-size: 13px;
+            color: #333;
+            margin: 10px 0 0 0;
+        }
+
+        .resolved-clause-list {
+            margin: 8px 0;
+            padding: 8px 12px;
+            background-color: #eef2ff;
+            border-left: 3px solid #4a5fc1;
+            border-radius: 4px;
+            color: #2c3a8c;
+        }
+
+        .resolved-clause-heading {
+            margin: 0 0 4px 0;
+            font-weight: bold;
+        }
+
+        .resolved-clause-items {
+            margin: 0;
+            padding-left: 22px;
+        }
+
+        .resolved-clause-items li {
+            margin: 3px 0;
+        }

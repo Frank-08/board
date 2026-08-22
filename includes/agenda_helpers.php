@@ -4,6 +4,24 @@
  */
 
 /**
+ * Convert a numeric position (0-based) to Excel-style column letter suffix
+ * 0 → 'a', 1 → 'b', ..., 25 → 'z', 26 → 'aa', 27 → 'ab', etc.
+ *
+ * @param int $number 0-based index
+ * @return string Letter suffix (a-z, aa-az, ba-bz, etc.)
+ */
+function numberToLetterSuffix($number) {
+    $result = '';
+    $num = $number;
+    while ($num >= 0) {
+        $result = chr(ord('a') + ($num % 26)) . $result;
+        $num = intval($num / 26) - 1;
+        if ($num < 0) break;
+    }
+    return $result;
+}
+
+/**
  * Attach linked resolutions to agenda items (one row per item, no JOIN duplication).
  *
  * @param PDO $db
@@ -17,11 +35,17 @@ function attachResolutionsToAgendaItems(PDO $db, int $meetingId, array $items): 
     }
 
     $stmt = $db->prepare("
-        SELECT id, agenda_item_id, resolution_number, title, description,
-            status, decision_method, vote_type, effective_date, created_at
-        FROM resolutions
-        WHERE meeting_id = ? AND agenda_item_id IS NOT NULL
-        ORDER BY created_at ASC
+        SELECT r.id, r.agenda_item_id, r.resolution_number, r.title, r.description,
+            r.status, r.decision_method, r.vote_type, r.effective_date, r.created_at, r.position,
+            r.motion_moved_by, r.motion_seconded_by, r.votes_for, r.votes_against, r.votes_abstain,
+            r.casting_vote_used, r.referral_body, r.referral_scope, r.clerk_notes,
+            mover.first_name AS mover_first_name, mover.last_name AS mover_last_name,
+            seconder.first_name AS seconder_first_name, seconder.last_name AS seconder_last_name
+        FROM resolutions r
+        LEFT JOIN board_members mover ON r.motion_moved_by = mover.id
+        LEFT JOIN board_members seconder ON r.motion_seconded_by = seconder.id
+        WHERE r.meeting_id = ? AND r.agenda_item_id IS NOT NULL
+        ORDER BY r.position ASC, r.created_at ASC
     ");
     $stmt->execute([$meetingId]);
     $byAgendaItemId = [];
@@ -72,44 +96,3 @@ function applyFirstResolutionFlatFields(array &$item): void {
     $item['resolution_effective_date'] = $first['effective_date'];
 }
 
-/**
- * Render linked resolution boxes for agenda export templates.
- *
- * @param array $item Agenda item with resolutions array attached
- * @return string
- */
-function renderExportResolutionBoxes(array $item): string {
-    $resolutions = $item['resolutions'] ?? [];
-    if (empty($resolutions)) {
-        return '';
-    }
-
-    $html = '';
-    foreach ($resolutions as $res) {
-        $html .= '<div style="background: #e8f5e9; padding: 8px; border-radius: 4px; margin: 6px 0; border-left: 3px solid #28a745;">';
-        $html .= '<p style="margin: 0 0 3px 0;"><strong>Linked Resolution:</strong> '
-            . htmlspecialchars($res['title'] ?? 'Resolution') . '</p>';
-        if (!empty($res['resolution_number'])) {
-            $html .= '<p style="margin: 3px 0;"><strong>Resolution #:</strong> '
-                . htmlspecialchars($res['resolution_number']) . '</p>';
-        }
-        if (!empty($res['description'])) {
-            $html .= '<p style="margin: 3px 0;">' . nl2br(htmlspecialchars($res['description'])) . '</p>';
-        }
-        if (!empty($res['status'])) {
-            $html .= '<p style="margin: 3px 0;"><strong>Resolution Status:</strong> '
-                . htmlspecialchars($res['status']) . '</p>';
-        }
-        if (!empty($res['decision_method'])) {
-            $html .= '<p style="margin: 3px 0;"><strong>Decision Method:</strong> '
-                . htmlspecialchars($res['decision_method']) . '</p>';
-        }
-        if (!empty($res['vote_type'])) {
-            $html .= '<p style="margin: 3px 0;"><strong>Vote Type:</strong> '
-                . htmlspecialchars($res['vote_type']) . '</p>';
-        }
-        $html .= '</div>';
-    }
-
-    return $html;
-}

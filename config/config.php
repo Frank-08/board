@@ -6,6 +6,10 @@ define('APP_NAME', 'Together in Council');
 define('APP_VERSION', '1.0.0');
 define('BASE_URL', 'http://localhost/board');
 
+// Organisation name shown on the agenda/minutes letterhead, e.g.
+// "{ORGANIZATION_NAME} {meeting type name}" -> "PRESBYTERY OF YARRA YARRA STANDING COMMITTEE"
+define('ORGANIZATION_NAME', 'Presbytery of Yarra Yarra');
+
 // Document links are stored as SharePoint URLs (no local file upload settings required).
 
 // Logo settings for PDF exports

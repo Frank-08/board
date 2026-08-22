@@ -5,6 +5,8 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/agenda_helpers.php';
+require_once __DIR__ . '/../includes/resolution_helpers.php';
+require_once __DIR__ . '/../includes/export_helpers.php';
 
 $meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : null;
 
@@ -26,7 +28,7 @@ if (!$meeting) {
 // Get agenda items (resolutions attached separately to avoid row duplication)
 $stmt = $db->prepare("
     SELECT ai.*, 
-        bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
+        bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title,
         mtm.role as presenter_role
     FROM agenda_items ai
     LEFT JOIN board_members bm ON ai.presenter_id = bm.id
@@ -54,26 +56,13 @@ $stmt = $db->prepare("
 $stmt->execute([$meetingId]);
 $attendees = $stmt->fetchAll();
 
-// Format date
-function formatDate($dateString) {
-    if (!$dateString) return '';
-    $date = new DateTime($dateString);
-    return $date->format('F j, Y');
-}
-
-function formatTime($dateString) {
-    if (!$dateString) return '';
-    $date = new DateTime($dateString);
-    return $date->format('g:i A');
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/assets/css/pdf.css">
+    <link rel="stylesheet" href="../assets/css/pdf.css">
     <style>
                 @media print {
             body {
@@ -106,23 +95,14 @@ function formatTime($dateString) {
                  style="max-width:<?php echo defined('LOGO_WIDTH_HTML') ? LOGO_WIDTH_HTML : 60; ?>px; height:<?php echo defined('LOGO_HEIGHT') && LOGO_HEIGHT > 0 ? LOGO_HEIGHT : 'auto'; ?>px; max-height:250px;">
         </div>
         <?php endif; ?>
-        <div class="organization"><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></div>
-        <h1>Meeting Agenda</h1>
+        <?php echo renderLetterheadBlock(ORGANIZATION_NAME, $meeting['meeting_type_name'], 'agenda'); ?>
     </div>
 
     <div class="meeting-info">
         <h2><?php echo htmlspecialchars($meeting['title']); ?></h2>
-        <!-- <div class="info-row">
-            <div class="info-label">Meeting Type:</div>
-            <div class="info-value"><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></div>
-        </div> -->
         <div class="info-row">
-            <div class="info-label">Date:</div>
-            <div class="info-value"><?php echo formatDate($meeting['scheduled_date']); ?></div>
-        </div>
-        <div class="info-row">
-            <div class="info-label">Time:</div>
-            <div class="info-value"><?php echo formatTime($meeting['scheduled_date']); ?></div>
+            <div class="info-label">Date &amp; Time:</div>
+            <div class="info-value"><?php echo htmlspecialchars(formatMeetingDateTimeLine($meeting['scheduled_date'], $meeting['end_time'] ?? null)); ?></div>
         </div>
         <?php if ($meeting['location']): ?>
         <div class="info-row">
@@ -157,7 +137,7 @@ function formatTime($dateString) {
                 <div class="agenda-item-header">
                     <div style="display: flex; align-items: flex-start;">
                         <span class="agenda-item-number"><?php echo htmlspecialchars($item['item_number'] ?? '?'); ?>.</span>
-                        <span class="agenda-item-title"><?php echo htmlspecialchars($item['title']); ?></span>
+                        <span class="agenda-item-title"><?php echo renderStarredPrefix($item) . htmlspecialchars($item['title']); ?></span>
                     </div>
                     <?php if ($item['item_type']): ?>
                     <span class="agenda-item-type"><?php echo htmlspecialchars($item['item_type']); ?></span>
@@ -166,15 +146,18 @@ function formatTime($dateString) {
                     <span class="agenda-item-type"><?php echo htmlspecialchars($item['decision_method']); ?></span>
                     <?php endif; ?>
                 </div>
-                
+
                 <div class="agenda-item-details">
                     <?php if ($item['description']): ?>
                     <p><strong>Description:</strong> <?php echo nl2br(htmlspecialchars($item['description'])); ?></p>
                     <?php endif; ?>
                     
-                    <?php echo renderExportResolutionBoxes($item); ?>
-                    
-                    <?php if ($item['presenter_first_name']): ?>
+                    <?php echo renderResolvedClauseList($item['resolutions'] ?? [], 'agenda'); ?>
+
+                    <?php $attribution = renderAttributionLine($item, 'future'); ?>
+                    <?php if ($attribution): ?>
+                    <p><?php echo $attribution; ?></p>
+                    <?php elseif ($item['presenter_first_name']): ?>
                     <p><strong>Presenter:</strong> <?php echo htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); ?>
                         <?php if ($item['presenter_role']): ?>
                         (<?php echo htmlspecialchars($item['presenter_role']); ?>)
