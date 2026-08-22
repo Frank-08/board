@@ -67,11 +67,21 @@ outputHeader('Meetings', 'meetings.php');
                         <input type="number" id="agendaItemDuration" min="0">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="agendaItemPresenter">Presenter</label>
-                    <select id="agendaItemPresenter">
-                        <option value="">Select presenter...</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="agendaItemPresenter">Presenter</label>
+                        <select id="agendaItemPresenter">
+                            <option value="">Select presenter...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="agendaItemReportType">Report Type</label>
+                        <select id="agendaItemReportType">
+                            <option value="">—</option>
+                            <option value="Written">Written</option>
+                            <option value="Verbal">Verbal</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="agendaItemParent">Parent Item (optional)</label>
@@ -79,6 +89,12 @@ outputHeader('Meetings', 'meetings.php');
                         <option value="">No parent (top-level)</option>
                     </select>
                     <small style="color: #666;">Choose a parent to create a sub-item (a, b, c...)</small>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="agendaItemIsStarred">
+                        *** Mark for blanket resolution (starred item)
+                    </label>
                 </div>
                 <button type="submit" class="btn btn-primary">Save Agenda Item</button>
             </form>
@@ -129,12 +145,12 @@ outputHeader('Meetings', 'meetings.php');
             <form id="resolutionForm" onsubmit="saveResolution(event)">
                 <input type="hidden" id="resolutionId">
                 <div class="form-group">
-                    <label for="resolutionTitle">Title *</label>
-                    <input type="text" id="resolutionTitle" required>
+                    <label for="resolutionTitle">Title (optional)</label>
+                    <input type="text" id="resolutionTitle">
                 </div>
                 <div class="form-group">
                     <label for="resolutionDescription">Description *</label>
-                    <textarea id="resolutionDescription" rows="5" required></textarea>
+                    <textarea id="resolutionDescription" rows="5" required placeholder="Text of this clause, e.g. To approve the agenda as presented"></textarea>
                 </div>
                 <div class="form-group" id="resolutionParentGroup">
                     <label for="resolutionParentAgendaItem">Link Agenda Item (Optional)</label>
@@ -159,7 +175,7 @@ outputHeader('Meetings', 'meetings.php');
                     </div>
                     <div class="form-group">
                         <label for="resolutionDecisionMethod">Decision Method</label>
-                        <select id="resolutionDecisionMethod" onchange="resolutionDecisionMethodTouched = true;">
+                        <select id="resolutionDecisionMethod" onchange="resolutionDecisionMethodTouched = true; toggleResolutionReferralFields();">
                             <option value="Consensus">Consensus</option>
                             <option value="Formal Majority">Formal Majority</option>
                             <option value="Referral">Referral</option>
@@ -180,6 +196,54 @@ outputHeader('Meetings', 'meetings.php');
                 <div class="form-group">
                     <label for="resolutionEffectiveDate">Effective Date</label>
                     <input type="date" id="resolutionEffectiveDate">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="resolutionMovedBy">Moved By</label>
+                        <select id="resolutionMovedBy">
+                            <option value="">Select member...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="resolutionSecondedBy">Seconded By</label>
+                        <select id="resolutionSecondedBy">
+                            <option value="">Select member...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="resolutionVotesFor">Votes For</label>
+                        <input type="number" id="resolutionVotesFor" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="resolutionVotesAgainst">Votes Against</label>
+                        <input type="number" id="resolutionVotesAgainst" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="resolutionVotesAbstain">Votes Abstain</label>
+                        <input type="number" id="resolutionVotesAbstain" min="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="resolutionCastingVoteUsed">
+                        Chair exercised casting vote on a tied decision
+                    </label>
+                </div>
+                <div class="form-row" id="resolutionReferralGroup" style="display: none;">
+                    <div class="form-group">
+                        <label for="resolutionReferralBody">Referral Body</label>
+                        <input type="text" id="resolutionReferralBody">
+                    </div>
+                    <div class="form-group">
+                        <label for="resolutionReferralScope">Referral Scope</label>
+                        <input type="text" id="resolutionReferralScope">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="resolutionClerkNotes">Clerk Notes</label>
+                    <textarea id="resolutionClerkNotes" rows="2"></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary">Save Resolution</button>
             </form>
@@ -371,6 +435,10 @@ outputHeader('Meetings', 'meetings.php');
                         <label for="scheduledDate">Scheduled Date & Time *</label>
                         <input type="datetime-local" id="scheduledDate" required>
                     </div>
+                    <div class="form-group">
+                        <label for="meetingEndTime">End Time</label>
+                        <input type="time" id="meetingEndTime">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="location">Location</label>
@@ -452,9 +520,31 @@ outputHeader('Meetings', 'meetings.php');
                         </select>
                     </div>
                     <div class="form-group">
+                        <label for="templateItemDecisionMethod">Decision Method</label>
+                        <select id="templateItemDecisionMethod">
+                            <option value="None">None</option>
+                            <option value="Consensus">Consensus</option>
+                            <option value="Formal Majority">Formal Majority</option>
+                            <option value="Referral">Referral</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="templateItemDuration">Duration (minutes)</label>
                         <input type="number" id="templateItemDuration" min="0">
                     </div>
+                </div>
+                <div class="form-group">
+                    <label for="templateItemParent">Parent Item (optional)</label>
+                    <select id="templateItemParent">
+                        <option value="">No parent (top-level)</option>
+                    </select>
+                    <small style="color: #666;">Choose a parent to create a sub-item (a, b, c...)</small>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="templateItemIsStarred">
+                        *** Mark for blanket resolution (starred item)
+                    </label>
                 </div>
                 <button type="submit" class="btn btn-primary">Save Template Item</button>
             </form>
@@ -647,56 +737,118 @@ outputHeader('Meetings', 'meetings.php');
             return [];
         }
 
-        function renderAgendaResolutionPanels(item, showEditButtons = true) {
-            const resolutions = getItemResolutions(item);
-            if (resolutions.length === 0) {
+        // Escapes text for safe interpolation into HTML built via template literals.
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        // Mirrors formatResolutionOutcomeText() in includes/resolution_helpers.php
+        function formatResolutionOutcomeText(res) {
+            const desc = res.description || '';
+            switch (res.status) {
+                case 'Consensus': return 'RESOLVED by consensus that ' + desc;
+                case 'Agreement': return 'AGREEMENT recorded that ' + desc;
+                case 'Failed': return 'The motion was LOST: ' + desc;
+                case 'Withdrawn': return 'The motion was withdrawn.';
+                case 'Lapsed': return 'The motion lapsed (not seconded) and was not recorded.';
+                default: return desc;
+            }
+        }
+
+        // Mirrors renderResolvedClauseList() in includes/export_helpers.php: renders
+        // every resolution linked to one agenda item as a single lettered clause
+        // list under one heading, instead of one box per resolution.
+        function renderResolvedClauseList(resolutions, mode, options = {}) {
+            if (!resolutions || resolutions.length === 0) {
                 return '';
             }
-            return resolutions.map(res => {
-                const statusBadge = res.status
-                    ? `<span class="badge badge-${String(res.status).toLowerCase()}" style="margin-left: 8px;">${res.status}</span>`
+            const heading = mode === 'minutes'
+                ? 'The Standing Committee resolved:'
+                : 'It is proposed that the Standing Committee Resolve:';
+            const showEditButtons = options.showEditButtons !== false;
+            const agendaItemId = options.agendaItemId || null;
+            const canReorder = showEditButtons && agendaItemId && resolutions.length > 1;
+
+            const items = resolutions.map((res, index) => {
+                const isSpecialOutcome = mode === 'minutes' && ['Failed', 'Withdrawn', 'Lapsed'].includes(res.status);
+                const clauseText = isSpecialOutcome ? formatResolutionOutcomeText(res) : (res.description || '');
+                const editLink = (showEditButtons && res.id)
+                    ? ` <button onclick="editResolution(${res.id})" class="btn btn-sm" style="margin-left: 6px;">Edit</button>`
                     : '';
-                let panel = `
-                <div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #28a745;">
-                    <div>
-                        <strong>📋 Linked Resolution:</strong> ${res.title || 'Resolution'}
-                        ${res.resolution_number ? `(#${res.resolution_number})` : ''}
-                        ${statusBadge}
-                    </div>`;
-                if (res.vote_type) {
-                    panel += `<div style="margin-top: 4px; color: #2f6f46;">Vote Type: ${res.vote_type}</div>`;
-                }
-                if (res.effective_date) {
-                    panel += `<div style="margin-top: 4px; color: #2f6f46;">Effective: ${formatDateTime(res.effective_date)}</div>`;
-                }
-                if (res.description) {
-                    panel += `<div style="margin-top: 6px; color: #2f6f46;">${res.description}</div>`;
-                }
-                if (showEditButtons && res.id) {
-                    panel += `<div style="margin-top: 8px;"><button onclick="editResolution(${res.id})" class="btn btn-sm">Edit Resolution</button></div>`;
-                }
-                panel += '</div>';
-                return panel;
+                const reorderButtons = canReorder
+                    ? ` <button onclick="reorderResolutionClause(${agendaItemId}, ${res.id}, 'up')" class="btn btn-sm" title="Move clause up" ${index === 0 ? 'disabled' : ''} style="padding: 2px 6px; min-width: auto;">↑</button>
+                        <button onclick="reorderResolutionClause(${agendaItemId}, ${res.id}, 'down')" class="btn btn-sm" title="Move clause down" ${index === resolutions.length - 1 ? 'disabled' : ''} style="padding: 2px 6px; min-width: auto;">↓</button>`
+                    : '';
+                return `<li>${escapeHtml(clauseText).replace(/\n/g, '<br>')}${editLink}${reorderButtons}</li>`;
             }).join('');
+
+            return `
+                <div style="margin: 10px 0; padding: 10px; background: #eef2ff; border-left: 3px solid #4a5fc1; border-radius: 4px; color: #2c3a8c;">
+                    <p style="margin: 0 0 4px 0; font-weight: bold;">${escapeHtml(heading)}</p>
+                    <ol type="a" style="margin: 0; padding-left: 22px;">${items}</ol>
+                </div>
+            `;
+        }
+
+        function reorderResolutionClause(agendaItemId, resolutionId, direction) {
+            fetch(`api/resolutions.php?meeting_id=${currentMeetingId}`)
+                .then(r => r.json())
+                .then(allResolutions => {
+                    const clauses = allResolutions.filter(r => String(r.agenda_item_id) === String(agendaItemId));
+                    const currentIndex = clauses.findIndex(r => r.id == resolutionId);
+                    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+                    if (currentIndex === -1 || newIndex < 0 || newIndex >= clauses.length) return;
+
+                    const order = clauses.map(r => r.id);
+                    [order[currentIndex], order[newIndex]] = [order[newIndex], order[currentIndex]];
+
+                    return fetch('api/resolutions.php', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ action: 'reorder', agenda_item_id: agendaItemId, order })
+                    });
+                })
+                .then(response => response && response.json())
+                .then(result => {
+                    if (result && result.error) {
+                        alert(result.error);
+                        return;
+                    }
+                    loadMeetingAgenda(currentMeetingId);
+                    loadMeetingMinutes(currentMeetingId);
+                    loadMeetingResolutions(currentMeetingId);
+                })
+                .catch(error => {
+                    console.error('Error reordering resolution clauses:', error);
+                    alert('Error reordering resolution clauses');
+                });
+        }
+
+        // "{Presenter}, {will speak to/spoke to} a {written/verbal} report"
+        function formatAttributionLine(item, tense) {
+            if (!item.presenter_id || !item.report_type) {
+                return '';
+            }
+            const name = `${item.presenter_title || ''} ${item.presenter_first_name || ''} ${item.presenter_last_name || ''}`.trim();
+            if (!name) {
+                return '';
+            }
+            const verb = tense === 'past' ? 'spoke to' : 'will speak to';
+            return `${escapeHtml(name)}, ${verb} a ${item.report_type.toLowerCase()} report`;
+        }
+
+        function renderStarredPrefix(item) {
+            return item.is_starred ? '*** ' : '';
+        }
+
+        function renderAgendaResolutionPanels(item, showEditButtons = true) {
+            return renderResolvedClauseList(getItemResolutions(item), 'agenda', { showEditButtons, agendaItemId: item.id });
         }
 
         function renderMinutesResolutionSummary(item, minutesApproved) {
-            const resolutions = getItemResolutions(item);
-            if (resolutions.length === 0) {
-                return '';
-            }
-            return resolutions.map(res => {
-                const numberPart = res.resolution_number
-                    ? `<span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #${res.resolution_number})</span>`
-                    : '';
-                const statusPart = res.status
-                    ? `<span class="badge badge-${res.status.toLowerCase().replace(' ', '-')}" style="margin-left: 8px; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;">${res.status}</span>`
-                    : '';
-                const editPart = (!minutesApproved && res.id)
-                    ? `<button onclick="editResolution(${res.id})" class="btn btn-sm" style="margin-left: 8px;">Edit Resolution</button>`
-                    : '';
-                return `${numberPart}${statusPart}${editPart}`;
-            }).join('');
+            return renderResolvedClauseList(getItemResolutions(item), 'minutes', { showEditButtons: !minutesApproved, agendaItemId: item.id });
         }
 
         function loadMeetingAgenda(meetingId) {
@@ -743,7 +895,7 @@ outputHeader('Meetings', 'meetings.php');
                                         </div>
                                             <h4>
                                                 ${hasChildren ? `<button type="button" class="agenda-collapse-toggle ${isCollapsed ? 'collapsed' : ''}" onclick="toggleAgendaChildren(${item.id}, event)" aria-expanded="${isCollapsed ? 'false' : 'true'}" title="${isCollapsed ? 'Expand sub-items' : 'Collapse sub-items'}">${isCollapsed ? '▸' : '▾'}</button>` : '<span class="agenda-collapse-spacer" aria-hidden="true"></span>'}
-                                                ${item.item_number ? item.item_number + '. ' : ''}${item.title}
+                                                ${item.item_number ? item.item_number + '. ' : ''}${renderStarredPrefix(item)}${item.title}
                                             </h4>
                                         <div class="item-actions">
                                             <div class="reorder-buttons">
@@ -763,13 +915,15 @@ outputHeader('Meetings', 'meetings.php');
                                                 </button>
                                             </div>
                                             ${hasResolutions ? `<a href="#resolutions" onclick="showTab('resolutions'); event.preventDefault();" class="btn btn-sm" style="text-decoration: none; display: inline-block;">View Resolution${itemResolutions.length > 1 ? 's' : ''}</a>` : ''}
+                                            <button onclick="addResolutionClause(${item.id})" class="btn btn-sm">${hasResolutions ? '+ Add Clause' : '+ Add Resolution'}</button>
                                             <button onclick="showDocumentUploadModal(${item.id})" class="btn btn-sm">📎 Attach Document</button>
                                             <button onclick="editAgendaItem(${item.id})" class="btn btn-sm">Edit</button>
                                             <button onclick="deleteAgendaItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
                                         </div>
                                     </div>
                                     ${item.description ? `<p>${item.description}</p>` : ''}
-                                                                        ${renderAgendaResolutionPanels(item)}
+                                    ${formatAttributionLine(item, 'future') ? `<p>${formatAttributionLine(item, 'future')}</p>` : ''}
+                                    ${renderAgendaResolutionPanels(item)}
                                     ${documents.length > 0 ? `
                                         <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 3px solid #007bff;">
                                             <strong>📎 Attached Documents:</strong>
@@ -943,13 +1097,15 @@ outputHeader('Meetings', 'meetings.php');
                             if (index === 0) {
                                 agendaItemsHtml += renderProceduralGapSlot(item.id, 'Before', beforeByItem[String(item.id)], minutesApproved);
                             }
+                            const attributionLine = formatAttributionLine(item, 'past');
                             agendaItemsHtml += `
                                 <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
                                     <h4 style="margin: 0 0 10px 0; color: #333;">
-                                        ${item.item_number ? item.item_number + '. ' : ''}${item.title}
-                                        ${renderMinutesResolutionSummary(item, minutesApproved)}
+                                        ${item.item_number ? item.item_number + '. ' : ''}${renderStarredPrefix(item)}${item.title}
                                     </h4>
                                     ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
+                                    ${renderMinutesResolutionSummary(item, minutesApproved)}
+                                    ${attributionLine ? `<p style="color: #666; margin: 5px 0;">${attributionLine}</p>` : ''}
                                     <div style="margin-top: 10px;">
                                         <strong>Discussion/Comments:</strong>
                                         ${minutes.status !== 'Approved' ? `
@@ -1101,10 +1257,12 @@ outputHeader('Meetings', 'meetings.php');
                         list.innerHTML = '<p>No resolutions for this meeting.</p>';
                         return;
                     }
-                    list.innerHTML = resolutions.map(res => `
+                    list.innerHTML = resolutions.map(res => {
+                        const fallbackTitle = (res.description || 'Resolution').slice(0, 60) + ((res.description || '').length > 60 ? '…' : '');
+                        return `
                         <div class="resolution-item">
                             <div class="item-header">
-                                <h4>${res.title}</h4>
+                                <h4>${res.title ? escapeHtml(res.title) : escapeHtml(fallbackTitle)}</h4>
                                 <div class="item-actions">
                                     <button onclick="editResolution(${res.id})" class="btn btn-sm">Edit</button>
                                     <button onclick="deleteResolution(${res.id})" class="btn btn-sm btn-danger">Delete</button>
@@ -1116,7 +1274,8 @@ outputHeader('Meetings', 'meetings.php');
                             ${res.vote_type ? `<p><strong>Vote Type:</strong> ${res.vote_type}</p>` : ''}
                             <p><strong>Status:</strong> <span class="badge badge-${res.status.toLowerCase()}">${res.status}</span></p>
                         </div>
-                    `).join('');
+                    `;
+                    }).join('');
                 });
         }
 
@@ -1138,6 +1297,7 @@ outputHeader('Meetings', 'meetings.php');
                 document.getElementById('meetingTitle').value = meeting.title;
                 document.getElementById('meetingTypeId').value = meeting.meeting_type_id || currentMeetingTypeId;
                 document.getElementById('scheduledDate').value = meeting.scheduled_date.replace(' ', 'T').substring(0, 16);
+                document.getElementById('meetingEndTime').value = meeting.end_time ? meeting.end_time.substring(0, 5) : '';
                 document.getElementById('location').value = meeting.location || '';
                 document.getElementById('virtualLink').value = meeting.virtual_link || '';
                 document.getElementById('quorumRequired').value = meeting.quorum_required || 0;
@@ -1171,6 +1331,7 @@ outputHeader('Meetings', 'meetings.php');
                 meeting_type_id: document.getElementById('meetingTypeId').value || currentMeetingTypeId,
                 title: document.getElementById('meetingTitle').value,
                 scheduled_date: scheduledDate.replace('T', ' ') + ':00',
+                end_time: document.getElementById('meetingEndTime').value || null,
                 location: document.getElementById('location').value,
                 virtual_link: document.getElementById('virtualLink').value,
                 quorum_required: parseInt(document.getElementById('quorumRequired').value),
@@ -1268,6 +1429,8 @@ outputHeader('Meetings', 'meetings.php');
                     document.getElementById('agendaItemDecisionMethod').value = item.decision_method || 'None';
                     document.getElementById('agendaItemDuration').value = item.duration_minutes || '';
                     document.getElementById('agendaItemPresenter').value = item.presenter_id || '';
+                    document.getElementById('agendaItemReportType').value = item.report_type || '';
+                    document.getElementById('agendaItemIsStarred').checked = !!item.is_starred;
                     document.getElementById('modalAgendaTitle').textContent = 'Edit Agenda Item';
                 } else {
                     form.reset();
@@ -1333,7 +1496,9 @@ outputHeader('Meetings', 'meetings.php');
                 item_type: document.getElementById('agendaItemType').value,
                 decision_method: document.getElementById('agendaItemDecisionMethod').value,
                 duration_minutes: document.getElementById('agendaItemDuration').value || null,
-                presenter_id: document.getElementById('agendaItemPresenter').value || null
+                presenter_id: document.getElementById('agendaItemPresenter').value || null,
+                report_type: document.getElementById('agendaItemReportType').value || null,
+                is_starred: document.getElementById('agendaItemIsStarred').checked
             };
 
             const parentVal = document.getElementById('agendaItemParent').value;
@@ -1891,7 +2056,11 @@ outputHeader('Meetings', 'meetings.php');
                 .then(resolution => showResolutionModal(resolution));
         }
 
-        function showResolutionModal(resolution = null) {
+        function addResolutionClause(agendaItemId) {
+            showResolutionModal(null, agendaItemId);
+        }
+
+        function showResolutionModal(resolution = null, presetAgendaItemId = null) {
             const modal = document.getElementById('resolutionModal');
             const form = document.getElementById('resolutionForm');
             resolutionDecisionMethodTouched = false;
@@ -1921,6 +2090,9 @@ outputHeader('Meetings', 'meetings.php');
 
                         if (resolution && resolution.agenda_item_id) {
                             parentSelect.value = resolution.agenda_item_id;
+                        } else if (!resolution && presetAgendaItemId) {
+                            parentSelect.value = presetAgendaItemId;
+                            onResolutionAgendaItemChange();
                         }
                     })
                     .catch(err => {
@@ -1928,15 +2100,40 @@ outputHeader('Meetings', 'meetings.php');
                     });
             }
 
+            // Populate mover/seconder dropdowns
+            loadBoardMembers().then(members => {
+                ['resolutionMovedBy', 'resolutionSecondedBy'].forEach(id => {
+                    const select = document.getElementById(id);
+                    select.innerHTML = '<option value="">Select member...</option>';
+                    members.forEach(member => {
+                        const option = document.createElement('option');
+                        option.value = member.id;
+                        option.textContent = `${member.first_name} ${member.last_name}`;
+                        select.appendChild(option);
+                    });
+                    if (resolution) {
+                        const field = id === 'resolutionMovedBy' ? 'motion_moved_by' : 'motion_seconded_by';
+                        select.value = resolution[field] || '';
+                    }
+                });
+            });
+
             if (resolution) {
                 document.getElementById('resolutionId').value = resolution.id;
-                document.getElementById('resolutionTitle').value = resolution.title;
+                document.getElementById('resolutionTitle').value = resolution.title || '';
                 document.getElementById('resolutionDescription').value = resolution.description;
                 document.getElementById('resolutionNumber').value = resolution.resolution_number || '';
                 document.getElementById('resolutionDecisionMethod').value = resolution.decision_method || 'Consensus';
                 document.getElementById('resolutionVoteType').value = resolution.vote_type || '';
                 document.getElementById('resolutionStatus').value = resolution.status;
                 document.getElementById('resolutionEffectiveDate').value = resolution.effective_date || '';
+                document.getElementById('resolutionVotesFor').value = resolution.votes_for ?? '';
+                document.getElementById('resolutionVotesAgainst').value = resolution.votes_against ?? '';
+                document.getElementById('resolutionVotesAbstain').value = resolution.votes_abstain ?? '';
+                document.getElementById('resolutionCastingVoteUsed').checked = !!resolution.casting_vote_used;
+                document.getElementById('resolutionReferralBody').value = resolution.referral_body || '';
+                document.getElementById('resolutionReferralScope').value = resolution.referral_scope || '';
+                document.getElementById('resolutionClerkNotes').value = resolution.clerk_notes || '';
                 document.getElementById('modalResolutionTitle').textContent = 'Edit Resolution';
                 // Allow updating linked agenda item while editing
                 document.getElementById('resolutionParentAgendaItem').disabled = false;
@@ -1953,7 +2150,14 @@ outputHeader('Meetings', 'meetings.php');
                 document.getElementById('resolutionParentGroup').style.opacity = '1';
             }
 
+            toggleResolutionReferralFields();
             modal.style.display = 'block';
+        }
+
+        function toggleResolutionReferralFields() {
+            const group = document.getElementById('resolutionReferralGroup');
+            const method = document.getElementById('resolutionDecisionMethod').value;
+            group.style.display = method === 'Referral' ? 'flex' : 'none';
         }
 
         // Pre-fill a new resolution's Decision Method from the linked agenda
@@ -1980,13 +2184,22 @@ outputHeader('Meetings', 'meetings.php');
             const parentAgendaItemId = document.getElementById('resolutionParentAgendaItem').value;
             const data = {
                 meeting_id: currentMeetingId,
-                title: document.getElementById('resolutionTitle').value,
+                title: document.getElementById('resolutionTitle').value || null,
                 description: document.getElementById('resolutionDescription').value,
                 resolution_number: document.getElementById('resolutionNumber').value || null,
                 decision_method: document.getElementById('resolutionDecisionMethod').value,
                 vote_type: document.getElementById('resolutionVoteType').value || null,
                 status: document.getElementById('resolutionStatus').value,
-                effective_date: document.getElementById('resolutionEffectiveDate').value || null
+                effective_date: document.getElementById('resolutionEffectiveDate').value || null,
+                motion_moved_by: document.getElementById('resolutionMovedBy').value || null,
+                motion_seconded_by: document.getElementById('resolutionSecondedBy').value || null,
+                votes_for: document.getElementById('resolutionVotesFor').value || null,
+                votes_against: document.getElementById('resolutionVotesAgainst').value || null,
+                votes_abstain: document.getElementById('resolutionVotesAbstain').value || null,
+                casting_vote_used: document.getElementById('resolutionCastingVoteUsed').checked,
+                referral_body: document.getElementById('resolutionReferralBody').value || null,
+                referral_scope: document.getElementById('resolutionReferralScope').value || null,
+                clerk_notes: document.getElementById('resolutionClerkNotes').value || null
             };
             
             if (parentAgendaItemId && parentAgendaItemId !== '') {
@@ -2032,6 +2245,9 @@ outputHeader('Meetings', 'meetings.php');
                 // Also reload agenda items to show the new sub-item if created
                 if (!resolutionId) {
                     loadMeetingAgenda(currentMeetingId);
+                }
+                if (data && data._warning) {
+                    alert(data._warning);
                 }
             })
             .catch(error => {
@@ -2565,36 +2781,48 @@ outputHeader('Meetings', 'meetings.php');
             document.getElementById('templateModal').style.display = 'none';
         }
 
+        let currentTemplateItems = [];
+
         function loadTemplateItems() {
             if (!currentMeetingTypeId) return;
-            
+
             fetch(`api/agenda_templates.php?meeting_type_id=${currentMeetingTypeId}`)
                 .then(response => response.json())
                 .then(items => {
+                    currentTemplateItems = items;
                     const list = document.getElementById('template-items-list');
                     if (items.length === 0) {
                         list.innerHTML = '<p style="color: #666;">No template items defined. Add items to create a default agenda for new meetings.</p>';
                         return;
                     }
-                    
-                    list.innerHTML = items.map((item, index) => {
+
+                    const topLevel = items.filter(i => !i.parent_id);
+                    const childrenByParent = {};
+                    items.filter(i => i.parent_id).forEach(i => {
+                        const key = String(i.parent_id);
+                        (childrenByParent[key] = childrenByParent[key] || []).push(i);
+                    });
+
+                    const renderItem = (item, index, siblings, isChild) => {
                         const isFirst = index === 0;
-                        const isLast = index === items.length - 1;
+                        const isLast = index === siblings.length - 1;
+                        const children = childrenByParent[String(item.id)] || [];
                         return `
-                            <div class="agenda-item" style="margin-bottom: 10px;">
+                            <div class="agenda-item" style="margin-bottom: 10px; ${isChild ? 'margin-left: 22px;' : ''}">
                                 <div class="item-header">
-                                    <h4>${index + 1}. ${item.title}</h4>
+                                    <h4>${renderStarredPrefix(item)}${item.title}</h4>
                                     <div class="item-actions">
-                                        <button onclick="moveTemplateItemUp(${item.id})" 
-                                                class="btn btn-sm" 
+                                        <button onclick="moveTemplateItemUp(${item.id})"
+                                                class="btn btn-sm"
                                                 title="Move up"
                                                 ${isFirst ? 'disabled' : ''}
                                                 style="padding: 4px 8px; min-width: auto;">↑</button>
-                                        <button onclick="moveTemplateItemDown(${item.id})" 
-                                                class="btn btn-sm" 
+                                        <button onclick="moveTemplateItemDown(${item.id})"
+                                                class="btn btn-sm"
                                                 title="Move down"
                                                 ${isLast ? 'disabled' : ''}
                                                 style="padding: 4px 8px; min-width: auto;">↓</button>
+                                        ${!isChild ? `<button onclick="showTemplateItemModal(null, ${item.id})" class="btn btn-sm">+ Sub-item</button>` : ''}
                                         <button onclick="editTemplateItem(${item.id})" class="btn btn-sm">Edit</button>
                                         <button onclick="deleteTemplateItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
                                     </div>
@@ -2602,11 +2830,15 @@ outputHeader('Meetings', 'meetings.php');
                                 ${item.description ? `<p style="margin: 5px 0; color: #666;">${item.description}</p>` : ''}
                                 <div class="agenda-meta">
                                     <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
+                                    ${item.decision_method && item.decision_method !== 'None' ? `<span class="badge">${item.decision_method}</span>` : ''}
                                     ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
                                 </div>
                             </div>
+                            ${children.map((child, childIndex) => renderItem(child, childIndex, children, true)).join('')}
                         `;
-                    }).join('');
+                    };
+
+                    list.innerHTML = topLevel.map((item, index) => renderItem(item, index, topLevel, false)).join('');
                 })
                 .catch(error => {
                     console.error('Error loading template items:', error);
@@ -2614,23 +2846,38 @@ outputHeader('Meetings', 'meetings.php');
                 });
         }
 
-        function showTemplateItemModal(item = null) {
+        function showTemplateItemModal(item = null, presetParentId = null) {
             const modal = document.getElementById('templateItemModal');
             const form = document.getElementById('templateItemForm');
-            
+
+            // Populate parent dropdown with top-level template items
+            const parentSelect = document.getElementById('templateItemParent');
+            parentSelect.innerHTML = '<option value="">No parent (top-level)</option>';
+            currentTemplateItems.filter(i => !i.parent_id).forEach(i => {
+                if (item && item.id && item.id == i.id) return;
+                const opt = document.createElement('option');
+                opt.value = i.id;
+                opt.textContent = i.title;
+                parentSelect.appendChild(opt);
+            });
+
             if (item) {
                 document.getElementById('templateItemId').value = item.id;
                 document.getElementById('templateItemTitle').value = item.title;
                 document.getElementById('templateItemDescription').value = item.description || '';
                 document.getElementById('templateItemType').value = item.item_type;
+                document.getElementById('templateItemDecisionMethod').value = item.decision_method || 'None';
                 document.getElementById('templateItemDuration').value = item.duration_minutes || '';
+                document.getElementById('templateItemIsStarred').checked = !!item.is_starred;
+                parentSelect.value = item.parent_id || '';
                 document.getElementById('modalTemplateItemTitle').textContent = 'Edit Template Item';
             } else {
                 form.reset();
                 document.getElementById('templateItemId').value = '';
+                parentSelect.value = presetParentId || '';
                 document.getElementById('modalTemplateItemTitle').textContent = 'New Template Item';
             }
-            
+
             modal.style.display = 'block';
         }
 
@@ -2647,7 +2894,10 @@ outputHeader('Meetings', 'meetings.php');
                 title: document.getElementById('templateItemTitle').value,
                 description: document.getElementById('templateItemDescription').value || null,
                 item_type: document.getElementById('templateItemType').value,
-                duration_minutes: document.getElementById('templateItemDuration').value || null
+                decision_method: document.getElementById('templateItemDecisionMethod').value,
+                duration_minutes: document.getElementById('templateItemDuration').value || null,
+                parent_id: document.getElementById('templateItemParent').value || null,
+                is_starred: document.getElementById('templateItemIsStarred').checked
             };
 
             const method = itemId ? 'PUT' : 'POST';
@@ -2706,29 +2956,33 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         function reorderTemplateItem(itemId, direction) {
-            // Get current order
             fetch(`api/agenda_templates.php?meeting_type_id=${currentMeetingTypeId}`)
                 .then(response => response.json())
-                .then(items => {
-                    const currentIndex = items.findIndex(item => item.id == itemId);
-                    if (currentIndex === -1) return;
-                    
+                .then(allItems => {
+                    const item = allItems.find(i => i.id == itemId);
+                    if (!item) return;
+
+                    let siblings, body;
+                    if (item.parent_id) {
+                        siblings = allItems.filter(i => i.parent_id == item.parent_id);
+                        body = { action: 'reorder_children', parent_id: item.parent_id };
+                    } else {
+                        siblings = allItems.filter(i => !i.parent_id);
+                        body = { action: 'reorder', meeting_type_id: currentMeetingTypeId };
+                    }
+
+                    const currentIndex = siblings.findIndex(i => i.id == itemId);
                     const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-                    if (newIndex < 0 || newIndex >= items.length) return;
-                    
-                    // Swap items
-                    const order = items.map(item => item.id);
+                    if (currentIndex === -1 || newIndex < 0 || newIndex >= siblings.length) return;
+
+                    const order = siblings.map(i => i.id);
                     [order[currentIndex], order[newIndex]] = [order[newIndex], order[currentIndex]];
-                    
-                    // Save new order
+                    body.order = order;
+
                     fetch('api/agenda_templates.php', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            action: 'reorder',
-                            meeting_type_id: currentMeetingTypeId,
-                            order: order
-                        })
+                        body: JSON.stringify(body)
                     })
                     .then(response => response.json())
                     .then(result => {

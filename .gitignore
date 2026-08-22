@@ -25,6 +25,10 @@ Thumbs.db
 *.tmp
 *.bak
 
-Vm File
+# Vm File
 *.ova
 *.vmdk
+
+# keys
+apikey
+

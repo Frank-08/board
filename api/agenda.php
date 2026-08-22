@@ -27,30 +27,12 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'])) {
     requirePermission('manage_agenda');
 }
 
-/**
- * Convert a numeric position (0-based) to Excel-style column letter suffix
- * 0 → 'a', 1 → 'b', ..., 25 → 'z', 26 → 'aa', 27 → 'ab', etc.
- * 
- * @param int $number 0-based index
- * @return string Letter suffix (a-z, aa-az, ba-bz, etc.)
- */
-function numberToLetterSuffix($number) {
-    $result = '';
-    $num = $number;
-    while ($num >= 0) {
-        $result = chr(ord('a') + ($num % 26)) . $result;
-        $num = intval($num / 26) - 1;
-        if ($num < 0) break;
-    }
-    return $result;
-}
-
 switch ($method) {
     case 'GET':
         if (isset($_GET['id'])) {
             $id = (int)$_GET['id'];
             $stmt = $db->prepare("
-                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name
+                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title
                 FROM agenda_items ai
                 LEFT JOIN board_members bm ON ai.presenter_id = bm.id
                 WHERE ai.id = ?
@@ -70,7 +52,7 @@ switch ($method) {
         } elseif (isset($_GET['meeting_id'])) {
             $meetingId = (int)$_GET['meeting_id'];
             $stmt = $db->prepare("
-                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name
+                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title
                 FROM agenda_items ai
                 LEFT JOIN board_members bm ON ai.presenter_id = bm.id
                 WHERE ai.meeting_id = ?
@@ -136,7 +118,7 @@ switch ($method) {
             try {
                 $meetingDate = new DateTime($meeting['scheduled_date']);
                 $year = $meetingDate->format('y');
-                $month = $meetingDate->format('n');
+                $month = $meetingDate->format('m');
                 $shortcode = $meeting['shortcode'] ?? '';
                 
                 // Pre-fetch all parent-child relationships
@@ -185,9 +167,9 @@ switch ($method) {
                                 $position = $topPos;
                                 $sequence = $position + 1;
                                 if (!empty($shortcode)) {
-                                    $topItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                                    $topItemNumber = sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $sequence);
                                 } else {
-                                    $topItemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                                    $topItemNumber = sprintf('%s.%s.%02d', $year, $month, $sequence);
                                 }
 
                                 $parentPositions[$parentIdToProcess] = $position;
@@ -203,9 +185,9 @@ switch ($method) {
                                 $position = $topPos;
                                 $sequence = $position + 1;
                                 if (!empty($shortcode)) {
-                                    $topItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                                    $topItemNumber = sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $sequence);
                                 } else {
-                                    $topItemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                                    $topItemNumber = sprintf('%s.%s.%02d', $year, $month, $sequence);
                                 }
 
                                 $parentPositions[$parentIdToProcess] = $position;
@@ -228,9 +210,9 @@ switch ($method) {
                         $position = $topPos;
                         $sequence = $position + 1;
                         if (!empty($shortcode)) {
-                            $topItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                            $topItemNumber = sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $sequence);
                         } else {
-                            $topItemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                            $topItemNumber = sprintf('%s.%s.%02d', $year, $month, $sequence);
                         }
 
                         $parentPositions[$itemId] = $position;
@@ -248,9 +230,9 @@ switch ($method) {
                             $position = $topPos;
                             $sequence = $position + 1;
                             if (!empty($shortcode)) {
-                                $topItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                                $topItemNumber = sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $sequence);
                             } else {
-                                $topItemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                                $topItemNumber = sprintf('%s.%s.%02d', $year, $month, $sequence);
                             }
 
                             $parentPositions[$itemId] = $position;
@@ -336,13 +318,13 @@ switch ($method) {
                 // Fallback: compute parent item number based on meeting date and parent position
                 $meetingDate = new DateTime($meeting['scheduled_date']);
                 $year = $meetingDate->format('y');
-                $month = $meetingDate->format('n');
+                $month = $meetingDate->format('m');
                 $shortcode = $meeting['shortcode'] ?? '';
                 $parentSeq = $parent['position'] + 1;
                 if (!empty($shortcode)) {
-                    $parentItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $parentSeq);
+                    $parentItemNumber = sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $parentSeq);
                 } else {
-                    $parentItemNumber = sprintf('%s.%s.%d', $year, $month, $parentSeq);
+                    $parentItemNumber = sprintf('%s.%s.%02d', $year, $month, $parentSeq);
                 }
             }
 
@@ -352,7 +334,7 @@ switch ($method) {
             // Use parent's position so children are grouped with parent
             $position = (int)$parent['position'];
 
-            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, presenter_id, duration_minutes, position, sub_position, parent_id, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, presenter_id, report_type, duration_minutes, position, sub_position, parent_id, item_number, is_starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $meetingId,
                 $title,
@@ -360,11 +342,13 @@ switch ($method) {
                 $data['item_type'] ?? 'Discussion',
                 $data['decision_method'] ?? 'None',
                 !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
+                in_array($data['report_type'] ?? null, ['Written', 'Verbal'], true) ? $data['report_type'] : null,
                 !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
                 $position,
                 $subPosition,
                 $parentId,
-                $itemNumber
+                $itemNumber,
+                !empty($data['is_starred']) ? 1 : 0
             ]);
         } else {
             // Get max position and ensure sequential numbering (0-based, so max + 1)
@@ -376,16 +360,16 @@ switch ($method) {
             // Generate item number in format: SHORTCODE.YY.MM.SEQ (or YY.MM.SEQ if no shortcode)
             $meetingDate = new DateTime($meeting['scheduled_date']);
             $year = $meetingDate->format('y'); // Last 2 digits of year
-            $month = $meetingDate->format('n'); // Month without leading zero (1-12)
+            $month = $meetingDate->format('m'); // Month without leading zero (1-12)
             $sequence = $position + 1; // Position is 0-based, sequence is 1-based
             $shortcode = $meeting['shortcode'] ?? ''; // Get shortcode from meeting_type
             if (!empty($shortcode)) {
-                $itemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $sequence);
+                $itemNumber = sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $sequence);
             } else {
-                $itemNumber = sprintf('%s.%s.%d', $year, $month, $sequence);
+                $itemNumber = sprintf('%s.%s.%02d', $year, $month, $sequence);
             }
 
-            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, presenter_id, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, presenter_id, report_type, duration_minutes, position, item_number, is_starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $meetingId,
                 $title,
@@ -393,15 +377,17 @@ switch ($method) {
                 $data['item_type'] ?? 'Discussion',
                 $data['decision_method'] ?? 'None',
                 !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
+                in_array($data['report_type'] ?? null, ['Written', 'Verbal'], true) ? $data['report_type'] : null,
                 !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
                 $position,
-                $itemNumber
+                $itemNumber,
+                !empty($data['is_starred']) ? 1 : 0
             ]);
         }
         
         $itemId = $db->lastInsertId();
         $stmt = $db->prepare("
-            SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name
+            SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title
             FROM agenda_items ai
             LEFT JOIN board_members bm ON ai.presenter_id = bm.id
             WHERE ai.id = ?
@@ -420,15 +406,29 @@ switch ($method) {
             exit;
         }
         
+        if (array_key_exists('report_type', $data) && !in_array($data['report_type'], ['Written', 'Verbal', null], true)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'report_type must be Written, Verbal, or null']);
+            exit;
+        }
+
         $updates = [];
         $params = [];
-        
+
         $fields = ['title', 'description', 'item_type', 'decision_method', 'presenter_id', 'duration_minutes', 'position', 'outcome'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {
                 $updates[] = "$field = ?";
                 $params[] = $data[$field];
             }
+        }
+        if (array_key_exists('report_type', $data)) {
+            $updates[] = "report_type = ?";
+            $params[] = $data['report_type'];
+        }
+        if (array_key_exists('is_starred', $data)) {
+            $updates[] = "is_starred = ?";
+            $params[] = !empty($data['is_starred']) ? 1 : 0;
         }
         
         if (empty($updates)) {
@@ -443,7 +443,7 @@ switch ($method) {
         $stmt->execute($params);
         
         $stmt = $db->prepare("
-            SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name
+            SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title
             FROM agenda_items ai
             LEFT JOIN board_members bm ON ai.presenter_id = bm.id
             WHERE ai.id = ?
@@ -496,16 +496,16 @@ switch ($method) {
         // Update positions and item numbers
         $meetingDate = new DateTime($item['scheduled_date']);
         $year = $meetingDate->format('y');
-        $month = $meetingDate->format('n');
+        $month = $meetingDate->format('m');
         $shortcode = $item['shortcode'] ?? '';
         
         foreach ($remainingItems as $remainingItem) {
             $newPosition = $remainingItem['position'] - 1;
             $newSequence = $newPosition + 1;
             if (!empty($shortcode)) {
-                $newItemNumber = sprintf('%s.%s.%s.%d', $shortcode, $year, $month, $newSequence);
+                $newItemNumber = sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $newSequence);
             } else {
-                $newItemNumber = sprintf('%s.%s.%d', $year, $month, $newSequence);
+                $newItemNumber = sprintf('%s.%s.%02d', $year, $month, $newSequence);
             }
             
             $updateStmt = $db->prepare("

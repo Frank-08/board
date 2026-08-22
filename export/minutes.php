@@ -5,6 +5,8 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/agenda_helpers.php';
+require_once __DIR__ . '/../includes/resolution_helpers.php';
+require_once __DIR__ . '/../includes/export_helpers.php';
 
 $meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : 0;
 date_default_timezone_set('Australia/Sydney');
@@ -44,7 +46,7 @@ if (!$minutes) {
 // Get agenda items with comments (resolutions attached separately to avoid row duplication)
 $stmt = $db->prepare("
     SELECT ai.*, 
-        bm.first_name as presenter_first_name, bm.last_name as presenter_last_name,
+        bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title,
         mtm.role as presenter_role,
         mac.comment as minutes_comment
     FROM agenda_items ai
@@ -182,19 +184,6 @@ foreach ($attendees as $attendee) {
         $status = 'Other';
     }
     $attendeesByStatus[$status][] = $attendee;
-}
-
-// Format date
-function formatDate($dateString) {
-    if (!$dateString) return '';
-    $date = new DateTime($dateString);
-    return $date->format('F j, Y');
-}
-
-function formatTime($dateString) {
-    if (!$dateString) return '';
-    $date = new DateTime($dateString);
-    return $date->format('g:i A');
 }
 
 function formatDateTime($dateString) {
@@ -471,6 +460,48 @@ function formatDateTime($dateString) {
         .status-carried { background: #28a745; color: #fff; }
         .status-lost { background: #dc3545; color: #fff; }
         .status-ruledon { background: #17a2b8; color: #fff; }
+
+        .letterhead {
+            text-align: center;
+        }
+
+        .letterhead-org {
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            margin: 0 0 4px 0;
+        }
+
+        .letterhead-doctype {
+            font-size: 16px;
+            font-weight: bold;
+            color: #666;
+            margin: 0;
+        }
+
+        .resolved-clause-list {
+            margin: 8px 0;
+            padding: 10px;
+            background: #e6f2ff;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+
+        .resolved-clause-heading {
+            margin: 0 0 6px 0;
+            font-weight: bold;
+            color: #0056b3;
+        }
+
+        .resolved-clause-items {
+            margin: 0;
+            padding-left: 22px;
+            color: #333;
+        }
+
+        .resolved-clause-items li {
+            margin: 4px 0;
+        }
     </style>
 </head>
 <body>
@@ -490,14 +521,12 @@ function formatDateTime($dateString) {
                  style="max-width:<?php echo defined('LOGO_WIDTH_HTML') ? LOGO_WIDTH : 60; ?>px; height:<?php echo defined('LOGO_HEIGHT') && LOGO_HEIGHT > 0 ? LOGO_HEIGHT : 'auto'; ?>px; max-height:250px;">
         </div>
         <?php endif; ?>
-        <h1>Meeting Minutes</h1>
-        <p><?php echo htmlspecialchars($meeting['meeting_type_name']); ?></p>
+        <?php echo renderLetterheadBlock(ORGANIZATION_NAME, $meeting['meeting_type_name'], 'minutes', $minutes['status']); ?>
     </div>
-    
+
     <div class="meeting-info">
         <p><strong>Meeting:</strong> <?php echo htmlspecialchars($meeting['title']); ?></p>
-        <p><strong>Date:</strong> <?php echo formatDate($meeting['scheduled_date']); ?></p>
-        <p><strong>Time:</strong> <?php echo formatTime($meeting['scheduled_date']); ?></p>
+        <p><strong>Date &amp; Time:</strong> <?php echo htmlspecialchars(formatMeetingDateTimeLine($meeting['scheduled_date'], $meeting['end_time'] ?? null)); ?></p>
         <?php if ($meeting['location']): ?>
         <p><strong>Location:</strong> <?php echo htmlspecialchars($meeting['location']); ?></p>
         <?php endif; ?>
@@ -544,7 +573,7 @@ function formatDateTime($dateString) {
         <div class="agenda-item">
             <h4>
                 <?php echo htmlspecialchars($item['item_number'] ?? '') . ($item['item_number'] ? '. ' : ''); ?>
-                <?php echo htmlspecialchars($item['title']); ?>
+                <?php echo renderStarredPrefix($item) . htmlspecialchars($item['title']); ?>
                 <?php foreach ($item['resolutions'] ?? [] as $res): ?>
                 <?php if (!empty($res['resolution_number'])): ?>
                 <span style="color: #007bff; font-weight: normal; margin-left: 10px;">(Resolution #<?php echo htmlspecialchars($res['resolution_number']); ?>)</span>
@@ -559,34 +588,14 @@ function formatDateTime($dateString) {
             <?php if (!empty($item['description'])): ?>
             <div class="item-description"><?php echo nl2br(htmlspecialchars($item['description'])); ?></div>
             <?php endif; ?>
-            <?php foreach ($item['resolutions'] ?? [] as $res): ?>
-            <?php if (!empty($res['description'])): ?>
-            <?php
-            $numberLabel = !empty($res['resolution_number'])
-                ? 'Resolution #' . $res['resolution_number']
-                : (!empty($item['item_number']) ? 'Item ' . $item['item_number'] : '');
-            ?>
-            <div class="resolution-callout">
-                <p class="callout-title">Resolution</p>
-                <p class="callout-lead">It was resolved</p>
-                <div class="callout-body">
-                    <?php if ($numberLabel): ?><span class="callout-number"><?php echo htmlspecialchars($numberLabel); ?></span><?php endif; ?>
-                    <p class="callout-text"><?php echo nl2br(htmlspecialchars(ltrim($res['description']))); ?></p>
-                </div>
-                <?php if (!empty($res['decision_method']) || !empty($res['vote_type'])): ?>
-                <p style="margin: 6px 0 0 0; font-size: 13px; color: #0056b3;">
-                    <?php if (!empty($res['decision_method'])): ?><strong>Decision Method:</strong> <?php echo htmlspecialchars($res['decision_method']); ?><?php endif; ?>
-                    <?php if (!empty($res['decision_method']) && !empty($res['vote_type'])): ?> &nbsp;|&nbsp; <?php endif; ?>
-                    <?php if (!empty($res['vote_type'])): ?><strong>Vote Type:</strong> <?php echo htmlspecialchars($res['vote_type']); ?><?php endif; ?>
-                </p>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-            <?php endforeach; ?>
+            <?php echo renderResolvedClauseList($item['resolutions'] ?? [], 'minutes'); ?>
             <?php foreach ($duringProceduralProposalsByAgendaItem[(int)$item['id']] ?? [] as $pp): ?>
             <?php echo renderProceduralProposalCallout($pp, $proceduralProposalLabels); ?>
             <?php endforeach; ?>
-            <?php if ($item['presenter_first_name']): ?>
+            <?php $attribution = renderAttributionLine($item, 'past'); ?>
+            <?php if ($attribution): ?>
+            <p style="font-size: 14px; color: #666; margin: 8px 0;"><?php echo $attribution; ?></p>
+            <?php elseif ($item['presenter_first_name']): ?>
             <p style="font-size: 14px; color: #666; margin: 8px 0;">
                 <strong>Presenter:</strong> <?php echo htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); ?>
                 <?php if ($item['presenter_role']): ?>

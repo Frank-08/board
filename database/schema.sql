@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS meetings (
     meeting_type_id INT NOT NULL,
     title VARCHAR(255) NOT NULL,
     scheduled_date DATETIME NOT NULL,
+    end_time TIME NULL,
     location VARCHAR(255),
     virtual_link VARCHAR(255),
     quorum_required INT DEFAULT 0,
@@ -109,10 +110,12 @@ CREATE TABLE IF NOT EXISTS agenda_items (
     decision_method ENUM('Consensus', 'Formal Majority', 'Referral', 'None') DEFAULT 'None',
     speech_limit_minutes INT DEFAULT NULL,
     presenter_id INT,
+    report_type ENUM('Written', 'Verbal') DEFAULT NULL,
     duration_minutes INT,
     position INT NOT NULL DEFAULT 0,
     sub_position INT NOT NULL DEFAULT 0,
     item_number VARCHAR(20),
+    is_starred BOOLEAN DEFAULT FALSE,
     parent_id INT NULL,
     outcome TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -137,10 +140,15 @@ CREATE TABLE IF NOT EXISTS agenda_templates (
     speech_limit_minutes INT DEFAULT NULL,
     duration_minutes INT,
     position INT NOT NULL DEFAULT 0,
+    sub_position INT NOT NULL DEFAULT 0,
+    parent_id INT NULL,
+    is_starred BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (meeting_type_id) REFERENCES meeting_types(id) ON DELETE CASCADE,
-    INDEX idx_meeting_type_position (meeting_type_id, position)
+    FOREIGN KEY (parent_id) REFERENCES agenda_templates(id) ON DELETE CASCADE,
+    INDEX idx_meeting_type_position (meeting_type_id, position),
+    INDEX idx_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table for meeting minutes
@@ -181,7 +189,7 @@ CREATE TABLE IF NOT EXISTS resolutions (
     meeting_id INT NOT NULL,
     agenda_item_id INT,
     resolution_number VARCHAR(50),
-    title VARCHAR(255) NOT NULL,
+    title VARCHAR(255) NULL,
     description TEXT NOT NULL,
     decision_method ENUM('Consensus', 'Formal Majority', 'Referral') DEFAULT 'Consensus',
     motion_moved_by INT NULL,
@@ -196,6 +204,7 @@ CREATE TABLE IF NOT EXISTS resolutions (
     vote_type ENUM('Voices', 'Show of Hands', 'Cards', 'Written Ballot', 'Formal Procedures') DEFAULT NULL,
     status ENUM('Proposed', 'Consensus', 'Agreement', 'Failed', 'Withdrawn', 'Lapsed') DEFAULT 'Proposed',
     effective_date DATE,
+    position INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
@@ -203,7 +212,8 @@ CREATE TABLE IF NOT EXISTS resolutions (
     FOREIGN KEY (motion_moved_by) REFERENCES board_members(id) ON DELETE SET NULL,
     FOREIGN KEY (motion_seconded_by) REFERENCES board_members(id) ON DELETE SET NULL,
     INDEX idx_meeting (meeting_id),
-    INDEX idx_status (status)
+    INDEX idx_status (status),
+    INDEX idx_agenda_item_position (agenda_item_id, position)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table for API keys (non-browser clients, e.g. the Word minutes macros).
