@@ -41,6 +41,9 @@ RSYNC_ARGS=(
     --exclude='config/database.php'
     --exclude='config/config.php'
     --exclude='uploads/'
+    --exclude='libs/'
+    --exclude='scripts/'
+    --exclude='database/'
 )
 
 if [ "$APPLY" = "--apply" ]; then
