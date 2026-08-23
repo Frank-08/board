@@ -44,6 +44,9 @@ RSYNC_ARGS=(
     --exclude='libs/'
     --exclude='scripts/'
     --exclude='database/'
+    --exclude='.github/'
+    --exclude='*.md'
+    --exclude='.htaccess'
 )
 
 if [ "$APPLY" = "--apply" ]; then
