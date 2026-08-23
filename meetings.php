@@ -231,6 +231,13 @@ outputHeader('Meetings', 'meetings.php');
                         Chair exercised casting vote on a tied decision
                     </label>
                 </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="resolutionOverrideQuorum">
+                        Override quorum requirement
+                    </label>
+                    <small style="color: #666;">Only relevant for Formal Majority decisions - lets you record a final outcome even though quorum wasn't met for this meeting.</small>
+                </div>
                 <div class="form-row" id="resolutionReferralGroup" style="display: none;">
                     <div class="form-group">
                         <label for="resolutionReferralBody">Referral Body</label>
@@ -2199,7 +2206,8 @@ outputHeader('Meetings', 'meetings.php');
                 casting_vote_used: document.getElementById('resolutionCastingVoteUsed').checked,
                 referral_body: document.getElementById('resolutionReferralBody').value || null,
                 referral_scope: document.getElementById('resolutionReferralScope').value || null,
-                clerk_notes: document.getElementById('resolutionClerkNotes').value || null
+                clerk_notes: document.getElementById('resolutionClerkNotes').value || null,
+                override_quorum: document.getElementById('resolutionOverrideQuorum').checked
             };
             
             if (parentAgendaItemId && parentAgendaItemId !== '') {

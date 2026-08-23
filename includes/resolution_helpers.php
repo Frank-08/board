@@ -22,7 +22,10 @@ function validateResolutionData(PDO $db, array $data, ?int $resolutionId = null)
         $meetingId = $row ? (int)$row['meeting_id'] : 0;
     }
 
-    if ($meetingId && in_array($status, RESOLUTION_FINAL_STATUSES, true)) {
+    // Quorum only gates Formal Majority (voted) decisions - a Consensus or
+    // Referral decision doesn't require a formal vote count, so quorum
+    // doesn't apply to it.
+    if ($meetingId && $decisionMethod === 'Formal Majority' && in_array($status, RESOLUTION_FINAL_STATUSES, true)) {
         $stmt = $db->prepare("SELECT quorum_met FROM meetings WHERE id = ?");
         $stmt->execute([$meetingId]);
         $meeting = $stmt->fetch(PDO::FETCH_ASSOC);
