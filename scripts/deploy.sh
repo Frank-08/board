@@ -47,6 +47,7 @@ RSYNC_ARGS=(
     --exclude='.github/'
     --exclude='*.md'
     --exclude='.htaccess'
+    --exclude='word macro/'
 )
 
 if [ "$APPLY" = "--apply" ]; then
