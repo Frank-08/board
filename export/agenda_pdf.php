@@ -28,20 +28,17 @@ if (!$meeting) {
     die('Meeting not found');
 }
 
-// Get agenda items (resolutions attached separately to avoid row duplication)
+// Get agenda items (resolutions/presenters attached separately to avoid row duplication)
 $stmt = $db->prepare("
-    SELECT ai.*, 
-        bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title,
-        mtm.role as presenter_role
+    SELECT ai.*
     FROM agenda_items ai
-    LEFT JOIN board_members bm ON ai.presenter_id = bm.id
-    LEFT JOIN meetings m ON ai.meeting_id = m.id
-    LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     WHERE ai.meeting_id = ?
     ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
 ");
 $stmt->execute([$meetingId]);
-$agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $stmt->fetchAll(PDO::FETCH_ASSOC));
+$agendaItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $agendaItems);
+$agendaItems = attachPresentersToAgendaItems($db, $meetingId, $agendaItems);
 
 // Set up temporary directory and system commands
 $tempDir = sys_get_temp_dir();
@@ -179,12 +176,9 @@ if (count($agendaItems) > 0) {
         $attribution = renderAttributionLine($item, 'future');
         if ($attribution) {
             $html .= '<tr><td colspan="3" class="item-detail" style="padding-left: ' . $paddingLeft . ';">' . $attribution . '</td></tr>';
-        } elseif ($item['presenter_first_name']) {
+        } elseif (!empty($item['presenters'])) {
             $html .= '<tr><td colspan="3" class="item-detail" style="padding-left: ' . $paddingLeft . ';">';
-            $html .= '<strong>Presenter:</strong> ' . htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']);
-            if (!empty($item['presenter_role'])) {
-                $html .= ' (' . htmlspecialchars($item['presenter_role']) . ')';
-            }
+            $html .= '<strong>Presenter:</strong> ' . htmlspecialchars(joinPresenterNames($item['presenters']));
             $html .= '</td></tr>';
         }
 

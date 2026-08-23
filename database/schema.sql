@@ -109,7 +109,6 @@ CREATE TABLE IF NOT EXISTS agenda_items (
     session_type ENUM('Worship', 'General', 'Information', 'Deliberative', 'Decision') DEFAULT NULL,
     decision_method ENUM('Consensus', 'Formal Majority', 'Referral', 'None') DEFAULT 'None',
     speech_limit_minutes INT DEFAULT NULL,
-    presenter_id INT,
     report_type ENUM('Written', 'Verbal') DEFAULT NULL,
     duration_minutes INT,
     position INT NOT NULL DEFAULT 0,
@@ -121,11 +120,39 @@ CREATE TABLE IF NOT EXISTS agenda_items (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
-    FOREIGN KEY (presenter_id) REFERENCES board_members(id) ON DELETE SET NULL,
     FOREIGN KEY (parent_id) REFERENCES agenda_items(id) ON DELETE CASCADE,
     INDEX idx_meeting_position (meeting_id, position),
     INDEX idx_item_number (item_number),
     INDEX idx_parent (parent_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table linking agenda items to one or more presenters (a joint
+-- presentation shares one report_type on the agenda_items row above).
+CREATE TABLE IF NOT EXISTS agenda_item_presenters (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    agenda_item_id INT NOT NULL,
+    member_id INT NOT NULL,
+    position INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (agenda_item_id) REFERENCES agenda_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (member_id) REFERENCES board_members(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_item_member (agenda_item_id, member_id),
+    INDEX idx_agenda_item_position (agenda_item_id, position)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table recording members who left the room during an agenda item (e.g. a
+-- declared conflict of interest), entered while taking minutes.
+CREATE TABLE IF NOT EXISTS agenda_item_departures (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    agenda_item_id INT NOT NULL,
+    member_id INT NOT NULL,
+    reason VARCHAR(255) DEFAULT NULL,
+    returned BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (agenda_item_id) REFERENCES agenda_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (member_id) REFERENCES board_members(id) ON DELETE CASCADE,
+    INDEX idx_agenda_item (agenda_item_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table for agenda templates (default items for meeting types)

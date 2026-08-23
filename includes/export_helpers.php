@@ -76,18 +76,42 @@ function renderStarredPrefix(array $item): string {
 }
 
 /**
- * "{Presenter}, {will speak to/spoke to} a {written/verbal} report".
- * Empty string when presenter or report_type is not set.
+ * Join presenter names into "A", "A and B", or "A, B and C" - matching how
+ * a joint presentation reads in the Word-style minutes.
  *
- * @param array $item Agenda item with presenter_first_name/presenter_last_name/report_type
+ * @param array $presenters Rows from attachPresentersToAgendaItems() (id, first_name, last_name, title)
+ */
+function joinPresenterNames(array $presenters): string {
+    $names = array_map(function ($p) {
+        return trim(($p['title'] ?? '') . ' ' . ($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? ''));
+    }, $presenters);
+    $names = array_values(array_filter($names, fn($n) => $n !== ''));
+
+    $count = count($names);
+    if ($count === 0) {
+        return '';
+    }
+    if ($count === 1) {
+        return $names[0];
+    }
+    $last = array_pop($names);
+    return implode(', ', $names) . ' and ' . $last;
+}
+
+/**
+ * "{Presenter(s)}, {will speak to/spoke to} a {written/verbal} report".
+ * Empty string when there are no presenters or report_type is not set.
+ *
+ * @param array $item Agenda item with presenters (from attachPresentersToAgendaItems()) and report_type
  * @param string $tense 'future' (agenda) or 'past' (minutes)
  */
 function renderAttributionLine(array $item, string $tense): string {
-    if (empty($item['presenter_id']) || empty($item['report_type'])) {
+    $presenters = $item['presenters'] ?? [];
+    if (empty($presenters) || empty($item['report_type'])) {
         return '';
     }
 
-    $name = trim(($item['presenter_title'] ?? '') . ' ' . ($item['presenter_first_name'] ?? '') . ' ' . ($item['presenter_last_name'] ?? ''));
+    $name = joinPresenterNames($presenters);
     if ($name === '') {
         return '';
     }
@@ -96,6 +120,36 @@ function renderAttributionLine(array $item, string $tense): string {
     $reportType = strtolower($item['report_type']);
 
     return htmlspecialchars($name) . ', ' . $verb . ' a ' . htmlspecialchars($reportType) . ' report';
+}
+
+/**
+ * Render a note per member who left the room during this agenda item -
+ * minutes only, e.g. "Jane Smith declared an interest and left the room
+ * and returned before the item concluded."
+ *
+ * @param array $departures Rows from attachDeparturesToAgendaItems()
+ * @return string HTML
+ */
+function renderDeparturesNote(array $departures): string {
+    if (empty($departures)) {
+        return '';
+    }
+
+    $html = '';
+    foreach ($departures as $d) {
+        $name = trim(($d['first_name'] ?? '') . ' ' . ($d['last_name'] ?? ''));
+        if ($name === '') {
+            continue;
+        }
+        $reason = trim($d['reason'] ?? '');
+        $sentence = htmlspecialchars($name) . ' left the room';
+        if ($reason !== '') {
+            $sentence .= ' (' . htmlspecialchars($reason) . ')';
+        }
+        $sentence .= !empty($d['returned']) ? ' and returned before the item concluded.' : '.';
+        $html .= '<p class="departure-note" style="font-size: 13px; color: #666; margin: 4px 0;"><em>' . $sentence . '</em></p>';
+    }
+    return $html;
 }
 
 /**
