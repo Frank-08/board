@@ -56,14 +56,14 @@ switch ($method) {
             
             // Get agenda items
             $stmt = $db->prepare("
-                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name
+                SELECT ai.*
                 FROM agenda_items ai
-                LEFT JOIN board_members bm ON ai.presenter_id = bm.id
                 WHERE ai.meeting_id = ?
                 ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
             ");
             $stmt->execute([$id]);
-            $meeting['agenda_items'] = $stmt->fetchAll();
+            $agendaItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $meeting['agenda_items'] = attachPresentersToAgendaItems($db, $id, $agendaItems);
             
             echo json_encode($meeting);
         } elseif (isset($_GET['meeting_type_id'])) {
