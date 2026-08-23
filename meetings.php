@@ -69,10 +69,9 @@ outputHeader('Meetings', 'meetings.php');
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="agendaItemPresenter">Presenter</label>
-                        <select id="agendaItemPresenter">
-                            <option value="">Select presenter...</option>
-                        </select>
+                        <label for="agendaItemPresenter">Presenter(s)</label>
+                        <select id="agendaItemPresenter" multiple size="4"></select>
+                        <small style="color: #666;">Ctrl/Cmd-click (or Shift-click for a range) to select more than one - a joint presentation shares one report type below.</small>
                     </div>
                     <div class="form-group">
                         <label for="agendaItemReportType">Report Type</label>
@@ -339,6 +338,35 @@ outputHeader('Meetings', 'meetings.php');
                     <textarea id="proceduralProposalNotes" rows="3"></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary">Save Procedural Proposal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Departure Modal (member left the room during an item) -->
+    <div id="departureModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDepartureModal()">&times;</span>
+            <h2 id="modalDepartureTitle">Member Left the Room</h2>
+            <form id="departureForm" onsubmit="saveDeparture(event)">
+                <input type="hidden" id="departureId">
+                <input type="hidden" id="departureAgendaItemId">
+                <div class="form-group">
+                    <label for="departureMember">Member *</label>
+                    <select id="departureMember" required>
+                        <option value="">Select member...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="departureReason">Reason</label>
+                    <input type="text" id="departureReason" placeholder="e.g. declared a conflict of interest">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="departureReturned">
+                        Returned before the item concluded
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
             </form>
         </div>
     </div>
@@ -833,12 +861,23 @@ outputHeader('Meetings', 'meetings.php');
                 });
         }
 
-        // "{Presenter}, {will speak to/spoke to} a {written/verbal} report"
+        // Joins presenter names as "A", "A and B", or "A, B and C"
+        function joinPresenterNames(presenters) {
+            const names = (presenters || [])
+                .map(p => `${p.title || ''} ${p.first_name || ''} ${p.last_name || ''}`.trim())
+                .filter(n => n !== '');
+            if (names.length === 0) return '';
+            if (names.length === 1) return names[0];
+            const last = names.pop();
+            return names.join(', ') + ' and ' + last;
+        }
+
+        // "{Presenter(s)}, {will speak to/spoke to} a {written/verbal} report"
         function formatAttributionLine(item, tense) {
-            if (!item.presenter_id || !item.report_type) {
+            if (!item.presenters || item.presenters.length === 0 || !item.report_type) {
                 return '';
             }
-            const name = `${item.presenter_title || ''} ${item.presenter_first_name || ''} ${item.presenter_last_name || ''}`.trim();
+            const name = joinPresenterNames(item.presenters);
             if (!name) {
                 return '';
             }
@@ -949,7 +988,7 @@ outputHeader('Meetings', 'meetings.php');
                                     <div class="agenda-meta">
                                         <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
                                         ${item.decision_method && item.decision_method !== 'None' ? `<span class="badge badge-${item.decision_method.toLowerCase().replace(' ', '-')}">${item.decision_method}</span>` : ''}
-                                        ${item.presenter_first_name ? `<span>Presenter: ${item.presenter_first_name} ${item.presenter_last_name}</span>` : ''}
+                                        ${item.presenters && item.presenters.length > 0 ? `<span>Presenter: ${escapeHtml(joinPresenterNames(item.presenters))}</span>` : ''}
                                         ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
                                         ${item.status ? `<span class="badge badge-${item.status.toLowerCase()}">${item.status}</span>` : ''}
                                     </div>
@@ -1126,6 +1165,7 @@ outputHeader('Meetings', 'meetings.php');
                                         `}
                                     </div>
                                     ${renderMinutesProceduralProposals(item.id, duringByItem[String(item.id)], minutesApproved)}
+                                    ${renderMinutesDepartures(item.id, item.departures, minutesApproved)}
                                 </div>
                             `;
                             agendaItemsHtml += renderProceduralGapSlot(item.id, 'After', afterByItem[String(item.id)], minutesApproved);
@@ -1185,6 +1225,33 @@ outputHeader('Meetings', 'meetings.php');
                     <strong>Procedural Proposals:</strong>
                     ${!minutesApproved ? `<button onclick="addProceduralProposalForItem(${agendaItemId})" class="btn btn-sm" style="margin-left: 8px;">+ Add</button>` : ''}
                     ${rows ? `<div style="margin-top: 5px;">${rows}</div>` : '<span style="color: #999; font-size: 13px; margin-left: 6px;">None recorded</span>'}
+                </div>
+            `;
+        }
+
+        function renderDepartureRow(d, minutesApproved) {
+            const name = `${d.first_name} ${d.last_name}`;
+            const editPart = !minutesApproved ? `
+                <button onclick="editDeparture(${d.id})" class="btn btn-sm" style="margin-left: 8px;">Edit</button>
+                <button onclick="deleteDeparture(${d.id})" class="btn btn-sm btn-danger" style="margin-left: 4px;">Delete</button>
+            ` : '';
+            return `
+                <div style="padding: 4px 0; border-bottom: 1px solid #eee; font-size: 13px;">
+                    <em>${escapeHtml(name)} left the room${d.reason ? ' (' + escapeHtml(d.reason) + ')' : ''}${d.returned ? ' and returned before the item concluded.' : '.'}</em>${editPart}
+                </div>
+            `;
+        }
+
+        // Renders the "Members Who Left the Room" subsection inline within a
+        // single agenda item's minutes block, with an "+ Add" link scoped to
+        // that item.
+        function renderMinutesDepartures(agendaItemId, departures, minutesApproved) {
+            const rows = (departures || []).map(d => renderDepartureRow(d, minutesApproved)).join('');
+            return `
+                <div style="margin-top: 10px;">
+                    <strong>Members Who Left the Room:</strong>
+                    ${!minutesApproved ? `<button onclick="addDepartureForItem(${agendaItemId})" class="btn btn-sm" style="margin-left: 8px;">+ Add</button>` : ''}
+                    ${rows ? `<div style="margin-top: 5px;">${rows}</div>` : (minutesApproved ? '' : '<span style="color: #999; font-size: 13px; margin-left: 6px;">None recorded</span>')}
                 </div>
             `;
         }
@@ -1435,7 +1502,6 @@ outputHeader('Meetings', 'meetings.php');
                     document.getElementById('agendaItemType').value = item.item_type;
                     document.getElementById('agendaItemDecisionMethod').value = item.decision_method || 'None';
                     document.getElementById('agendaItemDuration').value = item.duration_minutes || '';
-                    document.getElementById('agendaItemPresenter').value = item.presenter_id || '';
                     document.getElementById('agendaItemReportType').value = item.report_type || '';
                     document.getElementById('agendaItemIsStarred').checked = !!item.is_starred;
                     document.getElementById('modalAgendaTitle').textContent = 'Edit Agenda Item';
@@ -1445,18 +1511,21 @@ outputHeader('Meetings', 'meetings.php');
                     document.getElementById('modalAgendaTitle').textContent = 'New Agenda Item';
                 }
                 
-                // Populate presenter dropdown
+                // Populate presenter multi-select
                 const presenterSelect = document.getElementById('agendaItemPresenter');
-                presenterSelect.innerHTML = '<option value="">Select presenter...</option>';
+                presenterSelect.innerHTML = '';
                 members.forEach(member => {
                     const option = document.createElement('option');
                     option.value = member.id;
                     option.textContent = `${member.first_name} ${member.last_name} (${member.role})`;
                     presenterSelect.appendChild(option);
                 });
-                
-                if (item && item.presenter_id) {
-                    presenterSelect.value = item.presenter_id;
+
+                if (item && item.presenters && item.presenters.length > 0) {
+                    const presenterIds = new Set(item.presenters.map(p => String(p.id)));
+                    Array.from(presenterSelect.options).forEach(opt => {
+                        opt.selected = presenterIds.has(opt.value);
+                    });
                 }
 
                 // Populate parent dropdown with top-level items for current meeting
@@ -1503,7 +1572,7 @@ outputHeader('Meetings', 'meetings.php');
                 item_type: document.getElementById('agendaItemType').value,
                 decision_method: document.getElementById('agendaItemDecisionMethod').value,
                 duration_minutes: document.getElementById('agendaItemDuration').value || null,
-                presenter_id: document.getElementById('agendaItemPresenter').value || null,
+                presenter_ids: Array.from(document.getElementById('agendaItemPresenter').selectedOptions).map(opt => opt.value),
                 report_type: document.getElementById('agendaItemReportType').value || null,
                 is_starred: document.getElementById('agendaItemIsStarred').checked
             };
@@ -2506,6 +2575,110 @@ outputHeader('Meetings', 'meetings.php');
             });
         }
 
+        // Departure Management (member left the room during an item)
+        function addDepartureForItem(agendaItemId) {
+            if (!currentMeetingId) return;
+            showDepartureModal(null, agendaItemId);
+        }
+
+        function editDeparture(id) {
+            fetch(`api/agenda_item_departures.php?id=${id}`)
+                .then(response => response.json())
+                .then(departure => showDepartureModal(departure));
+        }
+
+        function showDepartureModal(departure = null, presetAgendaItemId = null) {
+            const modal = document.getElementById('departureModal');
+            const form = document.getElementById('departureForm');
+
+            loadBoardMembers().then(members => {
+                const memberSelect = document.getElementById('departureMember');
+                memberSelect.innerHTML = '<option value="">Select member...</option>';
+                members.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = member.id;
+                    option.textContent = `${member.first_name} ${member.last_name}`;
+                    memberSelect.appendChild(option);
+                });
+
+                if (departure) {
+                    document.getElementById('departureId').value = departure.id;
+                    document.getElementById('departureAgendaItemId').value = departure.agenda_item_id;
+                    memberSelect.value = departure.member_id;
+                    document.getElementById('departureReason').value = departure.reason || '';
+                    document.getElementById('departureReturned').checked = !!departure.returned;
+                    document.getElementById('modalDepartureTitle').textContent = 'Edit Departure';
+                } else {
+                    form.reset();
+                    document.getElementById('departureId').value = '';
+                    document.getElementById('departureAgendaItemId').value = presetAgendaItemId || '';
+                    document.getElementById('modalDepartureTitle').textContent = 'Member Left the Room';
+                }
+
+                modal.style.display = 'block';
+            });
+        }
+
+        function closeDepartureModal() {
+            document.getElementById('departureModal').style.display = 'none';
+            document.getElementById('departureForm').reset();
+        }
+
+        function saveDeparture(event) {
+            event.preventDefault();
+            const departureId = document.getElementById('departureId').value;
+            const data = {
+                agenda_item_id: document.getElementById('departureAgendaItemId').value,
+                member_id: document.getElementById('departureMember').value,
+                reason: document.getElementById('departureReason').value || null,
+                returned: document.getElementById('departureReturned').checked
+            };
+
+            const method = departureId ? 'PUT' : 'POST';
+            if (departureId) data.id = departureId;
+
+            fetch('api/agenda_item_departures.php', {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    closeDepartureModal();
+                    loadMeetingMinutes(currentMeetingId);
+                }
+            })
+            .catch(error => {
+                console.error('Error saving departure:', error);
+                alert('Error saving departure');
+            });
+        }
+
+        function deleteDeparture(id) {
+            if (!confirm('Remove this departure record?')) return;
+
+            fetch('api/agenda_item_departures.php', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    loadMeetingMinutes(currentMeetingId);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting departure:', error);
+                alert('Error deleting departure');
+            });
+        }
+
         // Minutes Management
         function createMinutes() {
             if (!currentMeetingId) return;
@@ -3003,7 +3176,7 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         window.onclick = function(event) {
-            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'proceduralProposalModal', 'minutesModal', 'documentUploadModal', 'templateModal', 'templateItemModal'];
+            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'proceduralProposalModal', 'departureModal', 'minutesModal', 'documentUploadModal', 'templateModal', 'templateItemModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target == modal) {
@@ -3013,6 +3186,7 @@ outputHeader('Meetings', 'meetings.php');
                     else if (modalId === 'attendeeModal') closeAttendeeModal();
                     else if (modalId === 'resolutionModal') closeResolutionModal();
                     else if (modalId === 'proceduralProposalModal') closeProceduralProposalModal();
+                    else if (modalId === 'departureModal') closeDepartureModal();
                     else if (modalId === 'minutesModal') closeMinutesModal();
                     else if (modalId === 'templateModal') closeTemplateModal();
                     else if (modalId === 'templateItemModal') closeTemplateItemModal();

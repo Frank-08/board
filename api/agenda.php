@@ -31,15 +31,10 @@ switch ($method) {
     case 'GET':
         if (isset($_GET['id'])) {
             $id = (int)$_GET['id'];
-            $stmt = $db->prepare("
-                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title
-                FROM agenda_items ai
-                LEFT JOIN board_members bm ON ai.presenter_id = bm.id
-                WHERE ai.id = ?
-            ");
+            $stmt = $db->prepare("SELECT ai.* FROM agenda_items ai WHERE ai.id = ?");
             $stmt->execute([$id]);
             $item = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$item) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Agenda item not found']);
@@ -48,19 +43,23 @@ switch ($method) {
 
             $meetingId = (int)$item['meeting_id'];
             $items = attachResolutionsToAgendaItems($db, $meetingId, [$item]);
+            $items = attachPresentersToAgendaItems($db, $meetingId, $items);
+            $items = attachDeparturesToAgendaItems($db, $meetingId, $items);
             echo json_encode($items[0]);
         } elseif (isset($_GET['meeting_id'])) {
             $meetingId = (int)$_GET['meeting_id'];
             $stmt = $db->prepare("
-                SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title
+                SELECT ai.*
                 FROM agenda_items ai
-                LEFT JOIN board_members bm ON ai.presenter_id = bm.id
                 WHERE ai.meeting_id = ?
                 ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
             ");
             $stmt->execute([$meetingId]);
             $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            echo json_encode(attachResolutionsToAgendaItems($db, $meetingId, $items));
+            $items = attachResolutionsToAgendaItems($db, $meetingId, $items);
+            $items = attachPresentersToAgendaItems($db, $meetingId, $items);
+            $items = attachDeparturesToAgendaItems($db, $meetingId, $items);
+            echo json_encode($items);
         } else {
             http_response_code(400);
             echo json_encode(['error' => 'id or meeting_id is required']);
@@ -334,14 +333,13 @@ switch ($method) {
             // Use parent's position so children are grouped with parent
             $position = (int)$parent['position'];
 
-            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, presenter_id, report_type, duration_minutes, position, sub_position, parent_id, item_number, is_starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, report_type, duration_minutes, position, sub_position, parent_id, item_number, is_starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $meetingId,
                 $title,
                 $data['description'] ?? null,
                 $data['item_type'] ?? 'Discussion',
                 $data['decision_method'] ?? 'None',
-                !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
                 in_array($data['report_type'] ?? null, ['Written', 'Verbal'], true) ? $data['report_type'] : null,
                 !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
                 $position,
@@ -369,14 +367,13 @@ switch ($method) {
                 $itemNumber = sprintf('%s.%s.%02d', $year, $month, $sequence);
             }
 
-            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, presenter_id, report_type, duration_minutes, position, item_number, is_starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, report_type, duration_minutes, position, item_number, is_starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $meetingId,
                 $title,
                 $data['description'] ?? null,
                 $data['item_type'] ?? 'Discussion',
                 $data['decision_method'] ?? 'None',
-                !empty($data['presenter_id']) ? (int)$data['presenter_id'] : null,
                 in_array($data['report_type'] ?? null, ['Written', 'Verbal'], true) ? $data['report_type'] : null,
                 !empty($data['duration_minutes']) ? (int)$data['duration_minutes'] : null,
                 $position,
@@ -384,16 +381,18 @@ switch ($method) {
                 !empty($data['is_starred']) ? 1 : 0
             ]);
         }
-        
-        $itemId = $db->lastInsertId();
-        $stmt = $db->prepare("
-            SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title
-            FROM agenda_items ai
-            LEFT JOIN board_members bm ON ai.presenter_id = bm.id
-            WHERE ai.id = ?
-        ");
+
+        $itemId = (int)$db->lastInsertId();
+
+        if (isset($data['presenter_ids']) && is_array($data['presenter_ids'])) {
+            syncAgendaItemPresenters($db, $itemId, $data['presenter_ids']);
+        }
+
+        $stmt = $db->prepare("SELECT ai.* FROM agenda_items ai WHERE ai.id = ?");
         $stmt->execute([$itemId]);
-        echo json_encode($stmt->fetch());
+        $createdItem = $stmt->fetch(PDO::FETCH_ASSOC);
+        $createdItems = attachPresentersToAgendaItems($db, $meetingId, [$createdItem]);
+        echo json_encode($createdItems[0]);
         break;
         
     case 'PUT':
@@ -415,7 +414,7 @@ switch ($method) {
         $updates = [];
         $params = [];
 
-        $fields = ['title', 'description', 'item_type', 'decision_method', 'presenter_id', 'duration_minutes', 'position', 'outcome'];
+        $fields = ['title', 'description', 'item_type', 'decision_method', 'duration_minutes', 'position', 'outcome'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {
                 $updates[] = "$field = ?";
@@ -430,26 +429,29 @@ switch ($method) {
             $updates[] = "is_starred = ?";
             $params[] = !empty($data['is_starred']) ? 1 : 0;
         }
-        
-        if (empty($updates)) {
+
+        if (empty($updates) && !isset($data['presenter_ids'])) {
             http_response_code(400);
             echo json_encode(['error' => 'No fields to update']);
             exit;
         }
-        
-        $params[] = $id;
-        $sql = "UPDATE agenda_items SET " . implode(', ', $updates) . " WHERE id = ?";
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        
-        $stmt = $db->prepare("
-            SELECT ai.*, bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title
-            FROM agenda_items ai
-            LEFT JOIN board_members bm ON ai.presenter_id = bm.id
-            WHERE ai.id = ?
-        ");
+
+        if (!empty($updates)) {
+            $params[] = $id;
+            $sql = "UPDATE agenda_items SET " . implode(', ', $updates) . " WHERE id = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+        }
+
+        if (isset($data['presenter_ids']) && is_array($data['presenter_ids'])) {
+            syncAgendaItemPresenters($db, $id, $data['presenter_ids']);
+        }
+
+        $stmt = $db->prepare("SELECT ai.* FROM agenda_items ai WHERE ai.id = ?");
         $stmt->execute([$id]);
-        echo json_encode($stmt->fetch());
+        $updatedItem = $stmt->fetch(PDO::FETCH_ASSOC);
+        $updatedItems = attachPresentersToAgendaItems($db, (int)$updatedItem['meeting_id'], [$updatedItem]);
+        echo json_encode($updatedItems[0]);
         break;
         
     case 'DELETE':

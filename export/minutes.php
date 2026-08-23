@@ -43,22 +43,20 @@ if (!$minutes) {
     die('No minutes found for this meeting');
 }
 
-// Get agenda items with comments (resolutions attached separately to avoid row duplication)
+// Get agenda items with comments (resolutions/presenters/departures attached separately to avoid row duplication)
 $stmt = $db->prepare("
-    SELECT ai.*, 
-        bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title,
-        mtm.role as presenter_role,
+    SELECT ai.*,
         mac.comment as minutes_comment
     FROM agenda_items ai
-    LEFT JOIN board_members bm ON ai.presenter_id = bm.id
-    LEFT JOIN meetings m ON ai.meeting_id = m.id
-    LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     LEFT JOIN minutes_agenda_comments mac ON ai.id = mac.agenda_item_id AND mac.minutes_id = ?
     WHERE ai.meeting_id = ?
     ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
 ");
 $stmt->execute([$minutes['id'], $meetingId]);
-$agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $stmt->fetchAll(PDO::FETCH_ASSOC));
+$agendaItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $agendaItems);
+$agendaItems = attachPresentersToAgendaItems($db, $meetingId, $agendaItems);
+$agendaItems = attachDeparturesToAgendaItems($db, $meetingId, $agendaItems);
 
 // Get procedural proposals recorded for this meeting (points of order, adjournment, etc.)
 $stmt = $db->prepare("
@@ -595,14 +593,12 @@ function formatDateTime($dateString) {
             <?php $attribution = renderAttributionLine($item, 'past'); ?>
             <?php if ($attribution): ?>
             <p style="font-size: 14px; color: #666; margin: 8px 0;"><?php echo $attribution; ?></p>
-            <?php elseif ($item['presenter_first_name']): ?>
+            <?php elseif (!empty($item['presenters'])): ?>
             <p style="font-size: 14px; color: #666; margin: 8px 0;">
-                <strong>Presenter:</strong> <?php echo htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); ?>
-                <?php if ($item['presenter_role']): ?>
-                (<?php echo htmlspecialchars($item['presenter_role']); ?>)
-                <?php endif; ?>
+                <strong>Presenter:</strong> <?php echo htmlspecialchars(joinPresenterNames($item['presenters'])); ?>
             </p>
             <?php endif; ?>
+            <?php echo renderDeparturesNote($item['departures'] ?? []); ?>
             <?php if (!empty($item['minutes_comment'])): ?>
             <div class="agenda-comment">
                 <strong>Discussion/Comments:</strong>

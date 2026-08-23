@@ -25,20 +25,17 @@ if (!$meeting) {
     die('Meeting not found');
 }
 
-// Get agenda items (resolutions attached separately to avoid row duplication)
+// Get agenda items (resolutions/presenters attached separately to avoid row duplication)
 $stmt = $db->prepare("
-    SELECT ai.*, 
-        bm.first_name as presenter_first_name, bm.last_name as presenter_last_name, bm.title as presenter_title,
-        mtm.role as presenter_role
+    SELECT ai.*
     FROM agenda_items ai
-    LEFT JOIN board_members bm ON ai.presenter_id = bm.id
-    LEFT JOIN meetings m ON ai.meeting_id = m.id
-    LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     WHERE ai.meeting_id = ?
     ORDER BY ai.position ASC, CASE WHEN ai.parent_id IS NULL THEN 0 ELSE 1 END ASC, ai.sub_position ASC
 ");
 $stmt->execute([$meetingId]);
-$agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $stmt->fetchAll(PDO::FETCH_ASSOC));
+$agendaItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $agendaItems);
+$agendaItems = attachPresentersToAgendaItems($db, $meetingId, $agendaItems);
 
 // Get attendees with their role in the meeting's committee
 $stmt = $db->prepare("
@@ -157,12 +154,8 @@ $attendees = $stmt->fetchAll();
                     <?php $attribution = renderAttributionLine($item, 'future'); ?>
                     <?php if ($attribution): ?>
                     <p><?php echo $attribution; ?></p>
-                    <?php elseif ($item['presenter_first_name']): ?>
-                    <p><strong>Presenter:</strong> <?php echo htmlspecialchars($item['presenter_first_name'] . ' ' . $item['presenter_last_name']); ?>
-                        <?php if ($item['presenter_role']): ?>
-                        (<?php echo htmlspecialchars($item['presenter_role']); ?>)
-                        <?php endif; ?>
-                    </p>
+                    <?php elseif (!empty($item['presenters'])): ?>
+                    <p><strong>Presenter:</strong> <?php echo htmlspecialchars(joinPresenterNames($item['presenters'])); ?></p>
                     <?php endif; ?>
                     
                     <?php if ($item['duration_minutes']): ?>
