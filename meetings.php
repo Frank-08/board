@@ -592,6 +592,7 @@ outputHeader('Meetings', 'meetings.php');
         const authData = <?php echo getAuthJsVars(); ?>;
         
         let currentMeetingTypeId = null;
+        let currentMeetingTypeName = null;
         let currentMeetingId = null;
         let allMeetingTypes = [];
         let collapsedAgendaParentIds = new Set();
@@ -646,6 +647,9 @@ outputHeader('Meetings', 'meetings.php');
             }
             if (!currentMeetingTypeId) return;
 
+            const selectedType = allMeetingTypes.find(t => t.id == currentMeetingTypeId);
+            const selectedTypeName = selectedType ? selectedType.name : '';
+
             fetch(`api/meetings.php?meeting_type_id=${currentMeetingTypeId}`)
                 .then(response => response.json())
                 .then(data => {
@@ -660,7 +664,7 @@ outputHeader('Meetings', 'meetings.php');
                                 <h3>${meeting.title}</h3>
                                 <span class="badge badge-${meeting.status.toLowerCase().replace(' ', '-')}">${meeting.status}</span>
                             </div>
-                            <p class="meeting-type">${meeting.meeting_type} Meeting</p>
+                            <p class="meeting-type">${escapeHtml(selectedTypeName)} Meeting</p>
                             <p class="meeting-date">${formatDateTime(meeting.scheduled_date)}</p>
                             ${meeting.location ? `<p class="meeting-location">📍 ${meeting.location}</p>` : ''}
                         </div>
@@ -677,6 +681,9 @@ outputHeader('Meetings', 'meetings.php');
             fetch(`api/meetings.php?id=${id}`)
                 .then(response => response.json())
                 .then(meeting => {
+                    const meetingType = allMeetingTypes.find(t => t.id == meeting.meeting_type_id);
+                    currentMeetingTypeName = meetingType ? meetingType.name : 'Standing Committee';
+
                     const content = document.getElementById('meeting-detail-content');
                     content.innerHTML = `
                         <div class="meeting-detail-header">
@@ -690,7 +697,7 @@ outputHeader('Meetings', 'meetings.php');
                             </div>
                         </div>
                         <div class="meeting-info">
-                            <p><strong>Type:</strong> ${meeting.meeting_type}</p>
+                            <p><strong>Type:</strong> ${escapeHtml(currentMeetingTypeName)}</p>
                             <p><strong>Scheduled:</strong> ${formatDateTime(meeting.scheduled_date)}</p>
                             <p><strong>Status:</strong> <span class="badge badge-${meeting.status.toLowerCase().replace(' ', '-')}">${meeting.status}</span></p>
                             ${meeting.location ? `<p><strong>Location:</strong> ${meeting.location}</p>` : ''}
@@ -799,9 +806,10 @@ outputHeader('Meetings', 'meetings.php');
             if (!resolutions || resolutions.length === 0) {
                 return '';
             }
+            const bodyName = options.bodyName || currentMeetingTypeName || 'Standing Committee';
             const heading = mode === 'minutes'
-                ? 'The Standing Committee resolved:'
-                : 'It is proposed that the Standing Committee Resolve:';
+                ? `The ${bodyName} resolved:`
+                : `It is proposed that the ${bodyName} Resolve:`;
             const showEditButtons = options.showEditButtons !== false;
             const agendaItemId = options.agendaItemId || null;
             const canReorder = showEditButtons && agendaItemId && resolutions.length > 1;

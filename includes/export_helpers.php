@@ -160,16 +160,17 @@ function renderDeparturesNote(array $departures): string {
  *
  * @param array $resolutions Rows from attachResolutionsToAgendaItems()
  * @param string $mode 'agenda' or 'minutes'
+ * @param string $bodyName The meeting's own body/committee name (meeting_types.name), e.g. "Standing Committee" or "Presbytery in Council"
  * @return string HTML
  */
-function renderResolvedClauseList(array $resolutions, string $mode): string {
+function renderResolvedClauseList(array $resolutions, string $mode, string $bodyName = 'Standing Committee'): string {
     if (empty($resolutions)) {
         return '';
     }
 
     $heading = $mode === 'minutes'
-        ? 'The Standing Committee resolved:'
-        : 'It is proposed that the Standing Committee Resolve:';
+        ? "The {$bodyName} resolved:"
+        : "It is proposed that the {$bodyName} Resolve:";
 
     $html = '<div class="resolved-clause-list">';
     $html .= '<p class="resolved-clause-heading">' . htmlspecialchars($heading) . '</p>';
