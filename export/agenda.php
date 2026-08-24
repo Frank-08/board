@@ -149,7 +149,7 @@ $attendees = $stmt->fetchAll();
                     <p><strong>Description:</strong> <?php echo nl2br(htmlspecialchars($item['description'])); ?></p>
                     <?php endif; ?>
                     
-                    <?php echo renderResolvedClauseList($item['resolutions'] ?? [], 'agenda'); ?>
+                    <?php echo renderResolvedClauseList($item['resolutions'] ?? [], 'agenda', $meeting['meeting_type_name']); ?>
 
                     <?php $attribution = renderAttributionLine($item, 'future'); ?>
                     <?php if ($attribution): ?>

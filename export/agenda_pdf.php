@@ -168,7 +168,7 @@ if (count($agendaItems) > 0) {
         // Resolved clause list
         if (!empty($item['resolutions'])) {
             $html .= '<tr><td colspan="3" class="item-detail-row">';
-            $html .= renderResolvedClauseList($item['resolutions'], 'agenda');
+            $html .= renderResolvedClauseList($item['resolutions'], 'agenda', $meeting['meeting_type_name']);
             $html .= '</td></tr>';
         }
 

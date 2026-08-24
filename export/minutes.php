@@ -586,7 +586,7 @@ function formatDateTime($dateString) {
             <?php if (!empty($item['description'])): ?>
             <div class="item-description"><?php echo nl2br(htmlspecialchars($item['description'])); ?></div>
             <?php endif; ?>
-            <?php echo renderResolvedClauseList($item['resolutions'] ?? [], 'minutes'); ?>
+            <?php echo renderResolvedClauseList($item['resolutions'] ?? [], 'minutes', $meeting['meeting_type_name']); ?>
             <?php foreach ($duringProceduralProposalsByAgendaItem[(int)$item['id']] ?? [] as $pp): ?>
             <?php echo renderProceduralProposalCallout($pp, $proceduralProposalLabels); ?>
             <?php endforeach; ?>
