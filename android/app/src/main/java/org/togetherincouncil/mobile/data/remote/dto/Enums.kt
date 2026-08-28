@@ -5,7 +5,7 @@ import com.squareup.moshi.Json
 /**
  * These enums mirror the MySQL ENUM columns in database/schema.sql exactly
  * (see config/auth.php's PERMISSIONS / ROLE_HIERARCHY for the Role enum,
- * and the individual api/*.php files for the rest). Each has an UNKNOWN
+ * and the individual PHP files under api/ for the rest). Each has an UNKNOWN
  * fallback registered in RetrofitFactory's Moshi.Builder via
  * EnumJsonAdapter.withUnknownFallback(), so a server-side enum value this
  * app doesn't yet know about degrades to UNKNOWN instead of crashing the

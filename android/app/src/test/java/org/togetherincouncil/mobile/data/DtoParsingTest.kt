@@ -10,8 +10,8 @@ import org.junit.Test
 import org.togetherincouncil.mobile.data.remote.dto.*
 
 /**
- * Parses real captured JSON shapes (trimmed but field-accurate copies of what api/*.php
- * actually returns) to catch @Json(name=...) typos early, without needing a running backend.
+ * Parses real captured JSON shapes (trimmed but field-accurate copies of what the api/
+ * PHP endpoints actually return) to catch @Json(name=...) typos early, without needing a running backend.
  */
 class DtoParsingTest {
 

@@ -13,7 +13,7 @@ import androidx.browser.customtabs.CustomTabsIntent
  *  - SharePoint document links need the user's own Microsoft 365 session,
  *    which this app doesn't and shouldn't try to proxy.
  *  - export/agenda_pdf.php / notice_pdf.php return real application/pdf
- *    bytes with no auth required (export/*.php doesn't call requireAuth())
+ *    bytes with no auth required (nothing under export/ calls requireAuth())
  *    — a plain ACTION_VIEW hands it to whatever PDF viewer is installed.
  *  - export/agenda.php / notice.php / minutes.php are print-styled HTML
  *    relying on the browser's own window.print() — Custom Tabs gives a
