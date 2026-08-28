@@ -21,6 +21,19 @@ whoever built this) for the full design rationale. The short version:
   back to asking the user to manually pick their role.
 - **No offline write queue.** This is an online, in-meeting field tool,
   not an offline-first app — see the design doc for why.
+- **Cloudflare**: the production deployment sits behind Cloudflare, which
+  blocks non-browser HTTP clients by default (confirmed by hand — a plain
+  request to `api/whoami.php` returns Cloudflare's "Sorry, you have been
+  blocked" page instead of reaching PHP at all). Every request the app
+  makes carries `X-Minutes-Script: board-minutes-sync/1.0` (set in
+  `AuthInterceptor`) alongside `X-API-Key`, matching a header value
+  already allowlisted in Cloudflare's WAF/Bot Fight Mode config. It's not
+  a secret — `X-API-Key` remains the real auth boundary — it just marks
+  the traffic as a known scripted client so Cloudflare doesn't challenge
+  it. If you stand up a *different* deployment behind its own Cloudflare
+  (or any other bot-management layer), you'll likely need an equivalent
+  allowlist rule there too, or requests will fail with a generic
+  "Unexpected server error" in the app before ever reaching your PHP code.
 
 ## Prerequisites to build
 
