@@ -7,6 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.togetherincouncil.mobile.data.remote.LenientBooleanAdapter
 import org.togetherincouncil.mobile.data.remote.dto.*
 
 /**
@@ -16,6 +17,8 @@ import org.togetherincouncil.mobile.data.remote.dto.*
 class DtoParsingTest {
 
     private val moshi: Moshi = Moshi.Builder()
+        .add(Boolean::class.javaPrimitiveType!!, LenientBooleanAdapter)
+        .add(Boolean::class.javaObjectType, LenientBooleanAdapter)
         .add(Role::class.java, EnumJsonAdapter.create(Role::class.java).withUnknownFallback(Role.UNKNOWN))
         .add(MeetingStatus::class.java, EnumJsonAdapter.create(MeetingStatus::class.java).withUnknownFallback(MeetingStatus.UNKNOWN))
         .add(AttendanceStatus::class.java, EnumJsonAdapter.create(AttendanceStatus::class.java).withUnknownFallback(AttendanceStatus.UNKNOWN))
@@ -81,6 +84,25 @@ class DtoParsingTest {
         val dto = moshi.adapter(ResolutionDto::class.java).fromJson(json)!!
         assertEquals(ResolutionStatus.AGREEMENT, dto.status)
         assertEquals("Reminder: proxy and absentee voting are not permitted.", dto.warning)
+    }
+
+    @Test
+    fun `boolean DB columns parse from a JSON number, not just true false`() {
+        // Real regression: PHP's PDO/json_encode() serializes MySQL BOOLEAN (TINYINT(1))
+        // columns as a JSON number, not a boolean literal — this crashed the app on-device
+        // with "Expected a boolean but was NUMBER at path $.quorum_met" before
+        // LenientBooleanAdapter was registered.
+        val json = """
+            {
+              "id": 5, "meeting_type_id": 1, "title": "August Meeting",
+              "scheduled_date": "2026-08-28 18:00:00", "end_time": null,
+              "location": "Hall", "virtual_link": null,
+              "quorum_required": 4, "quorum_met": 1, "status": "Scheduled", "notes": null,
+              "attendees": [], "agenda_items": []
+            }
+        """.trimIndent()
+        val dto = moshi.adapter(MeetingDetailDto::class.java).fromJson(json)!!
+        assertTrue(dto.quorumMet)
     }
 
     @Test

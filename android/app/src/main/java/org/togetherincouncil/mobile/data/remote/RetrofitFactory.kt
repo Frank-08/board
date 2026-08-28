@@ -22,6 +22,10 @@ import java.util.concurrent.TimeUnit
 object RetrofitFactory {
 
     fun buildMoshi(): Moshi = Moshi.Builder()
+        // Covers both non-null Boolean (maps to boolean.class) and nullable Boolean? (maps to
+        // java.lang.Boolean.class) DTO fields — see LenientBooleanAdapter for why this is needed.
+        .add(Boolean::class.javaPrimitiveType!!, LenientBooleanAdapter)
+        .add(Boolean::class.javaObjectType, LenientBooleanAdapter)
         .add(Role::class.java, EnumJsonAdapter.create(Role::class.java).withUnknownFallback(Role.UNKNOWN))
         .add(MeetingStatus::class.java, EnumJsonAdapter.create(MeetingStatus::class.java).withUnknownFallback(MeetingStatus.UNKNOWN))
         .add(AttendanceStatus::class.java, EnumJsonAdapter.create(AttendanceStatus::class.java).withUnknownFallback(AttendanceStatus.UNKNOWN))
