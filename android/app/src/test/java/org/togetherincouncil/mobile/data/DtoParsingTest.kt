@@ -19,16 +19,17 @@ class DtoParsingTest {
     private val moshi: Moshi = Moshi.Builder()
         .add(Boolean::class.javaPrimitiveType!!, LenientBooleanAdapter)
         .add(Boolean::class.javaObjectType, LenientBooleanAdapter)
-        .add(Role::class.java, EnumJsonAdapter.create(Role::class.java).withUnknownFallback(Role.UNKNOWN))
-        .add(MeetingStatus::class.java, EnumJsonAdapter.create(MeetingStatus::class.java).withUnknownFallback(MeetingStatus.UNKNOWN))
-        .add(AttendanceStatus::class.java, EnumJsonAdapter.create(AttendanceStatus::class.java).withUnknownFallback(AttendanceStatus.UNKNOWN))
-        .add(AgendaItemType::class.java, EnumJsonAdapter.create(AgendaItemType::class.java).withUnknownFallback(AgendaItemType.UNKNOWN))
-        .add(DecisionMethod::class.java, EnumJsonAdapter.create(DecisionMethod::class.java).withUnknownFallback(DecisionMethod.UNKNOWN))
-        .add(MinutesStatus::class.java, EnumJsonAdapter.create(MinutesStatus::class.java).withUnknownFallback(MinutesStatus.UNKNOWN))
-        .add(ResolutionStatus::class.java, EnumJsonAdapter.create(ResolutionStatus::class.java).withUnknownFallback(ResolutionStatus.UNKNOWN))
-        .add(ProposalType::class.java, EnumJsonAdapter.create(ProposalType::class.java).withUnknownFallback(ProposalType.UNKNOWN))
-        .add(ProposalOutcome::class.java, EnumJsonAdapter.create(ProposalOutcome::class.java).withUnknownFallback(ProposalOutcome.UNKNOWN))
-        .add(AgendaPosition::class.java, EnumJsonAdapter.create(AgendaPosition::class.java).withUnknownFallback(AgendaPosition.UNKNOWN))
+        .add(Role::class.java, EnumJsonAdapter.create(Role::class.java).withUnknownFallback(Role.UNKNOWN).nullSafe())
+        .add(MeetingStatus::class.java, EnumJsonAdapter.create(MeetingStatus::class.java).withUnknownFallback(MeetingStatus.UNKNOWN).nullSafe())
+        .add(AttendanceStatus::class.java, EnumJsonAdapter.create(AttendanceStatus::class.java).withUnknownFallback(AttendanceStatus.UNKNOWN).nullSafe())
+        .add(AgendaItemType::class.java, EnumJsonAdapter.create(AgendaItemType::class.java).withUnknownFallback(AgendaItemType.UNKNOWN).nullSafe())
+        .add(DecisionMethod::class.java, EnumJsonAdapter.create(DecisionMethod::class.java).withUnknownFallback(DecisionMethod.UNKNOWN).nullSafe())
+        .add(ReportType::class.java, EnumJsonAdapter.create(ReportType::class.java).withUnknownFallback(ReportType.UNKNOWN).nullSafe())
+        .add(MinutesStatus::class.java, EnumJsonAdapter.create(MinutesStatus::class.java).withUnknownFallback(MinutesStatus.UNKNOWN).nullSafe())
+        .add(ResolutionStatus::class.java, EnumJsonAdapter.create(ResolutionStatus::class.java).withUnknownFallback(ResolutionStatus.UNKNOWN).nullSafe())
+        .add(ProposalType::class.java, EnumJsonAdapter.create(ProposalType::class.java).withUnknownFallback(ProposalType.UNKNOWN).nullSafe())
+        .add(ProposalOutcome::class.java, EnumJsonAdapter.create(ProposalOutcome::class.java).withUnknownFallback(ProposalOutcome.UNKNOWN).nullSafe())
+        .add(AgendaPosition::class.java, EnumJsonAdapter.create(AgendaPosition::class.java).withUnknownFallback(AgendaPosition.UNKNOWN).nullSafe())
         .add(KotlinJsonAdapterFactory())
         .build()
 
@@ -103,6 +104,22 @@ class DtoParsingTest {
         """.trimIndent()
         val dto = moshi.adapter(MeetingDetailDto::class.java).fromJson(json)!!
         assertTrue(dto.quorumMet)
+    }
+
+    @Test
+    fun `nullable enum field parses a JSON null instead of throwing`() {
+        // Real regression: agenda_items[].report_type is nullable, and the server sends a
+        // literal JSON null for items with no report type — this crashed the app on-device
+        // with "Expected a string but was NULL at path $.agenda_items[0].report_type" before
+        // .nullSafe() was added to the enum adapter registrations.
+        val json = """
+            {"id":10,"meeting_id":5,"title":"Opening","description":null,"item_type":"Discussion",
+             "decision_method":"None","report_type":null,"duration_minutes":5,"position":0,
+             "sub_position":0,"item_number":"26.8.1","parent_id":null,"is_starred":false,"outcome":null,
+             "resolutions":[],"presenters":[],"departures":[]}
+        """.trimIndent()
+        val dto = moshi.adapter(AgendaItemDto::class.java).fromJson(json)!!
+        assertNull(dto.reportType)
     }
 
     @Test
