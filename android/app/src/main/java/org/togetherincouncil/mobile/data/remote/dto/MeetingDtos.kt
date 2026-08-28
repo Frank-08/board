@@ -59,13 +59,18 @@ data class AttendeeDto(
     val fullName: String get() = listOfNotNull(firstName, lastName).joinToString(" ")
 }
 
+/**
+ * Matches includes/agenda_helpers.php's attachPresentersToAgendaItems() exactly — it returns
+ * {id, first_name, last_name, title} per presenter (id is the board member's id, not a join-row
+ * id; no agenda_item_id or position on the individual object, those are only used server-side to
+ * group/order before attaching).
+ */
 @JsonClass(generateAdapter = true)
 data class PresenterDto(
-    @Json(name = "agenda_item_id") val agendaItemId: Int? = null,
-    @Json(name = "member_id") val memberId: Int,
-    @Json(name = "position") val position: Int? = null,
+    @Json(name = "id") val memberId: Int,
     @Json(name = "first_name") val firstName: String? = null,
-    @Json(name = "last_name") val lastName: String? = null
+    @Json(name = "last_name") val lastName: String? = null,
+    @Json(name = "title") val title: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -123,9 +128,14 @@ data class MinutesDto(
 )
 
 @JsonClass(generateAdapter = true)
+/**
+ * meetingId is nullable: includes/agenda_helpers.php's attachResolutionsToAgendaItems() (used by
+ * GET agenda.php) selects specific columns and doesn't include r.meeting_id, unlike GET
+ * resolutions.php's own SELECT r.* which does — the same DTO covers both response shapes.
+ */
 data class ResolutionDto(
     @Json(name = "id") val id: Int,
-    @Json(name = "meeting_id") val meetingId: Int,
+    @Json(name = "meeting_id") val meetingId: Int? = null,
     @Json(name = "agenda_item_id") val agendaItemId: Int?,
     @Json(name = "resolution_number") val resolutionNumber: String?,
     @Json(name = "title") val title: String?,
