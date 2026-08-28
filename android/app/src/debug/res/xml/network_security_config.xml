@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-build-only override: allows cleartext HTTP to the Android emulator's
+  host-loopback alias, for pointing a debug build at a local PHP dev server
+  started per CLAUDE.md's "Running locally" instructions. This file is not
+  packaged into release builds (Gradle source-set overlay), so it never
+  ships. If testing against a physical device on the same LAN instead of an
+  emulator, add that device's LAN IP here temporarily too.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
