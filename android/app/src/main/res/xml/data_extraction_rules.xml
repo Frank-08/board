@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  allowBackup is already false at the manifest level (belt-and-braces here):
+  the encrypted API key must never leave the device via cloud backup or
+  device-to-device transfer.
+-->
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapability="true">
+        <exclude domain="sharedpref" path="tic_secure_prefs.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="tic_secure_prefs.xml" />
+    </device-transfer>
+</data-extraction-rules>

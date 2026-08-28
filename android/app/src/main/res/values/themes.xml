@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Compose owns all real theming (ui/theme/Theme.kt) via Material3 —
+      this XML theme only needs to exist to satisfy the manifest's
+      android:theme reference and set a sane window background before
+      Compose takes over, and the launch/splash background.
+    -->
+    <style name="Theme.TogetherInCouncil" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:statusBarColor">@android:color/white</item>
+    </style>
+</resources>

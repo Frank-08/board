@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Production traffic is HTTPS-only (base-config below has no cleartext
+  exception). If you need to point a debug build at an HTTP-only local dev
+  server, add a debug-only override at
+  src/debug/res/xml/network_security_config.xml with a <domain-config>
+  cleartext exception scoped to that one dev host/IP — never add a
+  cleartext exception here in the shared/release config.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
