@@ -1,13 +1,13 @@
 package org.togetherincouncil.mobile.data
 
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.adapters.EnumJsonAdapter
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.togetherincouncil.mobile.data.remote.LenientBooleanAdapter
+import org.togetherincouncil.mobile.data.remote.LenientEnumAdapterFactory
 import org.togetherincouncil.mobile.data.remote.dto.*
 
 /**
@@ -19,17 +19,7 @@ class DtoParsingTest {
     private val moshi: Moshi = Moshi.Builder()
         .add(Boolean::class.javaPrimitiveType!!, LenientBooleanAdapter)
         .add(Boolean::class.javaObjectType, LenientBooleanAdapter)
-        .add(Role::class.java, EnumJsonAdapter.create(Role::class.java).withUnknownFallback(Role.UNKNOWN).nullSafe())
-        .add(MeetingStatus::class.java, EnumJsonAdapter.create(MeetingStatus::class.java).withUnknownFallback(MeetingStatus.UNKNOWN).nullSafe())
-        .add(AttendanceStatus::class.java, EnumJsonAdapter.create(AttendanceStatus::class.java).withUnknownFallback(AttendanceStatus.UNKNOWN).nullSafe())
-        .add(AgendaItemType::class.java, EnumJsonAdapter.create(AgendaItemType::class.java).withUnknownFallback(AgendaItemType.UNKNOWN).nullSafe())
-        .add(DecisionMethod::class.java, EnumJsonAdapter.create(DecisionMethod::class.java).withUnknownFallback(DecisionMethod.UNKNOWN).nullSafe())
-        .add(ReportType::class.java, EnumJsonAdapter.create(ReportType::class.java).withUnknownFallback(ReportType.UNKNOWN).nullSafe())
-        .add(MinutesStatus::class.java, EnumJsonAdapter.create(MinutesStatus::class.java).withUnknownFallback(MinutesStatus.UNKNOWN).nullSafe())
-        .add(ResolutionStatus::class.java, EnumJsonAdapter.create(ResolutionStatus::class.java).withUnknownFallback(ResolutionStatus.UNKNOWN).nullSafe())
-        .add(ProposalType::class.java, EnumJsonAdapter.create(ProposalType::class.java).withUnknownFallback(ProposalType.UNKNOWN).nullSafe())
-        .add(ProposalOutcome::class.java, EnumJsonAdapter.create(ProposalOutcome::class.java).withUnknownFallback(ProposalOutcome.UNKNOWN).nullSafe())
-        .add(AgendaPosition::class.java, EnumJsonAdapter.create(AgendaPosition::class.java).withUnknownFallback(AgendaPosition.UNKNOWN).nullSafe())
+        .add(LenientEnumAdapterFactory)
         .add(KotlinJsonAdapterFactory())
         .build()
 
