@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package org.togetherincouncil.mobile.ui.dashboard
 
 import androidx.compose.foundation.clickable
