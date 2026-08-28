@@ -7,6 +7,14 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Pin the toolchain Gradle actually compiles with to JDK 17, independent of whatever JVM
+// happens to launch the Gradle daemon (JAVA_HOME, a newer system-default JDK, etc). Without
+// this, Gradle falls back to the daemon's own JVM for javac/kotlinc, which breaks on machines
+// where a different/newer/incomplete JDK (e.g. a JRE-only install) is what's on PATH.
+kotlin {
+    jvmToolchain(17)
+}
+
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties()
 val hasReleaseSigning = keystorePropertiesFile.exists()
