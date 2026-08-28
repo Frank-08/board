@@ -13,7 +13,7 @@ import org.togetherincouncil.mobile.data.auth.ApiKeyStore
  * confirmed by hand: a plain request to api/whoami.php returns Cloudflare's own
  * "Sorry, you have been blocked" page, while the same request carrying this header
  * reaches the PHP backend correctly. This header value is already allowlisted in
- * Cloudflare's WAF/Bot Fight Mode config for scripted access to api/*.php; it isn't
+ * Cloudflare's WAF/Bot Fight Mode config for scripted access to the api/ PHP endpoints; it isn't
  * a secret (X-API-Key remains the actual auth boundary) — it just identifies this
  * traffic as a known non-browser client so Cloudflare doesn't challenge/block it. */
 class AuthInterceptor(private val apiKeyStore: ApiKeyStore) : Interceptor {
