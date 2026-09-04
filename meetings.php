@@ -107,11 +107,22 @@ outputHeader('Meetings', 'meetings.php');
             <h2 id="modalAttendeeTitle">Add Attendee</h2>
             <form id="attendeeForm" onsubmit="saveAttendee(event)">
                 <input type="hidden" id="attendeeId">
-                <div class="form-group">
+                <div class="form-group" id="attendeeTypeGroup" style="display:none;">
+                    <label for="attendeeType">Attendee Type</label>
+                    <select id="attendeeType" onchange="toggleAttendeeTypeFields()">
+                        <option value="member">Formal member</option>
+                        <option value="general">General attendee</option>
+                    </select>
+                </div>
+                <div class="form-group" id="attendeeMemberGroup">
                     <label for="attendeeMember">Member *</label>
                     <select id="attendeeMember" required>
                         <option value="">Select member...</option>
                     </select>
+                </div>
+                <div class="form-group" id="attendeeGeneralNameGroup" style="display:none;">
+                    <label for="attendeeGeneralName">Name *</label>
+                    <input type="text" id="attendeeGeneralName" maxlength="200">
                 </div>
                 <div class="form-group">
                     <label for="attendeeStatus">Attendance Status *</label>
@@ -132,6 +143,31 @@ outputHeader('Meetings', 'meetings.php');
                     <textarea id="attendeeNotes" rows="3"></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary">Save Attendee</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk General Attendee Import Modal -->
+    <div id="bulkAttendeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeBulkAttendeeModal()">&times;</span>
+            <h2>Bulk Import Attendees</h2>
+            <form id="bulkAttendeeForm" onsubmit="submitBulkAttendees(event)">
+                <div class="form-group">
+                    <label for="bulkAttendeeNames">Names (one per line) *</label>
+                    <textarea id="bulkAttendeeNames" rows="10" required placeholder="Jane Smith&#10;Bob Jones&#10;..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="bulkAttendeeStatus">Attendance Status</label>
+                    <select id="bulkAttendeeStatus">
+                        <option value="Present">Present</option>
+                        <option value="Absent">Absent</option>
+                        <option value="Apology">Apology</option>
+                        <option value="Excused">Excused</option>
+                        <option value="Late">Late</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Import Attendees</button>
             </form>
         </div>
     </div>
@@ -593,11 +629,14 @@ outputHeader('Meetings', 'meetings.php');
         
         let currentMeetingTypeId = null;
         let currentMeetingTypeName = null;
+        let currentMeetingTypeGeneralAttendance = false;
         let currentMeetingId = null;
         let allMeetingTypes = [];
         let collapsedAgendaParentIds = new Set();
         let resolutionDecisionMethodTouched = false;
         let currentResolutionAgendaItems = [];
+        let currentResolutionAttendees = [];
+        let currentProceduralProposalAttendees = [];
 
         window.addEventListener('DOMContentLoaded', function() {
             loadMeetingTypes();
@@ -683,6 +722,7 @@ outputHeader('Meetings', 'meetings.php');
                 .then(meeting => {
                     const meetingType = allMeetingTypes.find(t => t.id == meeting.meeting_type_id);
                     currentMeetingTypeName = meetingType ? meetingType.name : 'Standing Committee';
+                    currentMeetingTypeGeneralAttendance = meetingType ? !!meetingType.general_attendance_enabled : false;
 
                     const content = document.getElementById('meeting-detail-content');
                     content.innerHTML = `
@@ -724,7 +764,14 @@ outputHeader('Meetings', 'meetings.php');
                         </div>
                         <div id="tab-attendees" class="tab-content">
                             <h3>Attendees</h3>
-                            <button onclick="addAttendee()" class="btn btn-sm btn-primary">+ Add Attendee</button>
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                                <button onclick="addAttendee()" class="btn btn-sm btn-primary">+ Add Attendee</button>
+                                ${currentMeetingTypeGeneralAttendance ? `
+                                    <input type="text" id="quickAddAttendeeName" placeholder="General attendee name" style="padding:5px 8px;" onkeydown="if(event.key==='Enter'){event.preventDefault(); quickAddGeneralAttendee();}">
+                                    <button onclick="quickAddGeneralAttendee()" class="btn btn-sm btn-secondary">+ Quick Add</button>
+                                    <button onclick="showBulkAttendeeModal()" class="btn btn-sm btn-secondary">Bulk Import</button>
+                                ` : ''}
+                            </div>
                             <div id="attendees-list"></div>
                         </div>
                         <div id="tab-minutes" class="tab-content">
@@ -1065,7 +1112,8 @@ outputHeader('Meetings', 'meetings.php');
                     list.innerHTML = attendees.map(att => `
                         <div class="attendee-item">
                             <div>
-                                <strong>${att.first_name} ${att.last_name}</strong>
+                                <strong>${escapeHtml(att.display_name || '')}</strong>
+                                ${att.is_general ? `<span class="badge" style="margin-left: 8px; background:#eee; color:#555;">General</span>` : ''}
                                 ${att.role ? `(${att.role})` : ''}
                                 ${att.title ? `<br><span style="font-size: 12px; color: #666;">${att.title}</span>` : ''}
                                 ${att.attendance_status ? `<span class="badge badge-${att.attendance_status.toLowerCase()}" style="margin-left: 8px;">${att.attendance_status}</span>` : ''}
@@ -2024,11 +2072,19 @@ outputHeader('Meetings', 'meetings.php');
                 });
         }
 
+        function toggleAttendeeTypeFields() {
+            const isGeneral = document.getElementById('attendeeType').value === 'general';
+            document.getElementById('attendeeMemberGroup').style.display = isGeneral ? 'none' : '';
+            document.getElementById('attendeeGeneralNameGroup').style.display = isGeneral ? '' : 'none';
+            document.getElementById('attendeeMember').required = !isGeneral;
+            document.getElementById('attendeeGeneralName').required = isGeneral;
+        }
+
         function showAttendeeModal(attendee = null) {
             loadBoardMembers().then(members => {
                 const modal = document.getElementById('attendeeModal');
                 const form = document.getElementById('attendeeForm');
-                
+
                 if (attendee) {
                     document.getElementById('attendeeId').value = attendee.id;
                     document.getElementById('attendeeMember').value = attendee.member_id;
@@ -2041,7 +2097,7 @@ outputHeader('Meetings', 'meetings.php');
                     document.getElementById('attendeeId').value = '';
                     document.getElementById('modalAttendeeTitle').textContent = 'Add Attendee';
                 }
-                
+
                 // Populate member dropdown
                 const memberSelect = document.getElementById('attendeeMember');
                 memberSelect.innerHTML = '<option value="">Select member...</option>';
@@ -2051,11 +2107,18 @@ outputHeader('Meetings', 'meetings.php');
                     option.textContent = `${member.first_name} ${member.last_name} (${member.role})`;
                     memberSelect.appendChild(option);
                 });
-                
+
                 if (attendee && attendee.member_id) {
                     memberSelect.value = attendee.member_id;
                 }
-                
+
+                const typeGroup = document.getElementById('attendeeTypeGroup');
+                typeGroup.style.display = currentMeetingTypeGeneralAttendance ? '' : 'none';
+                const isGeneral = !!(attendee && attendee.is_general);
+                document.getElementById('attendeeType').value = isGeneral ? 'general' : 'member';
+                document.getElementById('attendeeGeneralName').value = isGeneral ? (attendee.attendee_name || '') : '';
+                toggleAttendeeTypeFields();
+
                 modal.style.display = 'block';
             });
         }
@@ -2069,14 +2132,19 @@ outputHeader('Meetings', 'meetings.php');
             event.preventDefault();
             const attendeeId = document.getElementById('attendeeId').value;
             const arrivalTime = document.getElementById('attendeeArrivalTime').value;
-            
+            const isGeneral = currentMeetingTypeGeneralAttendance && document.getElementById('attendeeType').value === 'general';
+
             const data = {
                 meeting_id: currentMeetingId,
-                member_id: document.getElementById('attendeeMember').value,
                 attendance_status: document.getElementById('attendeeStatus').value,
                 arrival_time: arrivalTime ? arrivalTime.replace('T', ' ') + ':00' : null,
                 notes: document.getElementById('attendeeNotes').value || null
             };
+            if (isGeneral) {
+                data.attendee_name = document.getElementById('attendeeGeneralName').value;
+            } else {
+                data.member_id = document.getElementById('attendeeMember').value;
+            }
 
             const method = attendeeId ? 'PUT' : 'POST';
             if (attendeeId) {
@@ -2126,6 +2194,56 @@ outputHeader('Meetings', 'meetings.php');
                 console.error('Error deleting attendee:', error);
                 alert('Error deleting attendee: ' + error.message);
             });
+        }
+
+        function quickAddGeneralAttendee() {
+            const nameInput = document.getElementById('quickAddAttendeeName');
+            const name = nameInput.value.trim();
+            if (!name || !currentMeetingId) return;
+
+            fetch('api/attendees.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ meeting_id: currentMeetingId, attendee_name: name, attendance_status: 'Present' })
+            })
+            .then(response => response.ok ? response.json() : response.json().then(data => { throw new Error(data.error || 'Add failed'); }))
+            .then(() => {
+                nameInput.value = '';
+                loadMeetingAttendees(currentMeetingId);
+            })
+            .catch(error => alert('Error adding attendee: ' + error.message));
+        }
+
+        function showBulkAttendeeModal() {
+            document.getElementById('bulkAttendeeModal').style.display = 'block';
+        }
+
+        function closeBulkAttendeeModal() {
+            document.getElementById('bulkAttendeeModal').style.display = 'none';
+            document.getElementById('bulkAttendeeForm').reset();
+        }
+
+        function submitBulkAttendees(event) {
+            event.preventDefault();
+            const names = document.getElementById('bulkAttendeeNames').value.split('\n').map(s => s.trim()).filter(Boolean);
+            const status = document.getElementById('bulkAttendeeStatus').value;
+            if (!names.length || !currentMeetingId) return;
+
+            fetch('api/attendees.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'bulk_add', meeting_id: currentMeetingId, names: names, default_attendance_status: status })
+            })
+            .then(response => response.ok ? response.json() : response.json().then(data => { throw new Error(data.error || 'Import failed'); }))
+            .then(result => {
+                closeBulkAttendeeModal();
+                loadMeetingAttendees(currentMeetingId);
+                let msg = `Added ${result.created.length} attendee(s).`;
+                if (result.skipped_duplicates.length) msg += ` Skipped ${result.skipped_duplicates.length} duplicate(s): ${result.skipped_duplicates.join(', ')}.`;
+                if (result.skipped_invalid.length) msg += ` Skipped ${result.skipped_invalid.length} invalid entr${result.skipped_invalid.length === 1 ? 'y' : 'ies'}.`;
+                alert(msg);
+            })
+            .catch(error => alert('Error importing attendees: ' + error.message));
         }
 
         // Resolution Management
@@ -2184,23 +2302,49 @@ outputHeader('Meetings', 'meetings.php');
                     });
             }
 
-            // Populate mover/seconder dropdowns
-            loadBoardMembers().then(members => {
-                ['resolutionMovedBy', 'resolutionSecondedBy'].forEach(id => {
-                    const select = document.getElementById(id);
-                    select.innerHTML = '<option value="">Select member...</option>';
-                    members.forEach(member => {
-                        const option = document.createElement('option');
-                        option.value = member.id;
-                        option.textContent = `${member.first_name} ${member.last_name}`;
-                        select.appendChild(option);
+            // Populate mover/seconder dropdowns from the meeting's actual attendee
+            // list (formal members and, where enabled, general attendees) rather
+            // than the meeting-type roster, so a present general attendee can be
+            // recorded as mover/seconder too.
+            currentResolutionAttendees = [];
+            if (currentMeetingId) {
+                fetch(`api/attendees.php?meeting_id=${currentMeetingId}`)
+                    .then(r => r.json())
+                    .then(attendees => {
+                        currentResolutionAttendees = attendees;
+                        ['resolutionMovedBy', 'resolutionSecondedBy'].forEach(id => {
+                            const select = document.getElementById(id);
+                            select.innerHTML = '<option value="">Select...</option>';
+                            attendees.forEach(a => {
+                                const option = document.createElement('option');
+                                option.value = a.is_general ? `a:${a.id}` : `m:${a.member_id}`;
+                                option.textContent = a.display_name + (a.is_general ? ' (General)' : '');
+                                select.appendChild(option);
+                            });
+                            if (resolution) {
+                                const idField = id === 'resolutionMovedBy' ? 'motion_moved_by' : 'motion_seconded_by';
+                                const nameField = id === 'resolutionMovedBy' ? 'motion_moved_by_name' : 'motion_seconded_by_name';
+                                if (resolution[idField]) {
+                                    select.value = `m:${resolution[idField]}`;
+                                } else if (resolution[nameField]) {
+                                    const match = attendees.find(a => a.is_general && a.display_name === resolution[nameField]);
+                                    if (match) {
+                                        select.value = `a:${match.id}`;
+                                    } else {
+                                        // The attendee who moved/seconded is no longer on the
+                                        // meeting's attendee list (edited/removed since) - keep
+                                        // showing the historical name rather than blanking it.
+                                        const opt = document.createElement('option');
+                                        opt.value = `name:${resolution[nameField]}`;
+                                        opt.textContent = resolution[nameField] + ' (no longer an attendee)';
+                                        select.appendChild(opt);
+                                        select.value = `name:${resolution[nameField]}`;
+                                    }
+                                }
+                            }
+                        });
                     });
-                    if (resolution) {
-                        const field = id === 'resolutionMovedBy' ? 'motion_moved_by' : 'motion_seconded_by';
-                        select.value = resolution[field] || '';
-                    }
-                });
-            });
+            }
 
             if (resolution) {
                 document.getElementById('resolutionId').value = resolution.id;
@@ -2262,10 +2406,26 @@ outputHeader('Meetings', 'meetings.php');
             document.getElementById('resolutionForm').reset();
         }
 
+        // Parses a mover/seconder <select> value produced by the attendee-scoped
+        // dropdown: "m:<member_id>" (formal member), "a:<attendee_id>" (general
+        // attendee - resolved to their name), or "name:<name>" (a historical
+        // name kept for an attendee no longer on the list). Returns {id, name}
+        // where exactly one is non-null, or both null if nothing selected.
+        function splitMoverSeconder(val) {
+            if (!val) return { id: null, name: null };
+            if (val.startsWith('m:')) return { id: parseInt(val.slice(2), 10), name: null };
+            if (val.startsWith('name:')) return { id: null, name: val.slice(5) };
+            const attendeeId = val.slice(2);
+            const att = currentResolutionAttendees.find(a => a.is_general && String(a.id) === attendeeId);
+            return { id: null, name: att ? att.display_name : null };
+        }
+
         function saveResolution(event) {
             event.preventDefault();
             const resolutionId = document.getElementById('resolutionId').value;
             const parentAgendaItemId = document.getElementById('resolutionParentAgendaItem').value;
+            const mover = splitMoverSeconder(document.getElementById('resolutionMovedBy').value);
+            const seconder = splitMoverSeconder(document.getElementById('resolutionSecondedBy').value);
             const data = {
                 meeting_id: currentMeetingId,
                 title: document.getElementById('resolutionTitle').value || null,
@@ -2275,8 +2435,10 @@ outputHeader('Meetings', 'meetings.php');
                 vote_type: document.getElementById('resolutionVoteType').value || null,
                 status: document.getElementById('resolutionStatus').value,
                 effective_date: document.getElementById('resolutionEffectiveDate').value || null,
-                motion_moved_by: document.getElementById('resolutionMovedBy').value || null,
-                motion_seconded_by: document.getElementById('resolutionSecondedBy').value || null,
+                motion_moved_by: mover.id,
+                motion_moved_by_name: mover.name,
+                motion_seconded_by: seconder.id,
+                motion_seconded_by_name: seconder.name,
                 votes_for: document.getElementById('resolutionVotesFor').value || null,
                 votes_against: document.getElementById('resolutionVotesAgainst').value || null,
                 votes_abstain: document.getElementById('resolutionVotesAbstain').value || null,
@@ -2456,26 +2618,44 @@ outputHeader('Meetings', 'meetings.php');
                     .catch(err => console.error('Error loading resolutions:', err));
 
                 // Populate proposed-by / seconded-by dropdowns from this meeting's attendees
+                // (formal members and, where enabled, general attendees).
                 const proposedBySelect = document.getElementById('proceduralProposalProposedBy');
                 const secondedBySelect = document.getElementById('proceduralProposalSecondedBy');
-                proposedBySelect.innerHTML = '<option value="">Select member...</option>';
-                secondedBySelect.innerHTML = '<option value="">Select member...</option>';
+                proposedBySelect.innerHTML = '<option value="">Select...</option>';
+                secondedBySelect.innerHTML = '<option value="">Select...</option>';
                 fetch(`api/attendees.php?meeting_id=${currentMeetingId}`)
                     .then(r => r.json())
                     .then(attendees => {
+                        currentProceduralProposalAttendees = attendees;
                         attendees.forEach(a => {
-                            const label = `${a.first_name} ${a.last_name}`;
+                            const label = a.display_name + (a.is_general ? ' (General)' : '');
+                            const value = a.is_general ? `a:${a.id}` : `m:${a.member_id}`;
                             const opt1 = document.createElement('option');
-                            opt1.value = a.member_id;
+                            opt1.value = value;
                             opt1.textContent = label;
                             proposedBySelect.appendChild(opt1);
                             const opt2 = document.createElement('option');
-                            opt2.value = a.member_id;
+                            opt2.value = value;
                             opt2.textContent = label;
                             secondedBySelect.appendChild(opt2);
                         });
-                        if (proposal && proposal.proposed_by) proposedBySelect.value = proposal.proposed_by;
-                        if (proposal && proposal.seconded_by) secondedBySelect.value = proposal.seconded_by;
+                        [[proposedBySelect, 'proposed_by', 'proposed_by_name'], [secondedBySelect, 'seconded_by', 'seconded_by_name']].forEach(([select, idField, nameField]) => {
+                            if (!proposal) return;
+                            if (proposal[idField]) {
+                                select.value = `m:${proposal[idField]}`;
+                            } else if (proposal[nameField]) {
+                                const match = attendees.find(a => a.is_general && a.display_name === proposal[nameField]);
+                                if (match) {
+                                    select.value = `a:${match.id}`;
+                                } else {
+                                    const opt = document.createElement('option');
+                                    opt.value = `name:${proposal[nameField]}`;
+                                    opt.textContent = proposal[nameField] + ' (no longer an attendee)';
+                                    select.appendChild(opt);
+                                    select.value = `name:${proposal[nameField]}`;
+                                }
+                            }
+                        });
                     })
                     .catch(err => console.error('Error loading attendees:', err));
             }
@@ -2504,13 +2684,24 @@ outputHeader('Meetings', 'meetings.php');
             document.getElementById('proceduralProposalForm').reset();
         }
 
+        // See splitMoverSeconder() above - same "m:"/"a:"/"name:" prefix scheme,
+        // resolved against this meeting's attendee list instead of resolutions'.
+        function splitProposedSeconded(val) {
+            if (!val) return { id: null, name: null };
+            if (val.startsWith('m:')) return { id: parseInt(val.slice(2), 10), name: null };
+            if (val.startsWith('name:')) return { id: null, name: val.slice(5) };
+            const attendeeId = val.slice(2);
+            const att = currentProceduralProposalAttendees.find(a => a.is_general && String(a.id) === attendeeId);
+            return { id: null, name: att ? att.display_name : null };
+        }
+
         function saveProceduralProposal(event) {
             event.preventDefault();
             const proposalId = document.getElementById('proceduralProposalId').value;
             const agendaItemVal = document.getElementById('proceduralProposalAgendaItem').value;
             const resolutionVal = document.getElementById('proceduralProposalResolution').value;
-            const proposedByVal = document.getElementById('proceduralProposalProposedBy').value;
-            const secondedByVal = document.getElementById('proceduralProposalSecondedBy').value;
+            const proposer = splitProposedSeconded(document.getElementById('proceduralProposalProposedBy').value);
+            const seconder = splitProposedSeconded(document.getElementById('proceduralProposalSecondedBy').value);
 
             const data = {
                 meeting_id: currentMeetingId,
@@ -2518,8 +2709,10 @@ outputHeader('Meetings', 'meetings.php');
                 agenda_item_id: agendaItemVal ? parseInt(agendaItemVal) : null,
                 agenda_position: agendaItemVal ? document.getElementById('proceduralProposalPosition').value : 'During',
                 resolution_id: resolutionVal ? parseInt(resolutionVal) : null,
-                proposed_by: proposedByVal ? parseInt(proposedByVal) : null,
-                seconded_by: secondedByVal ? parseInt(secondedByVal) : null,
+                proposed_by: proposer.id,
+                proposed_by_name: proposer.name,
+                seconded_by: seconder.id,
+                seconded_by_name: seconder.name,
                 outcome: document.getElementById('proceduralProposalOutcome').value,
                 requires_leave: document.getElementById('proceduralProposalRequiresLeave').checked,
                 notes: document.getElementById('proceduralProposalNotes').value || null
@@ -3184,7 +3377,7 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         window.onclick = function(event) {
-            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'resolutionModal', 'proceduralProposalModal', 'departureModal', 'minutesModal', 'documentUploadModal', 'templateModal', 'templateItemModal'];
+            const modals = ['meetingModal', 'agendaItemModal', 'attendeeModal', 'bulkAttendeeModal', 'resolutionModal', 'proceduralProposalModal', 'departureModal', 'minutesModal', 'documentUploadModal', 'templateModal', 'templateItemModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target == modal) {
@@ -3192,6 +3385,7 @@ outputHeader('Meetings', 'meetings.php');
                     else if (modalId === 'agendaItemModal') closeAgendaItemModal();
                     else if (modalId === 'documentUploadModal') closeDocumentUploadModal();
                     else if (modalId === 'attendeeModal') closeAttendeeModal();
+                    else if (modalId === 'bulkAttendeeModal') closeBulkAttendeeModal();
                     else if (modalId === 'resolutionModal') closeResolutionModal();
                     else if (modalId === 'proceduralProposalModal') closeProceduralProposalModal();
                     else if (modalId === 'departureModal') closeDepartureModal();

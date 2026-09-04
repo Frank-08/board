@@ -187,6 +187,15 @@ try {
             exit;
         }
 
+        $mover = resolvePersonReference($data, 'motion_moved_by', 'motion_moved_by_name');
+        $seconder = resolvePersonReference($data, 'motion_seconded_by', 'motion_seconded_by_name');
+        if ($mover['error'] || $seconder['error']) {
+            ob_end_clean();
+            http_response_code(400);
+            echo json_encode(['error' => $mover['error'] ?? $seconder['error']]);
+            exit;
+        }
+
         // New clause goes at the end of the lettered list for its agenda item
         // (or, for an unlinked resolution, the end of the meeting's list).
         if ($agendaItemId) {
@@ -200,10 +209,11 @@ try {
 
         $stmt = $db->prepare("INSERT INTO resolutions (
             meeting_id, agenda_item_id, resolution_number, title, description, decision_method,
-            motion_moved_by, motion_seconded_by, votes_for, votes_against, votes_abstain,
+            motion_moved_by, motion_moved_by_name, motion_seconded_by, motion_seconded_by_name,
+            votes_for, votes_against, votes_abstain,
             casting_vote_used, referral_body, referral_scope, clerk_notes,
             vote_type, status, effective_date, position
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         try {
             $stmt->execute([
                 $meetingId,
@@ -212,8 +222,10 @@ try {
                 $title,
                 $description,
                 $data['decision_method'] ?? 'Consensus',
-                !empty($data['motion_moved_by']) ? (int)$data['motion_moved_by'] : null,
-                !empty($data['motion_seconded_by']) ? (int)$data['motion_seconded_by'] : null,
+                $mover['id'],
+                $mover['name'],
+                $seconder['id'],
+                $seconder['name'],
                 isset($data['votes_for']) && $data['votes_for'] !== '' ? (int)$data['votes_for'] : null,
                 isset($data['votes_against']) && $data['votes_against'] !== '' ? (int)$data['votes_against'] : null,
                 isset($data['votes_abstain']) && $data['votes_abstain'] !== '' ? (int)$data['votes_abstain'] : null,
@@ -299,9 +311,25 @@ try {
         $updates = [];
         $params = [];
 
+        foreach ([['motion_moved_by', 'motion_moved_by_name'], ['motion_seconded_by', 'motion_seconded_by_name']] as [$idField, $nameField]) {
+            if (array_key_exists($idField, $data) || array_key_exists($nameField, $data)) {
+                $ref = resolvePersonReference($data, $idField, $nameField);
+                if ($ref['error']) {
+                    ob_end_clean();
+                    http_response_code(400);
+                    echo json_encode(['error' => $ref['error']]);
+                    exit;
+                }
+                $updates[] = "$idField = ?";
+                $params[] = $ref['id'];
+                $updates[] = "$nameField = ?";
+                $params[] = $ref['name'];
+            }
+        }
+
         $fields = ['title', 'description', 'resolution_number', 'decision_method',
                    'vote_type', 'status', 'effective_date', 'agenda_item_id',
-                   'motion_moved_by', 'motion_seconded_by', 'votes_for', 'votes_against',
+                   'votes_for', 'votes_against',
                    'votes_abstain', 'referral_body', 'referral_scope', 'clerk_notes'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS meeting_types (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     shortcode VARCHAR(3),
+    general_attendance_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -84,11 +85,18 @@ CREATE TABLE IF NOT EXISTS meetings (
     INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Table for meeting attendees
+-- Table for meeting attendees. member_id is NULL for a "general attendee" -
+-- someone present at a meeting whose type has general_attendance_enabled
+-- (e.g. Presbytery in Council) but who isn't on the small, curated
+-- meeting_type_members roster; attendee_name carries their name instead.
+-- Exactly one of member_id / attendee_name must be set - enforced in
+-- api/attendees.php app code, with the CHECK below as defense-in-depth
+-- (only enforced on MySQL >=8.0.16 / MariaDB >=10.2.1).
 CREATE TABLE IF NOT EXISTS meeting_attendees (
     id INT AUTO_INCREMENT PRIMARY KEY,
     meeting_id INT NOT NULL,
-    member_id INT NOT NULL,
+    member_id INT NULL,
+    attendee_name VARCHAR(200) NULL,
     attendance_status ENUM('Present', 'Absent', 'Apology', 'Excused', 'Late') DEFAULT 'Absent',
     arrival_time DATETIME,
     notes TEXT,
@@ -96,7 +104,12 @@ CREATE TABLE IF NOT EXISTS meeting_attendees (
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
     FOREIGN KEY (member_id) REFERENCES board_members(id) ON DELETE CASCADE,
     UNIQUE KEY unique_meeting_member (meeting_id, member_id),
-    INDEX idx_meeting (meeting_id)
+    CONSTRAINT chk_meeting_attendee_identity CHECK (
+        (member_id IS NOT NULL AND attendee_name IS NULL) OR
+        (member_id IS NULL AND attendee_name IS NOT NULL)
+    ),
+    INDEX idx_meeting (meeting_id),
+    INDEX idx_meeting_attendee_name (meeting_id, attendee_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table for meeting agendas
@@ -219,8 +232,14 @@ CREATE TABLE IF NOT EXISTS resolutions (
     title VARCHAR(255) NULL,
     description TEXT NOT NULL,
     decision_method ENUM('Consensus', 'Formal Majority', 'Referral') DEFAULT 'Consensus',
+    -- *_by is a board_members FK for a formal member mover/seconder; *_by_name
+    -- is a free-text snapshot used when a general attendee (see
+    -- meeting_attendees.attendee_name) moved/seconded instead. Exactly one of
+    -- the pair is populated per role - enforced in api/resolutions.php.
     motion_moved_by INT NULL,
+    motion_moved_by_name VARCHAR(200) NULL,
     motion_seconded_by INT NULL,
+    motion_seconded_by_name VARCHAR(200) NULL,
     votes_for INT DEFAULT NULL,
     votes_against INT DEFAULT NULL,
     votes_abstain INT DEFAULT NULL,
@@ -265,7 +284,9 @@ CREATE TABLE IF NOT EXISTS resolution_amendments (
     resolution_id INT NOT NULL,
     amendment_text TEXT NOT NULL,
     moved_by INT NULL,
+    moved_by_name VARCHAR(200) NULL,
     seconded_by INT NULL,
+    seconded_by_name VARCHAR(200) NULL,
     status ENUM('Proposed', 'Carried', 'Lost', 'Lapsed', 'Withdrawn') DEFAULT 'Proposed',
     votes_for INT DEFAULT NULL,
     votes_against INT DEFAULT NULL,
@@ -294,7 +315,9 @@ CREATE TABLE IF NOT EXISTS procedural_proposals (
         'Closure', 'Reconsideration', 'PointOfOrder'
     ) NOT NULL,
     proposed_by INT NULL,
+    proposed_by_name VARCHAR(200) NULL,
     seconded_by INT NULL,
+    seconded_by_name VARCHAR(200) NULL,
     outcome ENUM('Carried', 'Lost', 'Lapsed', 'RuledOn', 'Pending') DEFAULT 'Pending',
     requires_leave BOOLEAN DEFAULT FALSE,
     notes TEXT,

@@ -6,6 +6,25 @@
 const RESOLUTION_FINAL_STATUSES = ['Consensus', 'Agreement', 'Failed', 'Withdrawn', 'Lapsed'];
 
 /**
+ * Resolve a mover/seconder/proposer reference that may be given either as a
+ * board_members id (a formal meeting-type member) or as a free-text name
+ * (a general attendee - see meeting_attendees.attendee_name). Exactly one
+ * of the two may be provided.
+ *
+ * @return array{id: ?int, name: ?string, error: ?string}
+ */
+function resolvePersonReference(array $data, string $idField, string $nameField): array {
+    $id = !empty($data[$idField]) ? (int)$data[$idField] : null;
+    $name = isset($data[$nameField]) ? trim(preg_replace('/\s+/', ' ', (string)$data[$nameField])) : '';
+    $name = $name !== '' ? $name : null;
+
+    if ($id !== null && $name !== null) {
+        return ['id' => null, 'name' => null, 'error' => "Provide either $idField or $nameField, not both"];
+    }
+    return ['id' => $id, 'name' => $name, 'error' => null];
+}
+
+/**
  * Validate resolution data before create/update.
  *
  * @return array{valid: bool, error: ?string, warning: ?string}
@@ -39,8 +58,8 @@ function validateResolutionData(PDO $db, array $data, ?int $resolutionId = null)
     }
 
     if ($decisionMethod === 'Formal Majority' && in_array($status, ['Consensus', 'Agreement', 'Failed'], true)) {
-        $movedBy = $data['motion_moved_by'] ?? null;
-        $secondedBy = $data['motion_seconded_by'] ?? null;
+        $movedBy = $data['motion_moved_by'] ?? $data['motion_moved_by_name'] ?? null;
+        $secondedBy = $data['motion_seconded_by'] ?? $data['motion_seconded_by_name'] ?? null;
         $votesFor = isset($data['votes_for']) ? (int)$data['votes_for'] : null;
         $votesAgainst = isset($data['votes_against']) ? (int)$data['votes_against'] : null;
 

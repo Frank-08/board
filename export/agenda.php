@@ -37,18 +37,21 @@ $agendaItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $agendaItems = attachResolutionsToAgendaItems($db, $meetingId, $agendaItems);
 $agendaItems = attachPresentersToAgendaItems($db, $meetingId, $agendaItems);
 
-// Get attendees with their role in the meeting's committee
+// Get attendees with their role in the meeting's committee. member_id is
+// NULL for a general attendee (see meeting_attendees.attendee_name) - LEFT
+// JOIN so they still appear, with display_name falling back to their name.
 $stmt = $db->prepare("
     SELECT ma.*, bm.first_name, bm.last_name, bm.title,
-        mtm.role, mtm.status as membership_status
+        mtm.role, mtm.status as membership_status,
+        CASE WHEN ma.member_id IS NOT NULL THEN CONCAT(bm.first_name, ' ', bm.last_name) ELSE ma.attendee_name END AS display_name
     FROM meeting_attendees ma
-    JOIN board_members bm ON ma.member_id = bm.id
+    LEFT JOIN board_members bm ON ma.member_id = bm.id
     JOIN meetings m ON ma.meeting_id = m.id
     LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     WHERE ma.meeting_id = ?
-    ORDER BY 
+    ORDER BY
         FIELD(mtm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
-        bm.last_name ASC
+        COALESCE(bm.last_name, ma.attendee_name) ASC
 ");
 $stmt->execute([$meetingId]);
 $attendees = $stmt->fetchAll();

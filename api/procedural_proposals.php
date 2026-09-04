@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/resolution_helpers.php';
 
 // Require authentication for all requests
 requireAuth();
@@ -169,10 +170,20 @@ try {
             }
         }
 
+        $proposer = resolvePersonReference($data, 'proposed_by', 'proposed_by_name');
+        $seconder = resolvePersonReference($data, 'seconded_by', 'seconded_by_name');
+        if ($proposer['error'] || $seconder['error']) {
+            ob_end_clean();
+            http_response_code(400);
+            echo json_encode(['error' => $proposer['error'] ?? $seconder['error']]);
+            exit;
+        }
+
         $stmt = $db->prepare("
             INSERT INTO procedural_proposals
-                (meeting_id, agenda_item_id, agenda_position, resolution_id, proposal_type, proposed_by, seconded_by, outcome, requires_leave, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (meeting_id, agenda_item_id, agenda_position, resolution_id, proposal_type,
+                 proposed_by, proposed_by_name, seconded_by, seconded_by_name, outcome, requires_leave, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         try {
             $stmt->execute([
@@ -181,8 +192,10 @@ try {
                 $agendaPosition,
                 $resolutionId,
                 $proposalType,
-                !empty($data['proposed_by']) ? (int)$data['proposed_by'] : null,
-                !empty($data['seconded_by']) ? (int)$data['seconded_by'] : null,
+                $proposer['id'],
+                $proposer['name'],
+                $seconder['id'],
+                $seconder['name'],
                 $outcome,
                 !empty($data['requires_leave']) ? 1 : 0,
                 $data['notes'] ?? null
@@ -253,8 +266,24 @@ try {
         $updates = [];
         $params = [];
 
-        $fields = ['agenda_item_id', 'agenda_position', 'resolution_id', 'proposal_type', 'proposed_by',
-                   'seconded_by', 'outcome', 'requires_leave', 'notes'];
+        foreach ([['proposed_by', 'proposed_by_name'], ['seconded_by', 'seconded_by_name']] as [$idField, $nameField]) {
+            if (array_key_exists($idField, $data) || array_key_exists($nameField, $data)) {
+                $ref = resolvePersonReference($data, $idField, $nameField);
+                if ($ref['error']) {
+                    ob_end_clean();
+                    http_response_code(400);
+                    echo json_encode(['error' => $ref['error']]);
+                    exit;
+                }
+                $updates[] = "$idField = ?";
+                $params[] = $ref['id'];
+                $updates[] = "$nameField = ?";
+                $params[] = $ref['name'];
+            }
+        }
+
+        $fields = ['agenda_item_id', 'agenda_position', 'resolution_id', 'proposal_type',
+                   'outcome', 'requires_leave', 'notes'];
         foreach ($fields as $field) {
             if (isset($data[$field]) || array_key_exists($field, $data)) {
                 $updates[] = "$field = ?";

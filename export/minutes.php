@@ -136,11 +136,17 @@ function renderProceduralProposalCallout(array $pp, array $proceduralProposalLab
         $html .= '<p style="margin: 6px 0 0 0; font-size: 13px;"><strong>Motion/Resolution:</strong> '
             . htmlspecialchars($pp['resolution_title']) . '</p>';
     }
-    if (!empty($pp['proposed_by_first_name'])) {
+    $proposedByName = !empty($pp['proposed_by_first_name'])
+        ? $pp['proposed_by_first_name'] . ' ' . $pp['proposed_by_last_name']
+        : ($pp['proposed_by_name'] ?? null);
+    $secondedByName = !empty($pp['seconded_by_first_name'])
+        ? $pp['seconded_by_first_name'] . ' ' . $pp['seconded_by_last_name']
+        : ($pp['seconded_by_name'] ?? null);
+    if (!empty($proposedByName)) {
         $html .= '<p style="margin: 6px 0 0 0; font-size: 13px;"><strong>Proposed by:</strong> '
-            . htmlspecialchars($pp['proposed_by_first_name'] . ' ' . $pp['proposed_by_last_name']);
-        if (!empty($pp['seconded_by_first_name'])) {
-            $html .= ', seconded by ' . htmlspecialchars($pp['seconded_by_first_name'] . ' ' . $pp['seconded_by_last_name']);
+            . htmlspecialchars($proposedByName);
+        if (!empty($secondedByName)) {
+            $html .= ', seconded by ' . htmlspecialchars($secondedByName);
         }
         $html .= '</p>';
     }
@@ -154,19 +160,22 @@ function renderProceduralProposalCallout(array $pp, array $proceduralProposalLab
     return $html;
 }
 
-// Get attendees with their role in the meeting's meeting type
+// Get attendees with their role in the meeting's meeting type. member_id is
+// NULL for a general attendee (see meeting_attendees.attendee_name) - LEFT
+// JOIN so they still appear, with display_name falling back to their name.
 $stmt = $db->prepare("
     SELECT ma.*, bm.first_name, bm.last_name, bm.title,
-        mtm.role, mtm.status as membership_status
+        mtm.role, mtm.status as membership_status,
+        CASE WHEN ma.member_id IS NOT NULL THEN CONCAT(bm.first_name, ' ', bm.last_name) ELSE ma.attendee_name END AS display_name
     FROM meeting_attendees ma
-    JOIN board_members bm ON ma.member_id = bm.id
+    LEFT JOIN board_members bm ON ma.member_id = bm.id
     JOIN meetings m ON ma.meeting_id = m.id
     LEFT JOIN meeting_type_members mtm ON bm.id = mtm.member_id AND m.meeting_type_id = mtm.meeting_type_id
     WHERE ma.meeting_id = ?
-    ORDER BY 
+    ORDER BY
         FIELD(ma.attendance_status, 'Present', 'Apology', 'Absent', 'Excused', 'Late') ASC,
         FIELD(mtm.role, 'Chair', 'Deputy Chair', 'Secretary', 'Treasurer', 'Ex-officio', 'Member'),
-        bm.last_name ASC
+        COALESCE(bm.last_name, ma.attendee_name) ASC
 ");
 $stmt->execute([$meetingId]);
 $attendees = $stmt->fetchAll();
@@ -544,7 +553,7 @@ function formatDateTime($dateString) {
             <div class="attendee-list">
                 <?php foreach ($attendeesByStatus[$status] as $attendee): ?>
                 <div class="attendee-item">
-                    <strong><?php echo htmlspecialchars($attendee['first_name'] . ' ' . $attendee['last_name']); ?></strong>
+                    <strong><?php echo htmlspecialchars($attendee['display_name']); ?></strong>
                     <?php if (!empty($attendee['role'])): ?>
                     <span style="color: #666; font-size: 12px;"><?php echo htmlspecialchars($attendee['role']); ?></span>
                     <?php endif; ?>
