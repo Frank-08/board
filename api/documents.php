@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/document_helpers.php';
 
 // Require authentication for all requests
 requireAuth();
@@ -28,34 +29,6 @@ if ($method === 'POST') {
 }
 if ($method === 'DELETE') {
     requirePermission('delete_document');
-}
-
-function isValidSharePointUrl($url) {
-    if (!is_string($url) || trim($url) === '') {
-        return false;
-    }
-
-    $parsedUrl = parse_url(trim($url));
-    if (!$parsedUrl || ($parsedUrl['scheme'] ?? '') !== 'https') {
-        return false;
-    }
-
-    $host = strtolower($parsedUrl['host'] ?? '');
-    return $host !== '' && (strpos($host, 'sharepoint.com') !== false || strpos($host, 'sharepoint-df.com') !== false);
-}
-
-function extractFileNameFromUrl($url) {
-    $path = parse_url($url, PHP_URL_PATH);
-    if (!$path) {
-        return null;
-    }
-
-    $baseName = basename($path);
-    if ($baseName === '' || $baseName === '/' || $baseName === '.') {
-        return null;
-    }
-
-    return urldecode($baseName);
 }
 
 switch ($method) {

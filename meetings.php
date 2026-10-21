@@ -720,6 +720,7 @@ outputHeader('Meetings', 'meetings.php');
                                     <button onclick="addAgendaItem()" class="btn btn-sm btn-primary">+ Add Item</button>
                                 </div>
                             </div>
+                            <div id="agenda-submissions-notice"></div>
                             <div id="agenda-items-list"></div>
                         </div>
                         <div id="tab-attendees" class="tab-content">
@@ -741,10 +742,31 @@ outputHeader('Meetings', 'meetings.php');
                     `;
 
                     loadMeetingAgenda(id);
+                    loadPendingSubmissionsNotice(id);
                     loadMeetingAttendees(id);
                     loadMeetingMinutes(id);
                     loadMeetingResolutions(id);
                 });
+        }
+
+        // Tells clerks how many member-submitted items are awaiting review for this meeting
+        async function loadPendingSubmissionsNotice(meetingId) {
+            if (!hasPermission('canManageAgenda')) return;
+            let pending = [];
+            try {
+                pending = await apiCall(`agenda_submissions.php?meeting_id=${meetingId}&status=Pending`);
+            } catch (error) {
+                console.error('Error loading agenda submissions:', error);
+                return;
+            }
+            const notice = document.getElementById('agenda-submissions-notice');
+            if (!notice || currentMeetingId != meetingId) return;
+            notice.innerHTML = pending.length === 0 ? '' : `
+                <div style="background: #fff8e1; border-left: 4px solid #f0ad4e; padding: 10px 15px; margin-bottom: 15px;">
+                    ${pending.length} submitted agenda item${pending.length === 1 ? ' is' : 's are'} awaiting review.
+                    <a href="submit_agenda.php?meeting_id=${meetingId}">Review submissions →</a>
+                </div>
+            `;
         }
 
         function closeMeetingDetail() {
