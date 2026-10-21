@@ -46,6 +46,7 @@ define('PERMISSIONS', [
     
     // Member-specific permissions
     'edit_own_attendance' => ['Member', 'Clerk', 'Admin'],
+    'submit_agenda_item' => ['Member', 'Clerk', 'Admin'],
     
     // Admin-only permissions
     'manage_members' => ['Admin'],

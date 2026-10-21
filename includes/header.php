@@ -28,6 +28,7 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
     // Check permissions for various features
     $canManageMembers = hasPermission('manage_members');
     $canManageUsers = hasPermission('manage_users');
+    $canSubmitAgendaItems = hasPermission('submit_agenda_item') || hasPermission('manage_agenda');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -88,6 +89,9 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
                     <li><a href="meetings.php" <?php echo $activePage === 'meetings.php' ? 'class="active"' : ''; ?>>Meetings</a></li>
                     <!-- <li><a href="resolutions.php" <?php echo $activePage === 'resolutions.php' ? 'class="active"' : ''; ?>>Resolutions</a></li> -->
                     <li><a href="documents.php" <?php echo $activePage === 'documents.php' ? 'class="active"' : ''; ?>>Documents</a></li>
+                    <?php if ($canSubmitAgendaItems): ?>
+                    <li><a href="submit_agenda.php" <?php echo $activePage === 'submit_agenda.php' ? 'class="active"' : ''; ?>>Submit Item</a></li>
+                    <?php endif; ?>
                     <?php if ($canManageUsers): ?>
                     <li><a href="users.php" <?php echo $activePage === 'users.php' ? 'class="active"' : ''; ?>>Users</a></li>
                     <?php endif; ?>
@@ -128,6 +132,7 @@ function getAuthJsVars() {
             'canEditMeeting' => hasPermission('edit_meeting'),
             'canDeleteMeeting' => hasPermission('delete_meeting'),
             'canManageAgenda' => hasPermission('manage_agenda'),
+            'canSubmitAgendaItem' => hasPermission('submit_agenda_item'),
             'canManageMinutes' => hasPermission('manage_minutes'),
             'canUploadDocuments' => hasPermission('upload_documents'),
             'canCreateResolution' => hasPermission('create_resolution'),
