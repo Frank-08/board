@@ -1311,8 +1311,18 @@ outputHeader('Meetings', 'meetings.php');
                 fetch('api/minutes_comments.php', {
                     method: 'DELETE',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({id: agendaItemId})
-                }).catch(err => console.error('Error deleting comment:', err));
+                    body: JSON.stringify({minutes_id: minutesId, agenda_item_id: agendaItemId})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Error deleting comment: ' + (data.message || data.error));
+                    }
+                })
+                .catch(err => {
+                    console.error('Error deleting comment:', err);
+                    alert('Error deleting comment');
+                });
                 return;
             }
             

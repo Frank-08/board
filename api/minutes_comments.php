@@ -146,15 +146,22 @@ switch ($method) {
     case 'DELETE':
         $data = json_decode(file_get_contents('php://input'), true);
         $id = (int)($data['id'] ?? 0);
+        $minutesId = (int)($data['minutes_id'] ?? 0);
+        $agendaItemId = (int)($data['agenda_item_id'] ?? 0);
         
-        if (!$id) {
+        // Delete by comment id, or by (minutes_id, agenda_item_id) when the client
+        // only knows which agenda item the comment belongs to
+        if ($minutesId && $agendaItemId) {
+            $stmt = $db->prepare("DELETE FROM minutes_agenda_comments WHERE minutes_id = ? AND agenda_item_id = ?");
+            $stmt->execute([$minutesId, $agendaItemId]);
+        } elseif ($id) {
+            $stmt = $db->prepare("DELETE FROM minutes_agenda_comments WHERE id = ?");
+            $stmt->execute([$id]);
+        } else {
             http_response_code(400);
-            echo json_encode(['error' => 'ID is required']);
+            echo json_encode(['error' => 'id, or minutes_id and agenda_item_id, is required']);
             exit;
         }
-        
-        $stmt = $db->prepare("DELETE FROM minutes_agenda_comments WHERE id = ?");
-        $stmt->execute([$id]);
         echo json_encode(['success' => true]);
         break;
         

@@ -446,7 +446,7 @@ POST /api/agenda.php
 - `GET /api/minutes_comments.php?agenda_item_id={id}` - Get comments for a specific agenda item
 - `POST /api/minutes_comments.php` - Add comment to agenda item in minutes
 - `PUT /api/minutes_comments.php` - Update a comment
-- `DELETE /api/minutes_comments.php` - Delete a comment
+- `DELETE /api/minutes_comments.php` - Delete a comment by `id`, or by `minutes_id` + `agenda_item_id`
 
 **Other Endpoints:**
 Similar endpoints exist for members, meetings, attendees, minutes, resolutions, users, and organizations. All support GET (list/retrieve), POST (create), PUT (update), and DELETE operations where applicable.
