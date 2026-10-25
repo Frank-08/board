@@ -31,6 +31,11 @@ Options -Indexes
     php_value max_execution_time 300
 </IfModule>
 
+# Word report template (assets/templates/) for agenda item submissions
+<IfModule mod_mime.c>
+    AddType application/vnd.openxmlformats-officedocument.wordprocessingml.template .dotx
+</IfModule>
+
 # Security headers
 <IfModule mod_headers.c>
     Header set X-Content-Type-Options "nosniff"
