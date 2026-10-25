@@ -22,6 +22,90 @@ function numberToLetterSuffix($number) {
 }
 
 /**
+ * Format a top-level agenda item number: SHORTCODE.YY.MM.SEQ (or YY.MM.SEQ if no shortcode).
+ *
+ * @param string $shortcode Meeting type shortcode (may be empty)
+ * @param string $year 2-digit year
+ * @param string $month 2-digit month
+ * @param int $sequence 1-based sequence
+ * @return string
+ */
+function formatAgendaItemNumber($shortcode, $year, $month, $sequence) {
+    if (!empty($shortcode)) {
+        return sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $sequence);
+    }
+    return sprintf('%s.%s.%02d', $year, $month, $sequence);
+}
+
+/**
+ * Rebuild position, sub_position and item_number for every agenda item in a meeting
+ * from the current ordering, so numbers are contiguous and sub-items carry their
+ * parent's number plus a letter suffix.
+ *
+ * Top-level items keep their relative order (position, then id); sub-items keep
+ * their order within their parent (sub_position, then id). Sub-items whose parent
+ * is missing are promoted to top-level.
+ *
+ * @param PDO $db
+ * @param int $meetingId
+ */
+function renumberAgenda(PDO $db, int $meetingId): void {
+    $stmt = $db->prepare("
+        SELECT m.scheduled_date, mt.shortcode
+        FROM meetings m
+        JOIN meeting_types mt ON m.meeting_type_id = mt.id
+        WHERE m.id = ?
+    ");
+    $stmt->execute([$meetingId]);
+    $meeting = $stmt->fetch();
+    if (!$meeting) {
+        return;
+    }
+
+    $meetingDate = new DateTime($meeting['scheduled_date']);
+    $year = $meetingDate->format('y');
+    $month = $meetingDate->format('m');
+    $shortcode = $meeting['shortcode'] ?? '';
+
+    $stmt = $db->prepare("
+        SELECT id, parent_id, position, sub_position
+        FROM agenda_items
+        WHERE meeting_id = ?
+        ORDER BY position ASC, CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END ASC, sub_position ASC, id ASC
+    ");
+    $stmt->execute([$meetingId]);
+    $rows = $stmt->fetchAll();
+
+    $ids = [];
+    foreach ($rows as $row) {
+        $ids[(int)$row['id']] = true;
+    }
+
+    $topLevel = [];
+    $children = [];
+    foreach ($rows as $row) {
+        $parentId = $row['parent_id'] ? (int)$row['parent_id'] : null;
+        if ($parentId && isset($ids[$parentId])) {
+            $children[$parentId][] = (int)$row['id'];
+        } else {
+            $topLevel[] = (int)$row['id'];
+        }
+    }
+
+    $updateTopStmt = $db->prepare("UPDATE agenda_items SET position = ?, sub_position = 0, item_number = ?, parent_id = NULL WHERE id = ?");
+    $updateChildStmt = $db->prepare("UPDATE agenda_items SET position = ?, sub_position = ?, item_number = ? WHERE id = ?");
+
+    foreach ($topLevel as $position => $itemId) {
+        $itemNumber = formatAgendaItemNumber($shortcode, $year, $month, $position + 1);
+        $updateTopStmt->execute([$position, $itemNumber, $itemId]);
+
+        foreach ($children[$itemId] ?? [] as $subPos => $childId) {
+            $updateChildStmt->execute([$position, $subPos, $itemNumber . numberToLetterSuffix($subPos), $childId]);
+        }
+    }
+}
+
+/**
  * Attach linked resolutions to agenda items (one row per item, no JOIN duplication).
  *
  * @param PDO $db

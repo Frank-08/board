@@ -464,14 +464,7 @@ switch ($method) {
             exit;
         }
         
-        // Get the meeting_id, position, meeting date, and shortcode of the item being deleted
-        $stmt = $db->prepare("
-            SELECT ai.meeting_id, ai.position, m.scheduled_date, mt.shortcode 
-            FROM agenda_items ai
-            JOIN meetings m ON ai.meeting_id = m.id
-            JOIN meeting_types mt ON m.meeting_type_id = mt.id
-            WHERE ai.id = ?
-        ");
+        $stmt = $db->prepare("SELECT meeting_id FROM agenda_items WHERE id = ?");
         $stmt->execute([$id]);
         $item = $stmt->fetch();
         
@@ -481,41 +474,18 @@ switch ($method) {
             exit;
         }
         
-        // Delete the item
-        $stmt = $db->prepare("DELETE FROM agenda_items WHERE id = ?");
-        $stmt->execute([$id]);
-        
-        // Renumber remaining items to ensure sequential numbering and update item numbers
-        $stmt = $db->prepare("
-            SELECT id, position 
-            FROM agenda_items 
-            WHERE meeting_id = ? AND position > ?
-            ORDER BY position ASC
-        ");
-        $stmt->execute([$item['meeting_id'], $item['position']]);
-        $remainingItems = $stmt->fetchAll();
-        
-        // Update positions and item numbers
-        $meetingDate = new DateTime($item['scheduled_date']);
-        $year = $meetingDate->format('y');
-        $month = $meetingDate->format('m');
-        $shortcode = $item['shortcode'] ?? '';
-        
-        foreach ($remainingItems as $remainingItem) {
-            $newPosition = $remainingItem['position'] - 1;
-            $newSequence = $newPosition + 1;
-            if (!empty($shortcode)) {
-                $newItemNumber = sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $newSequence);
-            } else {
-                $newItemNumber = sprintf('%s.%s.%02d', $year, $month, $newSequence);
-            }
-            
-            $updateStmt = $db->prepare("
-                UPDATE agenda_items 
-                SET position = ?, item_number = ?
-                WHERE id = ?
-            ");
-            $updateStmt->execute([$newPosition, $newItemNumber, $remainingItem['id']]);
+        $db->beginTransaction();
+        try {
+            // Delete the item (sub-items cascade), then renumber the whole agenda
+            $stmt = $db->prepare("DELETE FROM agenda_items WHERE id = ?");
+            $stmt->execute([$id]);
+            renumberAgenda($db, (int)$item['meeting_id']);
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollBack();
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to delete agenda item: ' . $e->getMessage()]);
+            exit;
         }
         
         echo json_encode(['success' => true]);

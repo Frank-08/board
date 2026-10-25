@@ -247,6 +247,11 @@ switch ($method) {
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
         
+        // Item numbers embed the meeting type shortcode and date
+        if (isset($data['scheduled_date']) || isset($data['meeting_type_id'])) {
+            renumberAgenda($db, $id);
+        }
+        
         $stmt = $db->prepare("SELECT * FROM meetings WHERE id = ?");
         $stmt->execute([$id]);
         echo json_encode($stmt->fetch());
