@@ -1586,7 +1586,8 @@ outputHeader('Meetings', 'meetings.php');
             };
 
             const parentVal = document.getElementById('agendaItemParent').value;
-            if (parentVal) data.parent_id = parentVal;
+            // On edit always send parent_id so "No parent" moves a sub-item back to top level
+            if (parentVal || itemId) data.parent_id = parentVal || null;
 
             // UI validation: prevent selecting a descendant as the parent (would create a cycle)
             if (parentVal && itemId) {
@@ -1623,6 +1624,10 @@ outputHeader('Meetings', 'meetings.php');
             })
             .then(response => response.json())
             .then(data => {
+                if (data.error) {
+                    alert('Error saving agenda item: ' + (data.message || data.error));
+                    return;
+                }
                 closeAgendaItemModal();
                 loadMeetingAgenda(currentMeetingId);
             })
