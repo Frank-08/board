@@ -411,6 +411,49 @@ switch ($method) {
             exit;
         }
 
+        // Optional parent change: null/empty moves the item to top level
+        $parentChange = false;
+        if (array_key_exists('parent_id', $data)) {
+            $stmt = $db->prepare("SELECT id, meeting_id, parent_id, position FROM agenda_items WHERE id = ?");
+            $stmt->execute([$id]);
+            $current = $stmt->fetch();
+            if (!$current) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Agenda item not found']);
+                exit;
+            }
+
+            $newParentId = !empty($data['parent_id']) ? (int)$data['parent_id'] : null;
+            $oldParentId = $current['parent_id'] ? (int)$current['parent_id'] : null;
+
+            if ($newParentId !== $oldParentId) {
+                $newParent = null;
+                if ($newParentId) {
+                    $stmt = $db->prepare("SELECT id, meeting_id, parent_id, position FROM agenda_items WHERE id = ?");
+                    $stmt->execute([$newParentId]);
+                    $newParent = $stmt->fetch();
+                    if (!$newParent || (int)$newParent['meeting_id'] !== (int)$current['meeting_id'] || $newParentId === $id) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Invalid parent_id or parent does not belong to meeting']);
+                        exit;
+                    }
+                    if (!empty($newParent['parent_id'])) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Sub-items cannot have their own sub-items']);
+                        exit;
+                    }
+                    $stmt = $db->prepare("SELECT COUNT(*) FROM agenda_items WHERE parent_id = ?");
+                    $stmt->execute([$id]);
+                    if ((int)$stmt->fetchColumn() > 0) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'This item has its own sub-items, so it cannot become a sub-item']);
+                        exit;
+                    }
+                }
+                $parentChange = true;
+            }
+        }
+
         $updates = [];
         $params = [];
 
@@ -430,7 +473,7 @@ switch ($method) {
             $params[] = !empty($data['is_starred']) ? 1 : 0;
         }
 
-        if (empty($updates) && !isset($data['presenter_ids'])) {
+        if (empty($updates) && !isset($data['presenter_ids']) && !$parentChange) {
             http_response_code(400);
             echo json_encode(['error' => 'No fields to update']);
             exit;
@@ -445,6 +488,35 @@ switch ($method) {
 
         if (isset($data['presenter_ids']) && is_array($data['presenter_ids'])) {
             syncAgendaItemPresenters($db, $id, $data['presenter_ids']);
+        }
+
+        if ($parentChange) {
+            $meetingId = (int)$current['meeting_id'];
+            $db->beginTransaction();
+            try {
+                if ($newParentId) {
+                    // Becomes the last sub-item of the new parent
+                    $stmt = $db->prepare("SELECT COALESCE(MAX(sub_position), -1) + 1 FROM agenda_items WHERE parent_id = ?");
+                    $stmt->execute([$newParentId]);
+                    $subPosition = (int)$stmt->fetchColumn();
+                    $stmt = $db->prepare("UPDATE agenda_items SET parent_id = ?, position = ?, sub_position = ? WHERE id = ?");
+                    $stmt->execute([$newParentId, (int)$newParent['position'], $subPosition, $id]);
+                } else {
+                    // Becomes a top-level item directly after its former parent
+                    $newPosition = (int)$current['position'] + 1;
+                    $stmt = $db->prepare("UPDATE agenda_items SET position = position + 1 WHERE meeting_id = ? AND position >= ?");
+                    $stmt->execute([$meetingId, $newPosition]);
+                    $stmt = $db->prepare("UPDATE agenda_items SET parent_id = NULL, position = ?, sub_position = 0 WHERE id = ?");
+                    $stmt->execute([$newPosition, $id]);
+                }
+                renumberAgenda($db, $meetingId);
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to change parent: ' . $e->getMessage()]);
+                exit;
+            }
         }
 
         $stmt = $db->prepare("SELECT ai.* FROM agenda_items ai WHERE ai.id = ?");

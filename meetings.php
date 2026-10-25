@@ -1311,8 +1311,18 @@ outputHeader('Meetings', 'meetings.php');
                 fetch('api/minutes_comments.php', {
                     method: 'DELETE',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({id: agendaItemId})
-                }).catch(err => console.error('Error deleting comment:', err));
+                    body: JSON.stringify({minutes_id: minutesId, agenda_item_id: agendaItemId})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Error deleting comment: ' + (data.message || data.error));
+                    }
+                })
+                .catch(err => {
+                    console.error('Error deleting comment:', err);
+                    alert('Error deleting comment');
+                });
                 return;
             }
             
@@ -1586,7 +1596,8 @@ outputHeader('Meetings', 'meetings.php');
             };
 
             const parentVal = document.getElementById('agendaItemParent').value;
-            if (parentVal) data.parent_id = parentVal;
+            // On edit always send parent_id so "No parent" moves a sub-item back to top level
+            if (parentVal || itemId) data.parent_id = parentVal || null;
 
             // UI validation: prevent selecting a descendant as the parent (would create a cycle)
             if (parentVal && itemId) {
@@ -1623,6 +1634,10 @@ outputHeader('Meetings', 'meetings.php');
             })
             .then(response => response.json())
             .then(data => {
+                if (data.error) {
+                    alert('Error saving agenda item: ' + (data.message || data.error));
+                    return;
+                }
                 closeAgendaItemModal();
                 loadMeetingAgenda(currentMeetingId);
             })
