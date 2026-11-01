@@ -19,8 +19,10 @@
 # not this repo's dev-placeholder values, and must never be overwritten by
 # a sync from the repo.
 #
-# Because those two files are never synced, the script warns when the
-# repo's copies have changed in ways the live copies may be missing:
+# Because those two files are never synced and are edited by hand, every run
+# first checks the live copies with `php -l` (a typo there takes the whole
+# site down with a 500), then warns when the repo's copies have changed in
+# ways the live copies may be missing:
 #   - constants define()'d in the repo's config file but not the live one
 #     (checked on every run);
 #   - any change to config/*.php or new database/migration_*.sql files since
@@ -59,6 +61,7 @@ HEAD_COMMIT="$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || true)"
 CONFIG_FILES=(config/config.php config/database.php)
 WARNINGS=0
 PENDING=0   # warnings from the since-last-confirmed diff (cleared by --done)
+LINT_ERRORS=0
 
 warn() {
     WARNINGS=$((WARNINGS + 1))
@@ -81,9 +84,28 @@ check_missing_defines() {
     done
 }
 
+# PHP syntax check of a hand-edited live config file
+check_live_syntax() {
+    local file="$1" out
+    [ -f "$LIVE_DIR/$file" ] || return 0
+    if ! command -v php > /dev/null 2>&1; then
+        echo "  (php not found on this machine - skipped the syntax check of live $file)"
+        return 0
+    fi
+    if ! out="$(php -l "$LIVE_DIR/$file" 2>&1)"; then
+        LINT_ERRORS=$((LINT_ERRORS + 1))
+        warn "SYNTAX ERROR in live $file - every page returns 500 until it's fixed:"
+        echo "$out" | grep -v '^Errors parsing' | sed 's/^/        /'
+        echo "        (A missing ; or bracket is usually reported on the line AFTER the real mistake.)"
+    fi
+}
+
 check_config() {
     echo "Checking the files this script never syncs (${CONFIG_FILES[*]}) ..."
     local file since="${DEPLOY_SINCE:-}" since_label
+    for file in "${CONFIG_FILES[@]}"; do
+        check_live_syntax "$file"
+    done
     for file in "${CONFIG_FILES[@]}"; do
         check_missing_defines "$file"
     done
@@ -197,9 +219,9 @@ if [ "$APPLY" = "--apply" ]; then
     echo "Done. Reminder: this does not run database migrations - check"
     echo "database/migration_*.sql for anything new that needs running by"
     echo "hand against the live database."
-    if [ "$WARNINGS" -gt 0 ]; then
+    if [ "$((WARNINGS - LINT_ERRORS))" -gt 0 ]; then
         echo
-        echo "*** $WARNINGS warning(s) above about config files or migrations. The live"
+        echo "*** $((WARNINGS - LINT_ERRORS)) warning(s) above about config files or migrations. The live"
         echo "*** config files were NOT updated - scroll up and apply them by hand."
         if [ "$PENDING" -gt 0 ]; then
             echo "*** These will be shown on every run until you've done that and run:"
@@ -213,4 +235,11 @@ else
     echo
     echo "Re-run with --apply to actually copy these files, e.g.:"
     echo "  $0 $LIVE_DIR --apply"
+fi
+
+if [ "$LINT_ERRORS" -gt 0 ]; then
+    echo
+    echo "*** $LINT_ERRORS live config file(s) have a PHP syntax error (see above)."
+    echo "*** The site is down until they're fixed. Check again with: php -l <file>"
+    exit 1
 fi

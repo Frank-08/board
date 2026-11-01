@@ -16,7 +16,7 @@ There is no dev server, build, lint, or test command in this repo — it runs di
 4. `config/config.php` holds app-wide constants (`APP_NAME`, `BASE_URL`, logo paths, `CSRF_SECRET`, SMTP settings, session cookie setup) — session_start() happens here.
 5. Default login after a fresh schema import: `admin` / `changeme123`.
 
-**Deploying**: `scripts/deploy.sh <live dir> [--apply|--done]` rsyncs the checkout into the live docroot but never touches `config/config.php`, `config/database.php`, `vendor/`/Composer files, or the database. It warns when the repo's config files gained `define()`s the live copies lack, or changed / new migrations appeared since the last `--done` (recorded in `.git/`). So when a change needs a new config constant, give it a safe default when undefined (`defined('X') ? X : ...`) and mention it in the PR — it will not reach the live site until someone copies it by hand.
+**Deploying**: `scripts/deploy.sh <live dir> [--apply|--done]` rsyncs the checkout into the live docroot but never touches `config/config.php`, `config/database.php`, `vendor/`/Composer files, or the database. It runs `php -l` on the live config files (exits 1 on a syntax error) and warns when the repo's config files gained `define()`s the live copies lack, or changed / new migrations appeared since the last `--done` (recorded in `.git/`). So when a change needs a new config constant, give it a safe default when undefined (`defined('X') ? X : ...`) and mention it in the PR — it will not reach the live site until someone copies it by hand.
 
 Quick syntax check for a single file: `php -l path/to/file.php`. There is no automated test runner — verify changes by exercising the page/API in a browser or with `curl`.
 
