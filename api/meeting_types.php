@@ -42,7 +42,7 @@ switch ($method) {
             
             echo json_encode($meetingType);
         } else {
-            $stmt = $db->query("SELECT * FROM meeting_types ORDER BY display_order ASC");
+            $stmt = $db->query("SELECT * FROM meeting_types ORDER BY display_order ASC, name ASC");
             echo json_encode($stmt->fetchAll());
         }
         break;
@@ -57,11 +57,17 @@ switch ($method) {
             exit;
         }
         
-        $stmt = $db->prepare("INSERT INTO meeting_types (name, shortcode, description) VALUES (?, ?, ?)");
+        $shortcode = isset($data['shortcode']) && trim($data['shortcode']) !== ''
+            ? substr(trim($data['shortcode']), 0, 3)
+            : null;
+        $displayOrder = isset($data['display_order']) ? (int)$data['display_order'] : 0;
+
+        $stmt = $db->prepare("INSERT INTO meeting_types (name, shortcode, description, display_order) VALUES (?, ?, ?, ?)");
         $stmt->execute([
             $name,
             $shortcode,
-            $data['description'] ?? null
+            $data['description'] ?? null,
+            $displayOrder
         ]);
         
         $meetingTypeId = $db->lastInsertId();
@@ -80,12 +86,25 @@ switch ($method) {
             exit;
         }
         
-        $stmt = $db->prepare("UPDATE meeting_types SET name = ?, description = ? WHERE id = ?");
-        $stmt->execute([
-            $data['name'] ?? '',
-            $data['description'] ?? null,
-            $id
-        ]);
+        $fields = ['name = ?', 'description = ?'];
+        $params = [$data['name'] ?? '', $data['description'] ?? null];
+
+        // Optional fields: only touched when the client sends them, so
+        // existing callers that send just name/description don't reset them.
+        if (array_key_exists('shortcode', $data)) {
+            $fields[] = 'shortcode = ?';
+            $params[] = trim((string)$data['shortcode']) !== ''
+                ? substr(trim((string)$data['shortcode']), 0, 3)
+                : null;
+        }
+        if (array_key_exists('display_order', $data)) {
+            $fields[] = 'display_order = ?';
+            $params[] = (int)$data['display_order'];
+        }
+        $params[] = $id;
+
+        $stmt = $db->prepare("UPDATE meeting_types SET " . implode(', ', $fields) . " WHERE id = ?");
+        $stmt->execute($params);
         
         $stmt = $db->prepare("SELECT * FROM meeting_types WHERE id = ?");
         $stmt->execute([$id]);

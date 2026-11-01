@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Default credentials: admin / changeme123
 -- Password hash generated with: password_hash('changeme123', PASSWORD_DEFAULT)
 INSERT INTO users (username, password_hash, email, role, is_active) VALUES
-('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin@example.com', 'Admin', TRUE);
+('admin', '$2y$10$HzhW7DsplQeYwgYmKjwzd.IFBCm.lu32Qwl4/fxL6zKO9Ok0W/BEe', 'admin@example.com', 'Admin', TRUE);
 
 -- Note: The password hash above is for 'changeme123'
 -- In production, generate a new hash using PHP:
