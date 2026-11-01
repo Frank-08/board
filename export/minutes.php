@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/agenda_helpers.php';
 require_once __DIR__ . '/../includes/resolution_helpers.php';
 require_once __DIR__ . '/../includes/export_helpers.php';
+require_once __DIR__ . '/../includes/action_item_helpers.php';
 
 $meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : 0;
 date_default_timezone_set('Australia/Sydney');
@@ -622,12 +623,48 @@ function formatDateTime($dateString) {
     </div>
     <?php endif; ?>
 
-    <?php if ($minutes['action_items']): ?>
+    <?php
+    // Structured action items (action_items table). Guarded so the export
+    // still works on an install that hasn't run migration_add_action_items.sql.
+    try {
+        $structuredActionItems = fetchActionItems($db, ['meeting_id' => $meetingId]);
+    } catch (PDOException $e) {
+        $structuredActionItems = [];
+    }
+    ?>
+    <?php if ($minutes['action_items'] || $structuredActionItems): ?>
     <div class="section">
         <h2>Action Items</h2>
+        <?php if ($structuredActionItems): ?>
+        <table class="action-items-table" style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+            <thead>
+                <tr>
+                    <th style="text-align: left; border-bottom: 1px solid #999; padding: 4px;">Action</th>
+                    <th style="text-align: left; border-bottom: 1px solid #999; padding: 4px;">Responsible</th>
+                    <th style="text-align: left; border-bottom: 1px solid #999; padding: 4px;">By</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($structuredActionItems as $actionItem): ?>
+                <tr>
+                    <td style="border-bottom: 1px solid #ddd; padding: 4px;">
+                        <?php echo htmlspecialchars($actionItem['description']); ?>
+                        <?php if (!empty($actionItem['agenda_item_number'])): ?>
+                        <span style="color: #666;">(Item <?php echo htmlspecialchars($actionItem['agenda_item_number']); ?>)</span>
+                        <?php endif; ?>
+                    </td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 4px;"><?php echo htmlspecialchars($actionItem['assigned_display']); ?></td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 4px;"><?php echo $actionItem['due_date'] ? htmlspecialchars((new DateTime($actionItem['due_date']))->format('j M Y')) : ''; ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+        <?php if ($minutes['action_items']): ?>
         <div class="action-items">
             <?php echo nl2br(htmlspecialchars($minutes['action_items'])); ?>
         </div>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
     

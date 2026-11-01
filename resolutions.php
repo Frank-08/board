@@ -15,6 +15,13 @@ outputHeader('Resolutions', 'resolutions.php');
         .register-group h3 { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #667eea; padding-bottom: 6px; margin: 25px 0 12px; }
         .register-group h3 .count { font-size: 13px; font-weight: normal; color: #666; }
         .register-group h3 input[type=checkbox] { margin: 0; }
+        .claude-review { background: #fdf3ee; border: 1px solid #f0c9b6; border-radius: 6px; padding: 15px; margin-bottom: 20px; }
+        .claude-review h3 { margin: 0 0 6px; }
+        .claude-review table { width: 100%; border-collapse: collapse; margin: 10px 0; background: white; }
+        .claude-review th, .claude-review td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 14px; }
+        .claude-review td input[type=text] { width: 100%; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .claude-review .reason { font-size: 12px; color: #777; }
+        .claude-review .new-tag { font-size: 11px; background: #fff3cd; color: #856404; border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
         .register-item { display: flex; gap: 12px; align-items: flex-start; }
         .badge-consensus, .badge-agreement { background: #d4edda; color: #155724; }
         .badge-withdrawn, .badge-lapsed { background: #e2e3e5; color: #41464b; }
@@ -83,6 +90,9 @@ outputHeader('Resolutions', 'resolutions.php');
             <div class="register-toolbar">
                 <span class="summary" id="registerSummary"></span>
                 <div>
+                    <?php if (canUseClaude() && hasPermission('categorise_resolutions')): ?>
+                    <button type="button" class="btn btn-claude" id="claudeCategoriseBtn" onclick="suggestCategoriesWithClaude()" title="Suggest categories for the selected resolutions, or for the uncategorised ones listed if none are selected">✨ Suggest categories</button>
+                    <?php endif; ?>
                     <button type="button" class="btn btn-secondary" onclick="openExport('html')">Printable document / PDF</button>
                     <button type="button" class="btn btn-primary" onclick="openExport('word')">Download Word document</button>
                 </div>
@@ -96,6 +106,7 @@ outputHeader('Resolutions', 'resolutions.php');
                 <button type="button" class="btn btn-sm" onclick="clearSelection()">Deselect</button>
             </div>
             <datalist id="categoryOptions"></datalist>
+            <div id="claudeReview"></div>
 
             <div id="resolutions-list"></div>
         </main>
@@ -357,6 +368,99 @@ outputHeader('Resolutions', 'resolutions.php');
             } catch (err) {
                 alert('Error setting category: ' + err.message);
             }
+        }
+
+        // Claude suggestions: nothing is saved until the user applies them
+        const CLAUDE_MAX_PER_REQUEST = 100;
+        let claudeSuggestions = [];
+
+        async function suggestCategoriesWithClaude() {
+            let ids = [...selectedIds];
+            let scope = 'selected';
+            if (!ids.length) {
+                ids = registerRows.filter(r => !(r.category || '').trim()).map(r => String(r.id));
+                scope = 'uncategorised';
+            }
+            if (!ids.length) {
+                alert('Select some resolutions first (or filter to some uncategorised ones).');
+                return;
+            }
+            if (ids.length > CLAUDE_MAX_PER_REQUEST) {
+                if (!confirm(`Claude can do ${CLAUDE_MAX_PER_REQUEST} at a time. Suggest categories for the first ${CLAUDE_MAX_PER_REQUEST} of the ${ids.length} ${scope} resolutions?`)) return;
+                ids = ids.slice(0, CLAUDE_MAX_PER_REQUEST);
+            }
+
+            const button = document.getElementById('claudeCategoriseBtn');
+            const label = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Asking Claude…';
+            try {
+                const result = await apiCall('claude.php', 'POST', { action: 'suggest_categories', ids: ids.map(Number) });
+                claudeSuggestions = result.suggestions || [];
+                renderClaudeReview();
+            } catch (err) {
+                alert('Claude could not suggest categories: ' + err.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = label;
+            }
+        }
+
+        function renderClaudeReview() {
+            const box = document.getElementById('claudeReview');
+            if (!claudeSuggestions.length) {
+                box.innerHTML = '';
+                return;
+            }
+            const byId = new Map(registerRows.map(r => [String(r.id), r]));
+            box.innerHTML = `
+                <div class="claude-review">
+                    <h3>Suggested categories</h3>
+                    <p style="margin: 0; color: #555;">From Claude. Untick or edit any you disagree with, then apply. Nothing changes until you do.</p>
+                    <table>
+                        <thead><tr><th><input type="checkbox" checked onchange="document.querySelectorAll('#claudeReview [data-keep]').forEach(c => c.checked = this.checked)"></th><th>Resolution</th><th style="width: 35%;">Category</th></tr></thead>
+                        <tbody>${claudeSuggestions.map((s, i) => {
+                            const res = byId.get(String(s.id)) || {};
+                            const heading = [res.resolution_number, res.title || res.agenda_item_title].filter(Boolean).join(' — ') || 'Resolution';
+                            return `<tr>
+                                <td><input type="checkbox" checked data-keep data-index="${i}"></td>
+                                <td><strong>${escapeHtml(heading)}</strong><div class="reason">${escapeHtml(String(res.description || '').slice(0, 140))}</div></td>
+                                <td>
+                                    <input type="text" list="categoryOptions" maxlength="100" data-category="${i}" value="${escapeHtml(s.category)}">
+                                    <div class="reason">${s.is_new ? '<span class="new-tag">new category</span> ' : ''}${escapeHtml(s.reason)}</div>
+                                </td>
+                            </tr>`;
+                        }).join('')}</tbody>
+                    </table>
+                    <button type="button" class="btn btn-primary" onclick="applyClaudeSuggestions()">Apply ticked</button>
+                    <button type="button" class="btn btn-secondary" onclick="claudeSuggestions = []; renderClaudeReview();">Discard</button>
+                </div>`;
+        }
+
+        async function applyClaudeSuggestions() {
+            // One set_category call per category
+            const groups = new Map();
+            document.querySelectorAll('#claudeReview [data-keep]').forEach(box => {
+                if (!box.checked) return;
+                const i = Number(box.dataset.index);
+                const category = document.querySelector(`#claudeReview [data-category="${i}"]`).value.trim();
+                if (!category) return;
+                const key = category.toLowerCase();
+                if (!groups.has(key)) groups.set(key, { category, ids: [] });
+                groups.get(key).ids.push(Number(claudeSuggestions[i].id));
+            });
+            try {
+                for (const { category, ids } of groups.values()) {
+                    await apiCall('resolutions.php', 'POST', { action: 'set_category', ids, category });
+                }
+            } catch (err) {
+                alert('Error applying categories: ' + err.message);
+            }
+            claudeSuggestions = [];
+            renderClaudeReview();
+            selectedIds.clear();
+            await loadCategories();
+            await loadRegister();
         }
 
         function openExport(format) {

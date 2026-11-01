@@ -593,6 +593,7 @@ outputHeader('Meetings', 'meetings.php');
     </div>
 
     <script src="assets/js/app.js"></script>
+    <script src="assets/js/action_items.js"></script>
     <script>
         // Auth permissions from server
         const authData = <?php echo getAuthJsVars(); ?>;
@@ -715,6 +716,7 @@ outputHeader('Meetings', 'meetings.php');
                             <button class="tab-btn" onclick="showTab('attendees')">Attendees</button>
                             <button class="tab-btn" onclick="showTab('minutes')">Minutes</button>
                             <button class="tab-btn" onclick="showTab('resolutions')">Resolutions</button>
+                            <button class="tab-btn" onclick="showTab('actions')">Action Items</button>
                         </div>
                         <div id="tab-agenda" class="tab-content active">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -745,6 +747,16 @@ outputHeader('Meetings', 'meetings.php');
                             <button onclick="addResolution()" class="btn btn-sm btn-primary">+ Add Resolution</button>
                             <div id="resolutions-list"></div>
                         </div>
+                        <div id="tab-actions" class="tab-content">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                                <h3 style="margin: 0;">Action Items</h3>
+                                <div>
+                                    ${hasPermission('canUseClaude') && hasPermission('canManageActionItems') ? `<button type="button" class="btn btn-sm btn-claude" onclick="ActionItems.suggestWithClaude(${meeting.id}, this, () => loadMeetingActionItems(${meeting.id}))">✨ Suggest with Claude</button>` : ''}
+                                    ${hasPermission('canManageActionItems') ? `<button type="button" class="btn btn-sm btn-primary" onclick="ActionItems.openModal(null, ${meeting.id}, () => loadMeetingActionItems(${meeting.id}))">+ Add Action Item</button>` : ''}
+                                </div>
+                            </div>
+                            <div id="action-items-list"></div>
+                        </div>
                     `;
 
                     loadMeetingAgenda(id);
@@ -752,7 +764,21 @@ outputHeader('Meetings', 'meetings.php');
                     loadMeetingAttendees(id);
                     loadMeetingMinutes(id);
                     loadMeetingResolutions(id);
+                    loadMeetingActionItems(id);
                 });
+        }
+
+        async function loadMeetingActionItems(meetingId) {
+            const list = document.getElementById('action-items-list');
+            if (!list) return;
+            try {
+                const items = await apiCall(`action_items.php?meeting_id=${meetingId}`);
+                if (currentMeetingId != meetingId) return;
+                ActionItems.renderList(list, items, { onChange: () => loadMeetingActionItems(meetingId) });
+            } catch (err) {
+                console.error('Error loading action items:', err);
+                list.innerHTML = '<p>Error loading action items.</p>';
+            }
         }
 
         // Tells clerks how many member-submitted items are awaiting review for this meeting

@@ -21,17 +21,21 @@ define('ROLE_HIERARCHY', [
     'Viewer' => 1,
     'Member' => 2,
     'Clerk' => 3,
-    'Admin' => 4
+    'Admin' => 4,
+    // An automated assistant (e.g. Claude via an API key). Ranked with
+    // Viewer so hasRole() checks never grant it more - everything it can do
+    // is listed explicitly in PERMISSIONS below.
+    'Assistant' => 1,
 ]);
 
 // Permission definitions for each action
 define('PERMISSIONS', [
     // View permissions (all roles)
-    'view_dashboard' => ['Viewer', 'Member', 'Clerk', 'Admin'],
-    'view_meetings' => ['Viewer', 'Member', 'Clerk', 'Admin'],
-    'view_members' => ['Viewer', 'Member', 'Clerk', 'Admin'],
-    'view_documents' => ['Viewer', 'Member', 'Clerk', 'Admin'],
-    'view_resolutions' => ['Viewer', 'Member', 'Clerk', 'Admin'],
+    'view_dashboard' => ['Viewer', 'Member', 'Clerk', 'Admin', 'Assistant'],
+    'view_meetings' => ['Viewer', 'Member', 'Clerk', 'Admin', 'Assistant'],
+    'view_members' => ['Viewer', 'Member', 'Clerk', 'Admin', 'Assistant'],
+    'view_documents' => ['Viewer', 'Member', 'Clerk', 'Admin', 'Assistant'],
+    'view_resolutions' => ['Viewer', 'Member', 'Clerk', 'Admin', 'Assistant'],
     
     // Edit permissions (Clerk and Admin)
     'create_meeting' => ['Clerk', 'Admin'],
@@ -44,12 +48,23 @@ define('PERMISSIONS', [
     'edit_resolution' => ['Clerk', 'Admin'],
     // Filing a resolution under a register category is indexing, not a change
     // to what was resolved, so it stays allowed after minutes are approved.
-    'categorise_resolutions' => ['Clerk', 'Admin'],
+    'categorise_resolutions' => ['Clerk', 'Admin', 'Assistant'],
     'manage_procedural_proposals' => ['Clerk', 'Admin'],
+    // Create/edit action items arising from a meeting (not locked by
+    // approved minutes - following them up is the point).
+    'manage_action_items' => ['Clerk', 'Admin', 'Assistant'],
+    'delete_action_items' => ['Clerk', 'Admin'],
+    // Write minutes content while they're still Draft. Changing status,
+    // approving, or editing minutes past Draft needs manage_minutes.
+    'draft_minutes' => ['Clerk', 'Admin', 'Assistant'],
     
     // Member-specific permissions
     'edit_own_attendance' => ['Member', 'Clerk', 'Admin'],
-    'submit_agenda_item' => ['Member', 'Clerk', 'Admin'],
+    // Proposals go to clerks for review (agenda_submissions), so the
+    // Assistant can draft the next agenda without editing it directly.
+    'submit_agenda_item' => ['Member', 'Clerk', 'Admin', 'Assistant'],
+    // Update status/notes on action items assigned to your linked member
+    'update_own_action_items' => ['Member', 'Clerk', 'Admin'],
     
     // Admin-only permissions
     'manage_members' => ['Admin'],
@@ -198,6 +213,22 @@ function hasPermission(string $action): bool {
  */
 function isAdmin(): bool {
     return hasRole('Admin');
+}
+
+/**
+ * Whether the current user may use the in-app Claude features (suggest
+ * categories, suggest action items). Limited by username to
+ * CLAUDE_ALLOWED_USERS in config/config.php - not by role - because each
+ * call is billed to the organisation's Anthropic API key.
+ */
+function canUseClaude(): bool {
+    if (!isLoggedIn()) {
+        return false;
+    }
+    $user = getCurrentUser();
+    $username = strtolower((string)($user['username'] ?? ''));
+    $allowed = array_map('strtolower', defined('CLAUDE_ALLOWED_USERS') ? CLAUDE_ALLOWED_USERS : []);
+    return $username !== '' && in_array($username, $allowed, true);
 }
 
 /**

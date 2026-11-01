@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
-    role ENUM('Admin', 'Clerk', 'Member', 'Viewer') DEFAULT 'Viewer',
+    role ENUM('Admin', 'Clerk', 'Member', 'Viewer', 'Assistant') DEFAULT 'Viewer',
     board_member_id INT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     last_login TIMESTAMP NULL,
@@ -259,6 +259,34 @@ CREATE TABLE IF NOT EXISTS api_keys (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE KEY unique_key_hash (key_hash),
     INDEX idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table for action items arising from a meeting (tracked after the meeting:
+-- who, by when, done or not). Replaces the free-text minutes.action_items
+-- for new meetings; that column is kept for older minutes.
+CREATE TABLE IF NOT EXISTS action_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    meeting_id INT NOT NULL,
+    agenda_item_id INT NULL,
+    resolution_id INT NULL,
+    description TEXT NOT NULL,
+    assigned_member_id INT NULL,
+    assigned_to_name VARCHAR(150) NULL,
+    due_date DATE NULL,
+    status ENUM('Open', 'In Progress', 'Done', 'Cancelled') NOT NULL DEFAULT 'Open',
+    notes TEXT NULL,
+    completed_at TIMESTAMP NULL,
+    created_by_user_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
+    FOREIGN KEY (agenda_item_id) REFERENCES agenda_items(id) ON DELETE SET NULL,
+    FOREIGN KEY (resolution_id) REFERENCES resolutions(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_member_id) REFERENCES board_members(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_meeting (meeting_id),
+    INDEX idx_status_due (status, due_date),
+    INDEX idx_assigned_member (assigned_member_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table for resolution amendments (formal majority)
