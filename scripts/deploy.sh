@@ -145,6 +145,16 @@ RSYNC_ARGS=(
     --exclude='vendor/'
     --exclude='composer.json'
     --exclude='composer.lock'
+    # Backups/dumps that may be lying around in this checkout - in the
+    # docroot they'd be downloadable by anyone
+    --exclude='backups/'
+    --exclude='backup/'
+    --exclude='*.sql'
+    --exclude='*.sql.gz'
+    --exclude='*.sql.zip'
+    --exclude='*.dump'
+    --exclude='*.bak'
+    --exclude='*.orig'
 )
 
 record_confirmed() {
