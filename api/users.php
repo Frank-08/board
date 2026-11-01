@@ -90,7 +90,7 @@ switch ($method) {
             }
             
             // Validate role
-            $validRoles = ['Admin', 'Clerk', 'Member', 'Viewer'];
+            $validRoles = ['Admin', 'Clerk', 'Member', 'Viewer', 'Assistant'];
             if (!in_array($role, $validRoles)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid role']);
@@ -212,7 +212,7 @@ switch ($method) {
         
         // Update role
         if (isset($data['role'])) {
-            $validRoles = ['Admin', 'Clerk', 'Member', 'Viewer'];
+            $validRoles = ['Admin', 'Clerk', 'Member', 'Viewer', 'Assistant'];
             if (!in_array($data['role'], $validRoles)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid role']);

@@ -87,7 +87,8 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
                     <li><a href="index.php" <?php echo $activePage === 'index.php' ? 'class="active"' : ''; ?>>Dashboard</a></li>
                     <li><a href="members.php" <?php echo $activePage === 'members.php' ? 'class="active"' : ''; ?>>Members</a></li>
                     <li><a href="meetings.php" <?php echo $activePage === 'meetings.php' ? 'class="active"' : ''; ?>>Meetings</a></li>
-                    <!-- <li><a href="resolutions.php" <?php echo $activePage === 'resolutions.php' ? 'class="active"' : ''; ?>>Resolutions</a></li> -->
+                    <li><a href="resolutions.php" <?php echo $activePage === 'resolutions.php' ? 'class="active"' : ''; ?>>Resolutions</a></li>
+                    <li><a href="action_items.php" <?php echo $activePage === 'action_items.php' ? 'class="active"' : ''; ?>>Action Items</a></li>
                     <li><a href="documents.php" <?php echo $activePage === 'documents.php' ? 'class="active"' : ''; ?>>Documents</a></li>
                     <?php if ($canSubmitAgendaItems): ?>
                     <li><a href="submit_agenda.php" <?php echo $activePage === 'submit_agenda.php' ? 'class="active"' : ''; ?>>Submit Item</a></li>
@@ -138,6 +139,12 @@ function getAuthJsVars() {
             'canCreateResolution' => hasPermission('create_resolution'),
             'canEditResolution' => hasPermission('edit_resolution'),
             'canDeleteResolution' => hasPermission('delete_resolution'),
+            'canCategoriseResolutions' => hasPermission('categorise_resolutions'),
+            'canManageActionItems' => hasPermission('manage_action_items'),
+            'canDeleteActionItems' => hasPermission('delete_action_items'),
+            'canUpdateOwnActionItems' => hasPermission('update_own_action_items'),
+            'canDraftMinutes' => hasPermission('draft_minutes'),
+            'canUseClaude' => canUseClaude(),
             'isAdmin' => isAdmin()
         ]
     ]);

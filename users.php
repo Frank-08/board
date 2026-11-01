@@ -49,6 +49,7 @@ outputHeader('User Management', 'users.php');
                         <option value="Member">Member (View + limited edit)</option>
                         <option value="Clerk">Clerk (Manage meetings & agendas)</option>
                         <option value="Admin">Admin (Full access)</option>
+                        <option value="Assistant">Assistant (Automated helper: read all, categorise, action items, draft minutes)</option>
                     </select>
                 </div>
                 <div class="form-group">

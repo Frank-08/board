@@ -777,3 +777,26 @@ main {
     }
 }
 
+
+/* Action items (meetings.php tab, action_items.php) */
+.action-items-table { width: 100%; border-collapse: collapse; background: white; font-size: 14px; }
+.action-items-table th { text-align: left; padding: 8px 10px; border-bottom: 2px solid #ddd; color: #555; font-size: 13px; }
+.action-items-table td { padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+.action-items-table tr.overdue td:first-child { border-left: 4px solid #dc3545; }
+.action-items-table tr.closed td { color: #888; }
+.action-items-table tr.closed td:first-child { text-decoration: line-through; }
+.action-items-table select { padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; }
+.action-sub { font-size: 12px; color: #777; margin-top: 2px; }
+.overdue-label { font-size: 12px; color: #dc3545; font-weight: 600; }
+.suggest-table textarea, .suggest-table input[type=text] { padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font: inherit; box-sizing: border-box; }
+.badge-in-progress { background: #fff3cd; color: #856404; }
+.badge-done { background: #d4edda; color: #155724; }
+.badge-open { background: #d1ecf1; color: #0c5460; }
+.btn-claude { background: #d97757; color: white; }
+.btn-claude:hover { background: #c4623f; }
+.btn-claude:disabled { opacity: 0.6; cursor: wait; }
+@media (max-width: 700px) {
+    .action-items-table thead { display: none; }
+    .action-items-table tr { display: block; border-bottom: 1px solid #ddd; padding: 6px 0; }
+    .action-items-table td { display: block; border: none; padding: 3px 8px; }
+}

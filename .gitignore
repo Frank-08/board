@@ -32,3 +32,6 @@ Thumbs.db
 # keys
 apikey
 
+
+# Composer dependencies (installed on the server, not committed)
+/vendor/

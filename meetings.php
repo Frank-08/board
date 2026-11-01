@@ -148,6 +148,12 @@ outputHeader('Meetings', 'meetings.php');
                     <input type="text" id="resolutionTitle">
                 </div>
                 <div class="form-group">
+                    <label for="resolutionCategory">Category (optional)</label>
+                    <input type="text" id="resolutionCategory" list="resolutionCategoryOptions" maxlength="100" placeholder="e.g. Finance, Property, Ministry Placements">
+                    <datalist id="resolutionCategoryOptions"></datalist>
+                    <small style="color: #666;">Used to group resolutions in the Resolutions register and its export.</small>
+                </div>
+                <div class="form-group">
                     <label for="resolutionDescription">Description *</label>
                     <textarea id="resolutionDescription" rows="5" required placeholder="Text of this clause, e.g. To approve the agenda as presented"></textarea>
                 </div>
@@ -587,6 +593,7 @@ outputHeader('Meetings', 'meetings.php');
     </div>
 
     <script src="assets/js/app.js"></script>
+    <script src="assets/js/action_items.js"></script>
     <script>
         // Auth permissions from server
         const authData = <?php echo getAuthJsVars(); ?>;
@@ -709,6 +716,7 @@ outputHeader('Meetings', 'meetings.php');
                             <button class="tab-btn" onclick="showTab('attendees')">Attendees</button>
                             <button class="tab-btn" onclick="showTab('minutes')">Minutes</button>
                             <button class="tab-btn" onclick="showTab('resolutions')">Resolutions</button>
+                            <button class="tab-btn" onclick="showTab('actions')">Action Items</button>
                         </div>
                         <div id="tab-agenda" class="tab-content active">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -739,6 +747,16 @@ outputHeader('Meetings', 'meetings.php');
                             <button onclick="addResolution()" class="btn btn-sm btn-primary">+ Add Resolution</button>
                             <div id="resolutions-list"></div>
                         </div>
+                        <div id="tab-actions" class="tab-content">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                                <h3 style="margin: 0;">Action Items</h3>
+                                <div>
+                                    ${hasPermission('canUseClaude') && hasPermission('canManageActionItems') ? `<button type="button" class="btn btn-sm btn-claude" onclick="ActionItems.suggestWithClaude(${meeting.id}, this, () => loadMeetingActionItems(${meeting.id}))">✨ Suggest with Claude</button>` : ''}
+                                    ${hasPermission('canManageActionItems') ? `<button type="button" class="btn btn-sm btn-primary" onclick="ActionItems.openModal(null, ${meeting.id}, () => loadMeetingActionItems(${meeting.id}))">+ Add Action Item</button>` : ''}
+                                </div>
+                            </div>
+                            <div id="action-items-list"></div>
+                        </div>
                     `;
 
                     loadMeetingAgenda(id);
@@ -746,7 +764,21 @@ outputHeader('Meetings', 'meetings.php');
                     loadMeetingAttendees(id);
                     loadMeetingMinutes(id);
                     loadMeetingResolutions(id);
+                    loadMeetingActionItems(id);
                 });
+        }
+
+        async function loadMeetingActionItems(meetingId) {
+            const list = document.getElementById('action-items-list');
+            if (!list) return;
+            try {
+                const items = await apiCall(`action_items.php?meeting_id=${meetingId}`);
+                if (currentMeetingId != meetingId) return;
+                ActionItems.renderList(list, items, { onChange: () => loadMeetingActionItems(meetingId) });
+            } catch (err) {
+                console.error('Error loading action items:', err);
+                list.innerHTML = '<p>Error loading action items.</p>';
+            }
         }
 
         // Tells clerks how many member-submitted items are awaiting review for this meeting
@@ -1384,6 +1416,7 @@ outputHeader('Meetings', 'meetings.php');
                             </div>
                             <p>${res.description}</p>
                             ${res.resolution_number ? `<p><strong>Resolution #:</strong> ${res.resolution_number}</p>` : ''}
+                            ${res.category ? `<p><strong>Category:</strong> ${escapeHtml(res.category)}</p>` : ''}
                             ${res.decision_method ? `<p><strong>Decision Method:</strong> ${res.decision_method}</p>` : ''}
                             ${res.vote_type ? `<p><strong>Vote Type:</strong> ${res.vote_type}</p>` : ''}
                             <p><strong>Status:</strong> <span class="badge badge-${res.status.toLowerCase()}">${res.status}</span></p>
@@ -2191,6 +2224,20 @@ outputHeader('Meetings', 'meetings.php');
             const parentSelect = document.getElementById('resolutionParentAgendaItem');
             parentSelect.innerHTML = '<option value="">No linked agenda item</option>';
 
+            // Suggest categories already used elsewhere in the register
+            fetch('api/resolutions.php?categories=1')
+                .then(r => r.json())
+                .then(categories => {
+                    const list = document.getElementById('resolutionCategoryOptions');
+                    list.innerHTML = '';
+                    (Array.isArray(categories) ? categories : []).forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c;
+                        list.appendChild(opt);
+                    });
+                })
+                .catch(() => {});
+
             if (currentMeetingId) {
                 fetch(`api/agenda.php?meeting_id=${currentMeetingId}`)
                     .then(r => r.json())
@@ -2242,6 +2289,7 @@ outputHeader('Meetings', 'meetings.php');
             if (resolution) {
                 document.getElementById('resolutionId').value = resolution.id;
                 document.getElementById('resolutionTitle').value = resolution.title || '';
+                document.getElementById('resolutionCategory').value = resolution.category || '';
                 document.getElementById('resolutionDescription').value = resolution.description;
                 document.getElementById('resolutionNumber').value = resolution.resolution_number || '';
                 document.getElementById('resolutionDecisionMethod').value = resolution.decision_method || 'Consensus';
@@ -2306,6 +2354,7 @@ outputHeader('Meetings', 'meetings.php');
             const data = {
                 meeting_id: currentMeetingId,
                 title: document.getElementById('resolutionTitle').value || null,
+                category: document.getElementById('resolutionCategory').value.trim() || null,
                 description: document.getElementById('resolutionDescription').value,
                 resolution_number: document.getElementById('resolutionNumber').value || null,
                 decision_method: document.getElementById('resolutionDecisionMethod').value,

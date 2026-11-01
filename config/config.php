@@ -12,6 +12,17 @@ define('ORGANIZATION_NAME', 'Presbytery of Yarra Yarra');
 
 // Document links are stored as SharePoint URLs (no local file upload settings required).
 
+// Claude (in-app "Suggest categories" / "Suggest action items").
+// Only these usernames may use it - each call is billed to the API key.
+// Requires the Anthropic PHP SDK: run `composer require anthropic-ai/sdk guzzlehttp/guzzle` in
+// the app root (adds to any existing vendor/, e.g. TCPDF).
+// The API key is read from the ANTHROPIC_API_KEY environment variable
+// (e.g. `SetEnv ANTHROPIC_API_KEY ...` in the Apache vhost, or the PHP-FPM
+// pool's env[]); failing that, set it here. Never commit a real key.
+define('CLAUDE_ALLOWED_USERS', ['jacob']);
+define('CLAUDE_MODEL', 'claude-opus-5-5');
+define('ANTHROPIC_API_KEY', '');
+
 // Logo settings for PDF exports
 // Set to null or empty string to disable logo
 // LOGO_PATH: Absolute file system path for PDF generation

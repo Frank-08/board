@@ -21,9 +21,24 @@ requireAuth();
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDBConnection();
 
-// Check permissions for write operations
+// Check permissions for write operations. draft_minutes (e.g. the
+// Assistant role) may create minutes and edit them while they're Draft,
+// but can't change their status, approve them, or delete them.
+$draftOnly = false;
 if (in_array($method, ['POST', 'PUT', 'DELETE'])) {
-    requirePermission('manage_minutes');
+    if (!hasPermission('manage_minutes')) {
+        if ($method === 'DELETE') {
+            requirePermission('manage_minutes');
+        }
+        requirePermission('draft_minutes');
+        $draftOnly = true;
+    }
+}
+
+function rejectDraftOnly(string $message): void {
+    http_response_code(403);
+    echo json_encode(['error' => $message, 'code' => 'FORBIDDEN']);
+    exit;
 }
 
 switch ($method) {
@@ -93,6 +108,9 @@ switch ($method) {
             echo json_encode(['error' => 'meeting_id is required']);
             exit;
         }
+        if ($draftOnly && ($data['status'] ?? 'Draft') !== 'Draft') {
+            rejectDraftOnly('You can only create minutes as Draft');
+        }
         
         // Check if minutes already exist
         $stmt = $db->prepare("SELECT id FROM minutes WHERE meeting_id = ?");
@@ -137,6 +155,18 @@ switch ($method) {
             exit;
         }
         
+        if ($draftOnly) {
+            $stmt = $db->prepare("SELECT status FROM minutes WHERE id = ?");
+            $stmt->execute([$id]);
+            $currentStatus = $stmt->fetchColumn();
+            if ($currentStatus !== 'Draft') {
+                rejectDraftOnly('Only Draft minutes can be edited with draft access');
+            }
+            if (!empty($data['approve']) || (isset($data['status']) && $data['status'] !== 'Draft')) {
+                rejectDraftOnly('You can not change the status of minutes or approve them');
+            }
+        }
+
         $updates = [];
         $params = [];
         

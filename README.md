@@ -254,6 +254,34 @@ Enable per-agenda-item comments within meeting minutes for detailed record-keepi
 mysql -u board_user -p governance_board < database/migration_add_minutes_comments.sql
 ```
 
+#### Resolutions Register, Action Items and the Assistant Role
+
+```bash
+mysql -u board_user -p governance_board < database/migration_add_resolution_category.sql
+mysql -u board_user -p governance_board < database/migration_add_action_items.sql
+mysql -u board_user -p governance_board < database/migration_add_assistant_role.sql
+```
+
+- **Resolutions** (`resolutions.php`): every resolution across all meetings, filed under categories, exportable as a printable/PDF page or a Word document.
+- **Action Items** (`action_items.php`, and an Action Items tab on each meeting): follow-up tasks with an owner, due date and status. Clerks and Admins manage them; members can update the status of items assigned to them (their login must be linked to their member record).
+- **Assistant role**: for an automated helper such as Claude connecting with an API key. It can read everything, file resolutions under categories, manage action items, draft minutes while they are still Draft (it cannot change their status or approve them), and propose agenda items for clerk review via Submit Item. It cannot create or change meetings, agendas, attendance or resolutions, or delete anything.
+
+To give Claude (for example a Claude Code session) access:
+
+1. In **Users**, create a user (e.g. `claude`) with the **Assistant** role.
+2. On the server: `php database/generate_api_key.php claude "Claude assistant"`. The key is shown once.
+3. Give the key to the Claude session as a secret (for Claude Code on the web: the environment's settings, as `BOARD_API_KEY`), and allow the board's domain in its network settings. Don't paste it into a chat.
+
+#### In-app Claude suggestions (optional)
+
+"✨ Suggest categories" on the Resolutions page and "✨ Suggest with Claude" on a meeting's Action Items tab ask Claude for suggestions, which you review and edit before anything is saved. Only the usernames in `CLAUDE_ALLOWED_USERS` in `config/config.php` see these buttons (default: `jacob`).
+
+1. In the app folder on the server: `composer require anthropic-ai/sdk guzzlehttp/guzzle`. Install both in one command: if there is no `composer.json` yet, Composer creates one from whatever you name.
+2. Set the API key from the [Claude Console](https://platform.claude.com/) in the web server's environment, e.g. in the Apache vhost: `SetEnv ANTHROPIC_API_KEY sk-ant-...` (or for PHP-FPM, `env[ANTHROPIC_API_KEY] = ...` in the pool config), then reload Apache/PHP-FPM. Setting `ANTHROPIC_API_KEY` in `config/config.php` also works, but keep a real key out of git.
+3. The server needs outbound HTTPS to `api.anthropic.com`.
+
+Each suggestion is one API call billed to that key: up to 100 resolutions per category request, one meeting per action-items request.
+
 ### 8. Verify Installation
 
 1. Open your browser and navigate to the application URL

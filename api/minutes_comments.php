@@ -21,9 +21,42 @@ requireAuth();
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDBConnection();
 
-// Check permissions for write operations
+// Check permissions for write operations. draft_minutes (e.g. the
+// Assistant role) may only change comments on minutes that are still Draft.
 if (in_array($method, ['POST', 'PUT', 'DELETE'])) {
-    requirePermission('manage_minutes');
+    if (!hasPermission('manage_minutes')) {
+        requirePermission('draft_minutes');
+        // Find the minutes the request touches, the same way each handler below does
+        $body = json_decode(file_get_contents('php://input'), true) ?: [];
+        $status = false;
+        if ($method === 'POST') {
+            if (!empty($body['minutes_id'])) {
+                $stmt = $db->prepare("SELECT status FROM minutes WHERE id = ?");
+                $stmt->execute([(int)$body['minutes_id']]);
+            } else {
+                $stmt = $db->prepare("SELECT status FROM minutes WHERE meeting_id = ?");
+                $stmt->execute([(int)($body['meeting_id'] ?? 0)]);
+            }
+            $status = $stmt->fetchColumn();
+            if ($status === false && empty($body['minutes_id'])) {
+                // No minutes yet: the handler creates them as Draft
+                $status = 'Draft';
+            }
+        } elseif ($method === 'DELETE' && !empty($body['minutes_id']) && !empty($body['agenda_item_id'])) {
+            $stmt = $db->prepare("SELECT status FROM minutes WHERE id = ?");
+            $stmt->execute([(int)$body['minutes_id']]);
+            $status = $stmt->fetchColumn();
+        } else {
+            $stmt = $db->prepare("SELECT m.status FROM minutes_agenda_comments c JOIN minutes m ON c.minutes_id = m.id WHERE c.id = ?");
+            $stmt->execute([(int)($body['id'] ?? 0)]);
+            $status = $stmt->fetchColumn();
+        }
+        if ($status !== 'Draft') {
+            http_response_code(403);
+            echo json_encode(['error' => 'Only comments on Draft minutes can be changed with draft access', 'code' => 'FORBIDDEN']);
+            exit;
+        }
+    }
 }
 
 switch ($method) {
