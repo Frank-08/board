@@ -35,3 +35,15 @@ apikey
 
 # Composer dependencies (installed on the server, not committed)
 /vendor/
+
+# Backups - database dumps and file copies must never be committed
+# (they hold member data / credentials). Migrations in database/ are not
+# affected: they're tracked files and none match these patterns.
+backups/
+backup/
+/*.sql
+*backup*.sql
+*.sql.gz
+*.sql.zip
+*.dump
+*.orig
