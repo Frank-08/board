@@ -212,6 +212,62 @@ function requireLogin(string $redirectUrl = ''): void {
 }
 
 /**
+ * Sanitise a post-login redirect target so it can only point back into this
+ * site. Accepts relative paths ("meetings.php?id=1") and root-relative paths
+ * ("/export/agenda.php?meeting_id=1"); rejects anything with a scheme or
+ * host, protocol-relative ("//evil"), backslash tricks ("/\\evil", "\\evil")
+ * and control characters (header injection). Falls back to index.php.
+ *
+ * @param mixed $target Raw redirect value (e.g. from $_GET['redirect'])
+ * @return string Safe redirect target
+ */
+function safeRedirectTarget($target): string {
+    $fallback = 'index.php';
+    if (!is_string($target) || $target === '') {
+        return $fallback;
+    }
+    // Control chars (CR/LF header injection, tabs/NUL browsers strip silently)
+    if (preg_match('/[\x00-\x1F\x7F]/', $target)) {
+        return $fallback;
+    }
+    // Browsers treat "\" as "/", so "/\evil.com" is protocol-relative too
+    if (strpos($target, '\\') !== false) {
+        return $fallback;
+    }
+    if (strpos($target, '//') === 0) {
+        return $fallback;
+    }
+    $parts = parse_url($target);
+    if ($parts === false || isset($parts['scheme']) || isset($parts['host'])) {
+        return $fallback;
+    }
+    // A colon before any "/", "?" or "#" means a scheme (e.g. "javascript:")
+    if (preg_match('~^[^/?#]*:~', $target)) {
+        return $fallback;
+    }
+    return $target;
+}
+
+/**
+ * Gate for pages under export/: redirect to the site's login page (one level
+ * up, unlike requireLogin() which redirects relative to the current
+ * directory) if not logged in, and 403 if the user can't view meetings.
+ * API-key auth works via isLoggedIn()/hasPermission().
+ */
+function requireExportAccess(): void {
+    if (!isLoggedIn()) {
+        header('Location: ../login.php?redirect=' . urlencode($_SERVER['REQUEST_URI'] ?? ''));
+        exit;
+    }
+    if (!hasPermission('view_meetings')) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'You do not have permission to view this export.';
+        exit;
+    }
+}
+
+/**
  * Require user to be logged in, return 401 JSON response if not
  * For use in API endpoints
  * 

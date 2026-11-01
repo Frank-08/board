@@ -133,8 +133,9 @@ Viewer/Member/Clerk/Admin, one API key each):
   surfaces the server's 409 message cleanly.
 - **Documents / exports**: a SharePoint link opens an external
   browser/OneDrive app, not inside this app; a PDF export
-  (`export/agenda_pdf.php`) opens directly with no unexpected auth
-  prompt.
+  (`export/agenda_pdf.php`) opens in the browser; on first use it shows
+  the site's login page (exports require a session) and lands on the PDF
+  after sign-in.
 - **More menu**: each row opens the right PHP page in a Custom Tab; a
   first visit prompts the page's own login; subsequent visits in the
   same run don't re-prompt.

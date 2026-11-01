@@ -132,7 +132,7 @@
             require_once __DIR__ . '/config/auth.php';
             
             $error = '';
-            $redirect = $_GET['redirect'] ?? 'index.php';
+            $redirect = safeRedirectTarget($_GET['redirect'] ?? 'index.php');
             
             // Check for error messages from redirects
             if (isset($_GET['error']) && $_GET['error'] === 'session_expired') {

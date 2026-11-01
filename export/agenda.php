@@ -4,6 +4,10 @@
  */
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../config/auth.php';
+
+requireExportAccess();
+
 require_once __DIR__ . '/../includes/agenda_helpers.php';
 require_once __DIR__ . '/../includes/resolution_helpers.php';
 require_once __DIR__ . '/../includes/export_helpers.php';
