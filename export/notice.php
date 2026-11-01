@@ -4,6 +4,10 @@
  */
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../config/auth.php';
+
+requireExportAccess();
+
 
 $meetingId = isset($_GET['meeting_id']) ? (int)$_GET['meeting_id'] : 0;
 

@@ -126,7 +126,7 @@
             require_once __DIR__ . '/config/twofactor.php';
             
             $error = '';
-            $redirect = $_GET['redirect'] ?? 'index.php';
+            $redirect = safeRedirectTarget($_GET['redirect'] ?? 'index.php');
             
             // Check if there's a pending login
             if (!isset($_SESSION['pending_user_id'])) {
