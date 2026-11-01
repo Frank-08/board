@@ -138,6 +138,9 @@
             if (isset($_GET['error']) && $_GET['error'] === 'session_expired') {
                 $error = 'Your 2FA verification session has expired. Please log in again.';
             }
+            if (isset($_GET['error']) && $_GET['error'] === '2fa_locked') {
+                $error = 'Too many incorrect verification codes. Please wait 15 minutes, then sign in again.';
+            }
             
             // If already logged in, redirect
             if (isLoggedIn()) {

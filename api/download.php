@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/document_helpers.php';
 
 // Require authentication for document downloads
 requireAuth();
@@ -25,11 +26,14 @@ if (!$document || empty($document['sharepoint_url'])) {
     die('Document not found');
 }
 
-if (!filter_var($document['sharepoint_url'], FILTER_VALIDATE_URL)) {
+// Re-validate on the way out: links saved before the validator was
+// tightened (or edited in the database) must not become an open redirect
+$url = normaliseSharePointUrl($document['sharepoint_url']);
+if ($url === null) {
     http_response_code(400);
     die('Document link is invalid');
 }
 
-header('Location: ' . $document['sharepoint_url'], true, 302);
+header('Location: ' . $url, true, 302);
 exit;
 

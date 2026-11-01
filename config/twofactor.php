@@ -132,24 +132,78 @@ function generateTOTPCode(string $secret, ?int $time = null): string {
  * @return bool True if code is valid
  */
 function verifyTOTPCode(string $secret, string $code, int $window = 1): bool {
+    return matchTOTPStep($secret, $code, $window) !== null;
+}
+
+/**
+ * Like verifyTOTPCode(), but returns the time step (counter) the code
+ * matched, or null - so callers can refuse to accept the same step twice.
+ */
+function matchTOTPStep(string $secret, string $code, int $window = 1): ?int {
     $code = trim($code);
     
     if (strlen($code) !== TOTP_DIGITS || !ctype_digit($code)) {
-        return false;
+        return null;
     }
     
     $time = time();
-    $timeCounter = floor($time / TOTP_PERIOD);
     
     // Check current and adjacent time windows to account for clock skew
     for ($i = -$window; $i <= $window; $i++) {
-        $testCode = generateTOTPCode($secret, $time + ($i * TOTP_PERIOD));
+        $testTime = $time + ($i * TOTP_PERIOD);
+        $testCode = generateTOTPCode($secret, $testTime);
         if (hash_equals($testCode, $code)) {
-            return true;
+            return (int)floor($testTime / TOTP_PERIOD);
         }
     }
     
-    return false;
+    return null;
+}
+
+/**
+ * Optional at-rest encryption of TOTP secrets. Set TWOFACTOR_ENCRYPTION_KEY
+ * in config/config.php to 64 hex chars (php -r "echo bin2hex(random_bytes(32));")
+ * and keep it out of the database backups. Secrets saved before the key was
+ * set stay readable and are re-saved encrypted on the user's next sign-in.
+ * Losing the key means everyone with 2FA has to re-enrol.
+ */
+function twoFactorEncryptionKey(): ?string {
+    if (!defined('TWOFACTOR_ENCRYPTION_KEY') || TWOFACTOR_ENCRYPTION_KEY === '' || !function_exists('sodium_crypto_secretbox')) {
+        return null;
+    }
+    $key = @hex2bin(TWOFACTOR_ENCRYPTION_KEY);
+    if ($key === false || strlen($key) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+        error_log('TWOFACTOR_ENCRYPTION_KEY must be 64 hex characters - 2FA secrets are being stored unencrypted');
+        return null;
+    }
+    return $key;
+}
+
+function encryptTwoFactorSecret(string $secret): string {
+    $key = twoFactorEncryptionKey();
+    if ($key === null) {
+        return $secret;
+    }
+    $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+    return 'enc1:' . base64_encode($nonce . sodium_crypto_secretbox($secret, $nonce, $key));
+}
+
+function decryptTwoFactorSecret(string $stored): ?string {
+    if (strpos($stored, 'enc1:') !== 0) {
+        return $stored; // stored before encryption was configured
+    }
+    $key = twoFactorEncryptionKey();
+    $raw = base64_decode(substr($stored, 5), true);
+    if ($key === null || $raw === false || strlen($raw) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
+        error_log('Cannot decrypt a 2FA secret - is TWOFACTOR_ENCRYPTION_KEY set correctly?');
+        return null;
+    }
+    $plain = sodium_crypto_secretbox_open(
+        substr($raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES),
+        substr($raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES),
+        $key
+    );
+    return $plain === false ? null : $plain;
 }
 
 /**
@@ -173,6 +227,34 @@ function generateTwoFactorQRUrl(string $secret, string $email): string {
         TOTP_DIGITS,
         TOTP_PERIOD
     );
+}
+
+/**
+ * Render a QR code for $text as an SVG string (no GD, no temp files, no
+ * request carrying the data). Returns null if the phpqrcode library is
+ * missing.
+ */
+function renderQrCodeSvg(string $text, int $margin = 2): ?string {
+    $lib = __DIR__ . '/../libs/phpqrcode.php';
+    if (!file_exists($lib)) {
+        return null;
+    }
+    require_once $lib;
+    $rows = QRcode::text($text, false, QR_ECLEVEL_M, 1, 0);
+    if (!is_array($rows) || !$rows) {
+        return null;
+    }
+    $size = count($rows) + 2 * $margin;
+    $path = '';
+    foreach ($rows as $y => $row) {
+        for ($x = 0, $n = strlen($row); $x < $n; $x++) {
+            if ($row[$x] === '1') {
+                $path .= 'M' . ($x + $margin) . ',' . ($y + $margin) . 'h1v1h-1z';
+            }
+        }
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' . $size . ' ' . $size . '" shape-rendering="crispEdges">'
+        . '<rect width="100%" height="100%" fill="#fff"/><path fill="#000" d="' . $path . '"/></svg>';
 }
 
 /**
@@ -201,7 +283,36 @@ function generateBackupCodes(int $count = 10): array {
  * @return string Hashed code
  */
 function hashBackupCode(string $code): string {
-    return hash('sha256', $code);
+    // Salted, slow hash: the codes have ~41 bits of entropy, which an
+    // unsalted SHA-256 wouldn't protect against offline cracking
+    return password_hash(normaliseBackupCode($code), PASSWORD_DEFAULT);
+}
+
+function normaliseBackupCode(string $code): string {
+    return strtoupper(preg_replace('/[\s-]+/', '', $code));
+}
+
+/**
+ * Index of the stored hash the code matches, or null. Accepts both
+ * password_hash() hashes and the legacy unsalted SHA-256 ones.
+ */
+function findBackupCode(string $code, array $hashedCodes): ?int {
+    $code = normaliseBackupCode($code);
+    if ($code === '') {
+        return null;
+    }
+    foreach (array_values($hashedCodes) as $i => $hash) {
+        if (!is_string($hash)) {
+            continue;
+        }
+        $match = strpos($hash, '$') === 0
+            ? password_verify($code, $hash)
+            : hash_equals($hash, hash('sha256', $code));
+        if ($match) {
+            return $i;
+        }
+    }
+    return null;
 }
 
 /**
@@ -212,8 +323,7 @@ function hashBackupCode(string $code): string {
  * @return bool True if code is valid
  */
 function verifyBackupCode(string $code, array $hashedCodes): bool {
-    $hashed = hashBackupCode($code);
-    return in_array($hashed, $hashedCodes, true);
+    return findBackupCode($code, $hashedCodes) !== null;
 }
 
 /**
@@ -247,7 +357,7 @@ function enableTwoFactor(int $userId, string $secret, array $backupCodes): bool 
             WHERE id = ?
         ");
         
-        return $stmt->execute([$secret, $backupCodesJson, $userId]);
+        return $stmt->execute([encryptTwoFactorSecret($secret), $backupCodesJson, $userId]);
     } catch (PDOException $e) {
         error_log("Error enabling 2FA: " . $e->getMessage());
         return false;
@@ -338,7 +448,10 @@ function getUserTwoFactorSecret(int $userId): ?string {
         $stmt->execute([$userId]);
         $result = $stmt->fetch();
         
-        return $result && isset($result['two_factor_secret']) && $result['two_factor_secret'] ? $result['two_factor_secret'] : null;
+        if (!$result || empty($result['two_factor_secret'])) {
+            return null;
+        }
+        return decryptTwoFactorSecret($result['two_factor_secret']);
     } catch (PDOException $e) {
         error_log("Error getting 2FA secret: " . $e->getMessage());
         return null;
@@ -381,25 +494,17 @@ function getUserBackupCodes(int $userId): array {
  * Remove a used backup code
  * 
  * @param int $userId User ID
- * @param string $code Plain backup code that was used
+ * @param int $index Index of the used code (from findBackupCode())
  * @return bool Success
  */
-function removeBackupCode(int $userId, string $code): bool {
+function removeBackupCode(int $userId, int $index): bool {
     $db = getDBConnection();
     
-    $hashedCodes = getUserBackupCodes($userId);
-    $hashedCode = hashBackupCode($code);
-    
-    // Remove the used code
-    $hashedCodes = array_filter($hashedCodes, function($h) use ($hashedCode) {
-        return $h !== $hashedCode;
-    });
-    
-    // Update database
-    $backupCodesJson = json_encode(array_values($hashedCodes));
+    $hashedCodes = array_values(getUserBackupCodes($userId));
+    unset($hashedCodes[$index]);
     
     $stmt = $db->prepare("UPDATE users SET two_factor_backup_codes = ? WHERE id = ?");
-    return $stmt->execute([$backupCodesJson, $userId]);
+    return $stmt->execute([json_encode(array_values($hashedCodes)), $userId]);
 }
 
 /**
@@ -415,20 +520,68 @@ function verifyTwoFactorCode(int $userId, string $code): array {
     if (!$secret) {
         return ['success' => false, 'message' => '2FA is not enabled for this user', 'used_backup' => false];
     }
-    
-    // Try TOTP code first
-    if (verifyTOTPCode($secret, $code)) {
-        return ['success' => true, 'message' => 'Code verified', 'used_backup' => false];
-    }
-    
-    // Try backup codes
-    $backupCodes = getUserBackupCodes($userId);
-    if (verifyBackupCode($code, $backupCodes)) {
-        // Remove used backup code
-        removeBackupCode($userId, $code);
-        return ['success' => true, 'message' => 'Backup code verified', 'used_backup' => true];
-    }
-    
-    return ['success' => false, 'message' => 'Invalid code', 'used_backup' => false];
-}
 
+    // Brute-force guard: a 6-digit code (3 valid at any moment) falls to a
+    // few hundred thousand guesses, so cap failures per user. This is kept
+    // in the database, so starting a new login doesn't reset it.
+    $throttleKey = 'user:' . $userId;
+    if (function_exists('countAuthAttempts')
+        && countAuthAttempts('2fa', $throttleKey, TWOFACTOR_FAILURE_WINDOW) >= TWOFACTOR_MAX_FAILURES_PER_USER) {
+        return ['success' => false, 'message' => 'Too many incorrect codes. Please wait 15 minutes and try again.', 'used_backup' => false, 'locked' => true];
+    }
+    $fail = function () use ($throttleKey) {
+        if (function_exists('recordAuthAttempt')) {
+            recordAuthAttempt('2fa', $throttleKey);
+        }
+        return ['success' => false, 'message' => 'Invalid code', 'used_backup' => false];
+    };
+    $succeed = function (bool $usedBackup) use ($throttleKey, $userId, $secret) {
+        if (function_exists('clearAuthAttempts')) {
+            clearAuthAttempts('2fa', $throttleKey);
+        }
+        // Re-save a secret stored before encryption was configured
+        if (twoFactorEncryptionKey() !== null) {
+            try {
+                $stmt = getDBConnection()->prepare("UPDATE users SET two_factor_secret = ? WHERE id = ? AND two_factor_secret NOT LIKE 'enc1:%'");
+                $stmt->execute([encryptTwoFactorSecret($secret), $userId]);
+            } catch (PDOException $e) {
+                error_log('Re-encrypting 2FA secret failed: ' . $e->getMessage());
+            }
+        }
+        return ['success' => true, 'message' => $usedBackup ? 'Backup code verified' : 'Code verified', 'used_backup' => $usedBackup];
+    };
+
+    $code = trim($code);
+
+    // 6 digits: an authenticator code
+    if (strlen($code) === TOTP_DIGITS && ctype_digit($code)) {
+        $step = matchTOTPStep($secret, $code);
+        if ($step === null) {
+            return $fail();
+        }
+        // Replay guard: each time step is accepted once. The conditional
+        // UPDATE is atomic, so two simultaneous uses can't both win.
+        try {
+            $stmt = getDBConnection()->prepare("
+                UPDATE users SET two_factor_last_step = ?
+                WHERE id = ? AND (two_factor_last_step IS NULL OR two_factor_last_step < ?)
+            ");
+            $stmt->execute([$step, $userId, $step]);
+            if ($stmt->rowCount() === 0) {
+                return $fail();
+            }
+        } catch (PDOException $e) {
+            error_log('2FA replay check unavailable (run database/migration_security_hardening.sql?): ' . $e->getMessage());
+        }
+        return $succeed(false);
+    }
+
+    // Anything else: try the backup codes
+    $index = findBackupCode($code, getUserBackupCodes($userId));
+    if ($index !== null) {
+        removeBackupCode($userId, $index);
+        return $succeed(true);
+    }
+    
+    return $fail();
+}

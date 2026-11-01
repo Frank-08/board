@@ -1,8 +1,4 @@
 <?php
-// Enable error reporting for debugging (remove in production)
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 // Include all PHP files BEFORE any HTML output
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/config/twofactor.php';
@@ -47,7 +43,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $action = $_POST['action'] ?? '';
         
-        if ($action === 'start_setup') {
+        if (($action === 'start_setup' || $action === 'verify_setup') && $isEnabled) {
+            // Re-enrolling would replace the secret without proving
+            // possession of the current one - disable first
+            $error = 'Two-factor authentication is already enabled. Disable it first to set up a new device.';
+        } elseif ($action === 'start_setup') {
             // Generate new secret for setup
             $secret = generateTwoFactorSecret();
             $qrUrl = generateTwoFactorQRUrl($secret, $currentUser['username']);
@@ -82,12 +82,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } elseif ($action === 'disable') {
-            // Disable 2FA
-            if (disableTwoFactor($userId)) {
-                $success = 'Two-factor authentication has been disabled.';
-                $isEnabled = false;
+            // Disabling 2FA needs the password and a current code, so a
+            // hijacked session alone can't strip it
+            $stmt = $db->prepare("SELECT password_hash FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $passwordHash = (string)$stmt->fetchColumn();
+            $password = (string)($_POST['password'] ?? '');
+            $code = trim((string)($_POST['code'] ?? ''));
+
+            if (countAuthAttempts('login', $currentUser['username'], LOGIN_FAILURE_WINDOW) >= LOGIN_MAX_FAILURES_PER_ACCOUNT) {
+                $error = 'Too many failed attempts. Please wait 15 minutes and try again.';
+            } elseif (!password_verify($password, $passwordHash)) {
+                recordAuthAttempt('login', $currentUser['username']);
+                $error = 'Your password was incorrect.';
             } else {
-                $error = 'Failed to disable 2FA. Please try again.';
+                $result = verifyTwoFactorCode($userId, $code);
+                if (!$result['success']) {
+                    $error = $result['message'];
+                } elseif (disableTwoFactor($userId)) {
+                    bumpSessionVersion($userId); // sign out other sessions
+                    $success = 'Two-factor authentication has been disabled.';
+                    $isEnabled = false;
+                } else {
+                    $error = 'Failed to disable 2FA. Please try again.';
+                }
             }
         }
     }
@@ -387,6 +405,15 @@ if (isset($_SESSION['2fa_setup_secret']) && !$isEnabled) {
                     <form method="POST" action="" onsubmit="return confirm('Are you sure you want to disable two-factor authentication? This will make your account less secure.');">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken()); ?>">
                         <input type="hidden" name="action" value="disable">
+                        <p>To disable it, confirm your password and a current code (or a backup code).</p>
+                        <div class="form-group">
+                            <label for="disablePassword">Password</label>
+                            <input type="password" id="disablePassword" name="password" required autocomplete="current-password">
+                        </div>
+                        <div class="form-group">
+                            <label for="disableCode">Authenticator or backup code</label>
+                            <input type="text" id="disableCode" name="code" required maxlength="12" autocomplete="one-time-code">
+                        </div>
                         <button type="submit" class="btn btn-danger">Disable 2FA</button>
                     </form>
                 <?php else: ?>
@@ -419,14 +446,22 @@ if (isset($_SESSION['2fa_setup_secret']) && !$isEnabled) {
                     
                     <div class="qr-code-container">
                         <?php if ($qrUrl): ?>
-                        <img src="api/qrcode.php?data=<?php echo urlencode($qrUrl); ?>" 
-                             alt="QR Code" 
-                             style="max-width: 250px; height: auto; border: 4px solid white; border-radius: 8px;"
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                        <div style="display: none; color: #dc2626; padding: 20px; text-align: center;">
+                        <?php
+                        // Rendered inline: the otpauth:// URI holds the TOTP
+                        // secret, so it must not travel in an image URL
+                        // (server/proxy access logs, browser history)
+                        $qrSvg = renderQrCodeSvg($qrUrl);
+                        ?>
+                        <?php if ($qrSvg !== null): ?>
+                        <img src="data:image/svg+xml;base64,<?php echo base64_encode($qrSvg); ?>"
+                             alt="QR Code"
+                             style="width: 250px; max-width: 100%; height: auto; border: 4px solid white; border-radius: 8px; background: white;">
+                        <?php else: ?>
+                        <div style="color: #dc2626; padding: 20px; text-align: center;">
                             <p><strong>Failed to generate QR code.</strong></p>
                             <p>Please use the manual entry method below.</p>
                         </div>
+                        <?php endif; ?>
                         <?php endif; ?>
                         <p style="margin-top: 15px; font-size: 14px; color: #666;">
                             Or scan using this URL: <br>

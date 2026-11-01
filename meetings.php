@@ -668,12 +668,12 @@ outputHeader('Meetings', 'meetings.php');
                     list.innerHTML = data.map(meeting => `
                         <div class="meeting-item" onclick="showMeetingDetail(${meeting.id})">
                             <div class="meeting-header">
-                                <h3>${meeting.title}</h3>
-                                <span class="badge badge-${meeting.status.toLowerCase().replace(' ', '-')}">${meeting.status}</span>
+                                <h3>${escapeHtml(meeting.title)}</h3>
+                                <span class="badge badge-${escapeHtml(meeting.status.toLowerCase().replace(' ', '-'))}">${escapeHtml(meeting.status)}</span>
                             </div>
                             <p class="meeting-type">${escapeHtml(selectedTypeName)} Meeting</p>
                             <p class="meeting-date">${formatDateTime(meeting.scheduled_date)}</p>
-                            ${meeting.location ? `<p class="meeting-location">📍 ${meeting.location}</p>` : ''}
+                            ${meeting.location ? `<p class="meeting-location">📍 ${escapeHtml(meeting.location)}</p>` : ''}
                         </div>
                     `).join('');
                 });
@@ -694,7 +694,7 @@ outputHeader('Meetings', 'meetings.php');
                     const content = document.getElementById('meeting-detail-content');
                     content.innerHTML = `
                         <div class="meeting-detail-header">
-                            <h2>${meeting.title}</h2>
+                            <h2>${escapeHtml(meeting.title)}</h2>
                             <div>
                                 <a href="export/notice.php?meeting_id=${meeting.id}" target="_blank" class="btn btn-primary" style="text-decoration: none; display: inline-block; margin-right: 5px;">
                                     📋 Generate Notice
@@ -706,10 +706,10 @@ outputHeader('Meetings', 'meetings.php');
                         <div class="meeting-info">
                             <p><strong>Type:</strong> ${escapeHtml(currentMeetingTypeName)}</p>
                             <p><strong>Scheduled:</strong> ${formatDateTime(meeting.scheduled_date)}</p>
-                            <p><strong>Status:</strong> <span class="badge badge-${meeting.status.toLowerCase().replace(' ', '-')}">${meeting.status}</span></p>
-                            ${meeting.location ? `<p><strong>Location:</strong> ${meeting.location}</p>` : ''}
-                            ${meeting.virtual_link ? `<p><strong>Virtual Link:</strong> <a href="${meeting.virtual_link}" target="_blank">${meeting.virtual_link}</a></p>` : ''}
-                            ${meeting.notes ? `<p><strong>Notes:</strong> ${meeting.notes}</p>` : ''}
+                            <p><strong>Status:</strong> <span class="badge badge-${escapeHtml(meeting.status.toLowerCase().replace(' ', '-'))}">${escapeHtml(meeting.status)}</span></p>
+                            ${meeting.location ? `<p><strong>Location:</strong> ${escapeHtml(meeting.location)}</p>` : ''}
+                            ${meeting.virtual_link ? `<p><strong>Virtual Link:</strong> <a href="${escapeHtml(safeUrl(meeting.virtual_link))}" target="_blank" rel="noopener noreferrer">${escapeHtml(meeting.virtual_link)}</a></p>` : ''}
+                            ${meeting.notes ? `<p><strong>Notes:</strong> ${escapeHtml(meeting.notes)}</p>` : ''}
                         </div>
                         <div class="meeting-tabs">
                             <button class="tab-btn active" onclick="showTab('agenda')">Agenda</button>
@@ -834,11 +834,7 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         // Escapes text for safe interpolation into HTML built via template literals.
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text == null ? '' : String(text);
-            return div.innerHTML;
-        }
+        // escapeHtml() and safeUrl() come from assets/js/app.js
 
         // Mirrors formatResolutionOutcomeText() in includes/resolution_helpers.php
         function formatResolutionOutcomeText(res) {
@@ -1003,7 +999,7 @@ outputHeader('Meetings', 'meetings.php');
                                         </div>
                                             <h4>
                                                 ${hasChildren ? `<button type="button" class="agenda-collapse-toggle ${isCollapsed ? 'collapsed' : ''}" onclick="toggleAgendaChildren(${item.id}, event)" aria-expanded="${isCollapsed ? 'false' : 'true'}" title="${isCollapsed ? 'Expand sub-items' : 'Collapse sub-items'}">${isCollapsed ? '▸' : '▾'}</button>` : '<span class="agenda-collapse-spacer" aria-hidden="true"></span>'}
-                                                ${item.item_number ? item.item_number + '. ' : ''}${renderStarredPrefix(item)}${item.title}
+                                                ${item.item_number ? escapeHtml(item.item_number) + '. ' : ''}${renderStarredPrefix(item)}${escapeHtml(item.title)}
                                             </h4>
                                         <div class="item-actions">
                                             <div class="reorder-buttons">
@@ -1029,7 +1025,7 @@ outputHeader('Meetings', 'meetings.php');
                                             <button onclick="deleteAgendaItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
                                         </div>
                                     </div>
-                                    ${item.description ? `<p>${item.description}</p>` : ''}
+                                    ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}
                                     ${formatAttributionLine(item, 'future') ? `<p>${formatAttributionLine(item, 'future')}</p>` : ''}
                                     ${renderAgendaResolutionPanels(item)}
                                     ${documents.length > 0 ? `
@@ -1038,8 +1034,8 @@ outputHeader('Meetings', 'meetings.php');
                                             <ul style="margin: 5px 0; padding-left: 20px;">
                                                 ${documents.map(doc => `
                                                     <li>
-                                                        <a href="${doc.sharepoint_url || ('api/download.php?id=' + doc.id)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #007bff;">
-                                                            ${doc.title || doc.file_name || extractFileNameFromUrl(doc.sharepoint_url) || 'Document Link'}
+                                                        <a href="api/download.php?id=${encodeURIComponent(doc.id)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #007bff;">
+                                                            ${escapeHtml(doc.title || doc.file_name || extractFileNameFromUrl(doc.sharepoint_url) || 'Document Link')}
                                                         </a>
                                                         <button onclick="deleteDocument(${doc.id}, ${item.id})" class="btn btn-sm btn-danger" style="margin-left: 10px; padding: 2px 8px; font-size: 11px;">Delete</button>
                                                     </li>
@@ -1048,11 +1044,11 @@ outputHeader('Meetings', 'meetings.php');
                                         </div>
                                     ` : ''}
                                     <div class="agenda-meta">
-                                        <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
-                                        ${item.decision_method && item.decision_method !== 'None' ? `<span class="badge badge-${item.decision_method.toLowerCase().replace(' ', '-')}">${item.decision_method}</span>` : ''}
+                                        <span class="badge badge-${escapeHtml(item.item_type.toLowerCase().replace(' ', '-'))}">${escapeHtml(item.item_type)}</span>
+                                        ${item.decision_method && item.decision_method !== 'None' ? `<span class="badge badge-${escapeHtml(item.decision_method.toLowerCase().replace(' ', '-'))}">${escapeHtml(item.decision_method)}</span>` : ''}
                                         ${item.presenters && item.presenters.length > 0 ? `<span>Presenter: ${escapeHtml(joinPresenterNames(item.presenters))}</span>` : ''}
-                                        ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
-                                        ${item.status ? `<span class="badge badge-${item.status.toLowerCase()}">${item.status}</span>` : ''}
+                                        ${item.duration_minutes ? `<span>Duration: ${escapeHtml(item.duration_minutes)} min</span>` : ''}
+                                        ${item.status ? `<span class="badge badge-${escapeHtml(item.status.toLowerCase())}">${escapeHtml(item.status)}</span>` : ''}
                                     </div>
                                 </div>
                             `;
@@ -1119,10 +1115,10 @@ outputHeader('Meetings', 'meetings.php');
                     list.innerHTML = attendees.map(att => `
                         <div class="attendee-item">
                             <div>
-                                <strong>${att.first_name} ${att.last_name}</strong>
-                                ${att.role ? `(${att.role})` : ''}
-                                ${att.title ? `<br><span style="font-size: 12px; color: #666;">${att.title}</span>` : ''}
-                                ${att.attendance_status ? `<span class="badge badge-${att.attendance_status.toLowerCase()}" style="margin-left: 8px;">${att.attendance_status}</span>` : ''}
+                                <strong>${escapeHtml(att.first_name)} ${escapeHtml(att.last_name)}</strong>
+                                ${att.role ? `(${escapeHtml(att.role)})` : ''}
+                                ${att.title ? `<br><span style="font-size: 12px; color: #666;">${escapeHtml(att.title)}</span>` : ''}
+                                ${att.attendance_status ? `<span class="badge badge-${escapeHtml(att.attendance_status.toLowerCase())}" style="margin-left: 8px;">${escapeHtml(att.attendance_status)}</span>` : ''}
                                 ${att.arrival_time ? `<br><span style="font-size: 12px; color: #666;">Arrived: ${formatDateTime(att.arrival_time)}</span>` : ''}
                             </div>
                             <div class="item-actions">
@@ -1209,9 +1205,9 @@ outputHeader('Meetings', 'meetings.php');
                             agendaItemsHtml += `
                                 <div class="agenda-comment-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
                                     <h4 style="margin: 0 0 10px 0; color: #333;">
-                                        ${item.item_number ? item.item_number + '. ' : ''}${renderStarredPrefix(item)}${item.title}
+                                        ${item.item_number ? escapeHtml(item.item_number) + '. ' : ''}${renderStarredPrefix(item)}${escapeHtml(item.title)}
                                     </h4>
-                                    ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${item.description}</p>` : ''}
+                                    ${item.description ? `<p style="color: #666; margin: 5px 0 10px 0;">${escapeHtml(item.description)}</p>` : ''}
                                     ${renderMinutesResolutionSummary(item, minutesApproved)}
                                     ${attributionLine ? `<p style="color: #666; margin: 5px 0;">${attributionLine}</p>` : ''}
                                     <div style="margin-top: 10px;">
@@ -1221,9 +1217,9 @@ outputHeader('Meetings', 'meetings.php');
                                                 data-agenda-item-id="${item.id}"
                                                 data-minutes-id="${minutes.id}"
                                                 style="width: 100%; min-height: 60px; margin-top: 5px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;"
-                                                onblur="saveAgendaComment(${item.id}, ${minutes.id}, this.value)">${comment}</textarea>
+                                                onblur="saveAgendaComment(${item.id}, ${minutes.id}, this.value)">${escapeHtml(comment)}</textarea>
                                         ` : `
-                                            <div style="margin-top: 5px; padding: 10px; background: #f9f9f9; border-radius: 4px; white-space: pre-wrap;">${comment || '<em style="color: #999;">No comments recorded</em>'}</div>
+                                            <div style="margin-top: 5px; padding: 10px; background: #f9f9f9; border-radius: 4px; white-space: pre-wrap;">${comment ? escapeHtml(comment) : '<em style="color: #999;">No comments recorded</em>'}</div>
                                         `}
                                     </div>
                                     ${renderMinutesProceduralProposals(item.id, duringByItem[String(item.id)], minutesApproved)}
@@ -1240,18 +1236,18 @@ outputHeader('Meetings', 'meetings.php');
                 content.innerHTML = `
                     <div class="minutes-display">
                         <div class="minutes-header">
-                            <p><strong>Status:</strong> <span class="badge badge-${minutes.status.toLowerCase()}">${minutes.status}</span></p>
+                            <p><strong>Status:</strong> <span class="badge badge-${escapeHtml(minutes.status.toLowerCase())}">${escapeHtml(minutes.status)}</span></p>
                             <div>
                                 ${minutes.status !== 'Approved' ? `<button onclick="editMinutes()" class="btn btn-sm">Edit</button>` : ''}
                                 ${minutes.status === 'Draft' || minutes.status === 'Review' ? `<button onclick="approveMinutes()" class="btn btn-sm btn-primary">Approve</button>` : ''}
                                 <button onclick="window.open('export/minutes.php?meeting_id=${meetingId}', '_blank')" class="btn btn-sm btn-primary">Export to PDF</button>
                             </div>
                         </div>
-                        ${minutes.prepared_first_name ? `<p><strong>Prepared by:</strong> ${minutes.prepared_first_name} ${minutes.prepared_last_name}</p>` : ''}
-                        ${minutes.approved_first_name ? `<p><strong>Approved by:</strong> ${minutes.approved_first_name} ${minutes.approved_last_name}</p>` : ''}
+                        ${minutes.prepared_first_name ? `<p><strong>Prepared by:</strong> ${escapeHtml(minutes.prepared_first_name + ' ' + minutes.prepared_last_name)}</p>` : ''}
+                        ${minutes.approved_first_name ? `<p><strong>Approved by:</strong> ${escapeHtml(minutes.approved_first_name + ' ' + minutes.approved_last_name)}</p>` : ''}
                         ${minutes.approved_at ? `<p><strong>Approved on:</strong> ${formatDateTime(minutes.approved_at)}</p>` : ''}
                         ${agendaItemsHtml}
-                        ${minutes.action_items ? `<h4>Action Items</h4><div class="minutes-text">${minutes.action_items.replace(/\n/g, '<br>')}</div>` : ''}
+                        ${minutes.action_items ? `<h4>Action Items</h4><div class="minutes-text">${escapeHtml(minutes.action_items).replace(/\n/g, '<br>')}</div>` : ''}
                         ${minutes.next_meeting_date ? `<p><strong>Next Meeting:</strong> ${formatDateTime(minutes.next_meeting_date)}</p>` : ''}
                     </div>
                 `;
@@ -1262,18 +1258,18 @@ outputHeader('Meetings', 'meetings.php');
 
         function renderProceduralProposalRow(p, minutesApproved) {
             const typeLabel = PROCEDURAL_PROPOSAL_LABELS[p.proposal_type] || p.proposal_type;
-            const outcomeBadge = `<span class="badge badge-${p.outcome.toLowerCase()}" style="margin-left: 8px; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">${p.outcome}</span>`;
-            const proposer = p.proposed_by_first_name ? `${p.proposed_by_first_name} ${p.proposed_by_last_name}` : null;
-            const seconder = p.seconded_by_first_name ? `${p.seconded_by_first_name} ${p.seconded_by_last_name}` : null;
+            const outcomeBadge = `<span class="badge badge-${escapeHtml(p.outcome.toLowerCase())}" style="margin-left: 8px; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">${escapeHtml(p.outcome)}</span>`;
+            const proposer = p.proposed_by_first_name ? escapeHtml(`${p.proposed_by_first_name} ${p.proposed_by_last_name}`) : null;
+            const seconder = p.seconded_by_first_name ? escapeHtml(`${p.seconded_by_first_name} ${p.seconded_by_last_name}`) : null;
             const editPart = !minutesApproved ? `
                 <button onclick="editProceduralProposal(${p.id})" class="btn btn-sm" style="margin-left: 8px;">Edit</button>
                 <button onclick="deleteProceduralProposal(${p.id})" class="btn btn-sm btn-danger" style="margin-left: 4px;">Delete</button>
             ` : '';
             return `
                 <div style="padding: 6px 0; border-bottom: 1px solid #eee;">
-                    <strong>${typeLabel}</strong>${outcomeBadge}${editPart}
+                    <strong>${escapeHtml(typeLabel)}</strong>${outcomeBadge}${editPart}
                     ${proposer ? `<div style="font-size: 12px; color: #666;">Proposed by: ${proposer}${seconder ? ', seconded by ' + seconder : ''}</div>` : ''}
-                    ${p.notes ? `<div style="font-size: 13px; color: #444; margin-top: 2px;">${p.notes}</div>` : ''}
+                    ${p.notes ? `<div style="font-size: 13px; color: #444; margin-top: 2px;">${escapeHtml(p.notes)}</div>` : ''}
                 </div>
             `;
         }
@@ -1414,12 +1410,12 @@ outputHeader('Meetings', 'meetings.php');
                                     <button onclick="deleteResolution(${res.id})" class="btn btn-sm btn-danger">Delete</button>
                                 </div>
                             </div>
-                            <p>${res.description}</p>
-                            ${res.resolution_number ? `<p><strong>Resolution #:</strong> ${res.resolution_number}</p>` : ''}
+                            <p>${escapeHtml(res.description)}</p>
+                            ${res.resolution_number ? `<p><strong>Resolution #:</strong> ${escapeHtml(res.resolution_number)}</p>` : ''}
                             ${res.category ? `<p><strong>Category:</strong> ${escapeHtml(res.category)}</p>` : ''}
-                            ${res.decision_method ? `<p><strong>Decision Method:</strong> ${res.decision_method}</p>` : ''}
-                            ${res.vote_type ? `<p><strong>Vote Type:</strong> ${res.vote_type}</p>` : ''}
-                            <p><strong>Status:</strong> <span class="badge badge-${res.status.toLowerCase()}">${res.status}</span></p>
+                            ${res.decision_method ? `<p><strong>Decision Method:</strong> ${escapeHtml(res.decision_method)}</p>` : ''}
+                            ${res.vote_type ? `<p><strong>Vote Type:</strong> ${escapeHtml(res.vote_type)}</p>` : ''}
+                            <p><strong>Status:</strong> <span class="badge badge-${escapeHtml(res.status.toLowerCase())}">${escapeHtml(res.status)}</span></p>
                         </div>
                     `;
                     }).join('');
@@ -2963,11 +2959,14 @@ outputHeader('Meetings', 'meetings.php');
             });
         });
 
+        // Quick client-side check; the server (includes/document_helpers.php)
+        // is authoritative and may also restrict which tenants are allowed
         function isValidSharePointUrl(url) {
-            if (!url) return false;
+            if (!url || /[\\@\s"'<>`]/.test(url.trim())) return false;
             try {
-                const parsed = new URL(url);
-                return parsed.protocol === 'https:' && parsed.hostname.includes('sharepoint.com');
+                const parsed = new URL(url.trim());
+                return parsed.protocol === 'https:' && /\.sharepoint(-df)?\.com$/.test(parsed.hostname)
+                    && (parsed.port === '' || parsed.port === '443');
             } catch (error) {
                 return false;
             }
@@ -3085,7 +3084,7 @@ outputHeader('Meetings', 'meetings.php');
                         return `
                             <div class="agenda-item" style="margin-bottom: 10px; ${isChild ? 'margin-left: 22px;' : ''}">
                                 <div class="item-header">
-                                    <h4>${renderStarredPrefix(item)}${item.title}</h4>
+                                    <h4>${renderStarredPrefix(item)}${escapeHtml(item.title)}</h4>
                                     <div class="item-actions">
                                         <button onclick="moveTemplateItemUp(${item.id})"
                                                 class="btn btn-sm"
@@ -3102,11 +3101,11 @@ outputHeader('Meetings', 'meetings.php');
                                         <button onclick="deleteTemplateItem(${item.id})" class="btn btn-sm btn-danger">Delete</button>
                                     </div>
                                 </div>
-                                ${item.description ? `<p style="margin: 5px 0; color: #666;">${item.description}</p>` : ''}
+                                ${item.description ? `<p style="margin: 5px 0; color: #666;">${escapeHtml(item.description)}</p>` : ''}
                                 <div class="agenda-meta">
-                                    <span class="badge badge-${item.item_type.toLowerCase().replace(' ', '-')}">${item.item_type}</span>
-                                    ${item.decision_method && item.decision_method !== 'None' ? `<span class="badge">${item.decision_method}</span>` : ''}
-                                    ${item.duration_minutes ? `<span>Duration: ${item.duration_minutes} min</span>` : ''}
+                                    <span class="badge badge-${escapeHtml(item.item_type.toLowerCase().replace(' ', '-'))}">${escapeHtml(item.item_type)}</span>
+                                    ${item.decision_method && item.decision_method !== 'None' ? `<span class="badge">${escapeHtml(item.decision_method)}</span>` : ''}
+                                    ${item.duration_minutes ? `<span>Duration: ${escapeHtml(item.duration_minutes)} min</span>` : ''}
                                 </div>
                             </div>
                             ${children.map((child, childIndex) => renderItem(child, childIndex, children, true)).join('')}

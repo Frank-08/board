@@ -3,9 +3,6 @@
  * Meeting Attendees API Endpoint
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -43,7 +40,7 @@ switch ($method) {
                     bm.last_name ASC
             ");
             $stmt->execute([$meetingId]);
-            echo json_encode($stmt->fetchAll());
+            echo json_encode(redactMemberContacts($stmt->fetchAll()));
         } else {
             http_response_code(400);
             echo json_encode(['error' => 'meeting_id is required']);

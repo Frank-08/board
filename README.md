@@ -309,7 +309,6 @@ board/
 │   ├── minutes_comments.php     # Minutes agenda comments
 │   ├── organizations.php        # Organization management
 │   ├── password_reset.php       # Password reset API
-│   ├── qrcode.php               # QR code generation for 2FA
 │   ├── resolutions.php          # Resolutions CRUD
 │   ├── users.php                # User management
 │   └── view_pdf.php             # PDF viewer endpoint
@@ -403,7 +402,7 @@ All API endpoints return JSON and support standard HTTP methods (GET, POST, PUT,
 
 ### API Authentication
 
-All API endpoints use session-based authentication with secure httponly cookies. Session IDs are regenerated on login to prevent session fixation attacks. Authenticated requests include the session cookie, and responses include appropriate CORS headers.
+All API endpoints use session-based authentication with secure httponly cookies. Session IDs are regenerated on login to prevent session fixation attacks. Authenticated requests include the session cookie. State-changing requests (POST/PUT/DELETE) made with a session cookie must come from the site itself (the `Origin` / `Sec-Fetch-Site` headers are checked in `requireAuth()`); no CORS headers are sent, so other sites can't call the API in a user's name. Non-browser clients use an `X-API-Key` header instead.
 
 ### Error Responses
 
@@ -513,7 +512,16 @@ After installation, log in with:
 - **Username:** `admin`
 - **Password:** `changeme123`
 
-**IMPORTANT:** Change the default admin password immediately after first login!
+You will be asked to choose a new password straight away - every page redirects to `change_password.php` until you do. The same happens for anyone whose password an admin has set.
+
+### Security controls
+
+- **Passwords**: at least 12 characters, not containing the username, and not in the Have I Been Pwned breach corpus (checked by k-anonymity range lookup; skipped if the server can't reach the API - set `PASSWORD_BREACH_CHECK` to `false` to turn it off).
+- **Throttling** (`auth_attempts` table): 10 failed sign-ins per account or 50 per client IP in 15 minutes; 5 wrong 2FA codes per user in 15 minutes; 3 password reset emails per address (10 per IP) per hour. Behind Cloudflare set `TRUSTED_CLIENT_IP_HEADER` to `HTTP_CF_CONNECTING_IP` (only if the origin isn't reachable directly), otherwise all visitors share Cloudflare's IPs for the per-IP limits.
+- **Sessions** are re-checked against the `users` row on every request: deactivating or deleting a user, or changing their role, applies immediately; a password change/reset or disabling 2FA signs out the user's other sessions.
+- **2FA**: codes can't be reused, disabling needs the password and a current code, backup codes are stored with `password_hash()`, and the TOTP secret can be encrypted at rest with `TWOFACTOR_ENCRYPTION_KEY`.
+- **Document links**: set `SHAREPOINT_TENANTS` to your tenant name(s) so links can only point at your own SharePoint.
+- **Contact details**: Viewers and the Assistant role see members' names but not their email addresses or phone numbers (`view_member_contacts`).
 
 ### User Roles
 
@@ -627,9 +635,8 @@ If you cannot upload documents:
 ### 2FA QR Code Not Displaying
 
 If the QR code doesn't appear during 2FA setup:
-- Verify the `libs/` directory contains the phpqrcode library files
+- Verify `libs/phpqrcode.php` exists (the QR code is rendered inline as an SVG by `renderQrCodeSvg()` in `config/twofactor.php` - the secret never goes into a URL)
 - Check PHP error logs for QR generation errors
-- Ensure the `/api/qrcode.php` endpoint is accessible
 - Use the manual secret key entry option as an alternative (shown below the QR code)
 - Verify your authenticator app supports manual key entry (all major apps do)
 

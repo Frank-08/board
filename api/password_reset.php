@@ -5,9 +5,6 @@
  * Handles password reset requests and password resets.
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -75,9 +72,9 @@ try {
         }
         
         // Validate password strength
-        if (strlen($password) < 8) {
+        if (strlen($password) < PASSWORD_MIN_LENGTH) {
             http_response_code(400);
-            echo json_encode(['error' => 'Password must be at least 8 characters long']);
+            echo json_encode(['error' => 'Password must be at least 12 characters long']);
             exit;
         }
         

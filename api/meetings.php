@@ -3,9 +3,6 @@
  * Meetings API Endpoint
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -52,7 +49,7 @@ switch ($method) {
                 WHERE ma.meeting_id = ?
             ");
             $stmt->execute([$id]);
-            $meeting['attendees'] = $stmt->fetchAll();
+            $meeting['attendees'] = redactMemberContacts($stmt->fetchAll());
             
             // Get agenda items
             $stmt = $db->prepare("

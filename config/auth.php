@@ -16,6 +16,273 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+/**
+ * Whether this request reached us over HTTPS (directly or via Cloudflare /
+ * a TLS-terminating proxy) - same test config.php uses for the cookie.
+ */
+function requestIsHttps(): bool {
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+        || (strpos($_SERVER['HTTP_CF_VISITOR'] ?? '', '"scheme":"https"') !== false);
+}
+
+/**
+ * Security headers for every page and API response. Sent from PHP (not only
+ * .htaccess) because deploy.sh never syncs .htaccess to the live site.
+ * The pages still rely on inline <script> blocks and onclick handlers, so
+ * script-src has to allow 'unsafe-inline'; the rest of the policy still
+ * blocks plugins, <base> hijacking, framing by other sites, off-site form
+ * posts and fetch/XHR to other origins.
+ */
+function sendSecurityHeaders(): void {
+    if (headers_sent() || PHP_SAPI === 'cli') {
+        return;
+    }
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        . "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; "
+        . "connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
+    if (requestIsHttps()) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
+}
+sendSecurityHeaders();
+
+/**
+ * Client IP used for throttling. REMOTE_ADDR unless TRUSTED_CLIENT_IP_HEADER
+ * (e.g. 'HTTP_CF_CONNECTING_IP' behind Cloudflare) is configured - only set
+ * that when the origin is reachable through the proxy alone, otherwise the
+ * header can be spoofed.
+ */
+function clientIp(): string {
+    if (defined('TRUSTED_CLIENT_IP_HEADER') && TRUSTED_CLIENT_IP_HEADER !== '') {
+        $value = trim(explode(',', (string)($_SERVER[TRUSTED_CLIENT_IP_HEADER] ?? ''))[0]);
+        if (filter_var($value, FILTER_VALIDATE_IP)) {
+            return $value;
+        }
+    }
+    return (string)($_SERVER['REMOTE_ADDR'] ?? '');
+}
+
+/**
+ * Throttling log (auth_attempts table) for failed logins, failed 2FA codes
+ * and password reset requests. If the table doesn't exist yet (migration
+ * not run) these fail open and log, rather than locking everyone out.
+ */
+function recordAuthAttempt(string $action, string $identifier): void {
+    try {
+        $stmt = getDBConnection()->prepare("INSERT INTO auth_attempts (action, identifier, ip_address) VALUES (?, ?, ?)");
+        $stmt->execute([$action, mb_substr(strtolower($identifier), 0, 255), clientIp()]);
+    } catch (PDOException $e) {
+        error_log('auth_attempts insert failed (run database/migration_security_hardening.sql?): ' . $e->getMessage());
+    }
+}
+
+function countAuthAttempts(string $action, string $identifier, int $windowSeconds): int {
+    try {
+        $stmt = getDBConnection()->prepare("
+            SELECT COUNT(*) FROM auth_attempts
+            WHERE action = ? AND identifier = ? AND created_at > (NOW() - INTERVAL ? SECOND)
+        ");
+        $stmt->execute([$action, mb_substr(strtolower($identifier), 0, 255), $windowSeconds]);
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log('auth_attempts query failed: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+function countAuthAttemptsFromIp(string $action, int $windowSeconds): int {
+    try {
+        $stmt = getDBConnection()->prepare("
+            SELECT COUNT(*) FROM auth_attempts
+            WHERE action = ? AND ip_address = ? AND created_at > (NOW() - INTERVAL ? SECOND)
+        ");
+        $stmt->execute([$action, clientIp(), $windowSeconds]);
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log('auth_attempts query failed: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+function clearAuthAttempts(string $action, string $identifier): void {
+    try {
+        $stmt = getDBConnection()->prepare("DELETE FROM auth_attempts WHERE action = ? AND identifier = ?");
+        $stmt->execute([$action, mb_substr(strtolower($identifier), 0, 255)]);
+        // Housekeeping: nothing older than a day is ever counted
+        getDBConnection()->exec("DELETE FROM auth_attempts WHERE created_at < (NOW() - INTERVAL 1 DAY)");
+    } catch (PDOException $e) {
+        error_log('auth_attempts delete failed: ' . $e->getMessage());
+    }
+}
+
+// Throttling limits (failures within the window)
+const LOGIN_MAX_FAILURES_PER_ACCOUNT = 10;
+const LOGIN_MAX_FAILURES_PER_IP = 50;
+const LOGIN_FAILURE_WINDOW = 900;          // 15 minutes
+const TWOFACTOR_MAX_FAILURES_PER_USER = 5;
+const TWOFACTOR_FAILURE_WINDOW = 900;
+const RESET_MAX_REQUESTS_PER_EMAIL = 3;
+const RESET_MAX_REQUESTS_PER_IP = 10;
+const RESET_REQUEST_WINDOW = 3600;
+const PASSWORD_MIN_LENGTH = 12;
+
+/**
+ * Check a new password against the policy. Returns an error message, or
+ * null if it's acceptable. Also checks the Have I Been Pwned range API
+ * (k-anonymity: only the first 5 hex chars of the SHA-1 leave the server)
+ * unless PASSWORD_BREACH_CHECK is false; that check fails open if the
+ * service can't be reached.
+ */
+function validatePasswordStrength(string $password, string $username = ''): ?string {
+    if (strlen($password) < PASSWORD_MIN_LENGTH) {
+        return 'Password must be at least ' . PASSWORD_MIN_LENGTH . ' characters long.';
+    }
+    if (strlen($password) > 1000) {
+        return 'Password is too long.';
+    }
+    if ($username !== '' && stripos($password, $username) !== false) {
+        return 'Password must not contain your username.';
+    }
+    $common = ['changeme123', 'password1234', '123456789012', 'qwertyuiop12', 'togetherincouncil', 'presbytery123'];
+    if (in_array(strtolower($password), $common, true)) {
+        return 'That password is too common - please choose another.';
+    }
+    if (isPasswordBreached($password)) {
+        return 'That password has appeared in a known data breach - please choose another.';
+    }
+    return null;
+}
+
+function isPasswordBreached(string $password): bool {
+    if (defined('PASSWORD_BREACH_CHECK') && PASSWORD_BREACH_CHECK === false) {
+        return false;
+    }
+    $sha1 = strtoupper(sha1($password));
+    $prefix = substr($sha1, 0, 5);
+    $suffix = substr($sha1, 5);
+    $context = stream_context_create(['http' => [
+        'timeout' => 3,
+        'header' => "User-Agent: TogetherInCouncil\r\nAdd-Padding: true\r\n",
+        'ignore_errors' => true,
+    ]]);
+    $body = @file_get_contents('https://api.pwnedpasswords.com/range/' . $prefix, false, $context);
+    if ($body === false) {
+        error_log('Pwned Passwords check unavailable - skipped');
+        return false;
+    }
+    foreach (preg_split('/\r?\n/', $body) as $line) {
+        [$hashSuffix, $count] = array_pad(explode(':', trim($line)), 2, '0');
+        if ($hashSuffix === $suffix && (int)$count > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Invalidate every other session for a user (password change/reset,
+ * 2FA disabled, account deactivated). Sessions carry the session_version
+ * they were issued under and are rejected once it moves on. The current
+ * session is kept if it belongs to that user.
+ */
+function bumpSessionVersion(int $userId): void {
+    try {
+        $db = getDBConnection();
+        $db->prepare("UPDATE users SET session_version = session_version + 1 WHERE id = ?")->execute([$userId]);
+        if ((int)($_SESSION['user_id'] ?? 0) === $userId) {
+            $stmt = $db->prepare("SELECT session_version FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $_SESSION['session_version'] = (int)$stmt->fetchColumn();
+        }
+    } catch (PDOException $e) {
+        error_log('session_version bump failed (run database/migration_security_hardening.sql?): ' . $e->getMessage());
+    }
+}
+
+/**
+ * Re-check the session's user against the database once per request, so
+ * that deactivating, deleting or re-roling a user (or changing their
+ * password elsewhere) takes effect immediately instead of when the 8-hour
+ * session expires. Refreshes the cached role/details in the session.
+ *
+ * @return bool Whether the session is (still) valid
+ */
+function revalidateSession(): bool {
+    static $checked = null;
+    if ($checked !== null) {
+        return $checked;
+    }
+    if (empty($_SESSION['user_id'])) {
+        return $checked = false;
+    }
+    $stmt = getDBConnection()->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->execute([(int)$_SESSION['user_id']]);
+    $row = $stmt->fetch();
+    $valid = $row
+        && !empty($row['is_active'])
+        && (int)($row['session_version'] ?? 0) === (int)($_SESSION['session_version'] ?? 0);
+    if (!$valid) {
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+        return $checked = false;
+    }
+    $_SESSION['username'] = $row['username'];
+    $_SESSION['email'] = $row['email'];
+    $_SESSION['role'] = $row['role'];
+    $_SESSION['board_member_id'] = $row['board_member_id'];
+    $_SESSION['must_change_password'] = !empty($row['must_change_password']);
+    return $checked = true;
+}
+
+/**
+ * Cross-site request forgery guard for cookie-authenticated API writes.
+ * The browser always sends Origin on fetch() POST/PUT/DELETE (and
+ * Sec-Fetch-Site in current browsers), so a request from another site -
+ * including a sibling subdomain, which SameSite=Lax does not stop - is
+ * rejected. API-key clients (no cookie) are not affected.
+ */
+function requireSameOriginForWrites(): void {
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    if (in_array($method, ['GET', 'HEAD', 'OPTIONS'], true) || empty($_SESSION['user_id'])) {
+        return;
+    }
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+    $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+    $ok = true;
+    if ($origin !== null) {
+        $parts = parse_url($origin);
+        $originHost = strtolower(($parts['host'] ?? '') . (isset($parts['port']) ? ':' . $parts['port'] : ''));
+        $ok = $origin !== 'null' && $originHost !== '' && $originHost === $host;
+    } else {
+        $site = $_SERVER['HTTP_SEC_FETCH_SITE'] ?? '';
+        $ok = !in_array($site, ['cross-site', 'same-site'], true);
+    }
+    if (!$ok) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Cross-site request blocked', 'code' => 'CSRF']);
+        exit;
+    }
+}
+
+/**
+ * Log an exception in full and return a message that is safe to show the
+ * client: no SQL, table/column names or file paths, just a summary and a
+ * reference to find the log entry by.
+ */
+function publicErrorMessage(Throwable $e, string $summary): string {
+    $ref = bin2hex(random_bytes(4));
+    error_log("[$ref] $summary: " . get_class($e) . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+    return "$summary (error reference $ref)";
+}
+
 // Role hierarchy (higher index = more permissions)
 define('ROLE_HIERARCHY', [
     'Viewer' => 1,
@@ -36,6 +303,10 @@ define('PERMISSIONS', [
     'view_members' => ['Viewer', 'Member', 'Clerk', 'Admin', 'Assistant'],
     'view_documents' => ['Viewer', 'Member', 'Clerk', 'Admin', 'Assistant'],
     'view_resolutions' => ['Viewer', 'Member', 'Clerk', 'Admin', 'Assistant'],
+    // Members' email addresses and phone numbers. Viewers and the Assistant
+    // see names/titles only (api responses are redacted with
+    // redactMemberContacts()).
+    'view_member_contacts' => ['Member', 'Clerk', 'Admin'],
     
     // Edit permissions (Clerk and Admin)
     'create_meeting' => ['Clerk', 'Admin'],
@@ -133,7 +404,7 @@ function currentApiKeyUser(): ?array {
  * @return bool
  */
 function isLoggedIn(): bool {
-    if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+    if (revalidateSession()) {
         return true;
     }
     return currentApiKeyUser() !== null;
@@ -145,7 +416,7 @@ function isLoggedIn(): bool {
  * @return array|null User data or null if not logged in
  */
 function getCurrentUser(): ?array {
-    if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+    if (revalidateSession()) {
         return [
             'id' => $_SESSION['user_id'],
             'username' => $_SESSION['username'] ?? '',
@@ -163,8 +434,8 @@ function getCurrentUser(): ?array {
  * @return string
  */
 function getCurrentRole(): string {
-    if (isset($_SESSION['role'])) {
-        return $_SESSION['role'];
+    if (revalidateSession()) {
+        return $_SESSION['role'] ?? 'Viewer';
     }
     $apiUser = currentApiKeyUser();
     return $apiUser['role'] ?? 'Viewer';
@@ -243,6 +514,45 @@ function requireLogin(string $redirectUrl = ''): void {
         header('Location: login.php?redirect=' . urlencode($redirect));
         exit;
     }
+    if (mustChangePassword() && basename($_SERVER['PHP_SELF'] ?? '') !== 'change_password.php') {
+        header('Location: change_password.php');
+        exit;
+    }
+}
+
+/**
+ * Whether the logged-in (session) user must set a new password before doing
+ * anything else - set for the seeded admin account and for passwords an
+ * admin sets on someone's behalf.
+ */
+function mustChangePassword(): bool {
+    return revalidateSession() && !empty($_SESSION['must_change_password']);
+}
+
+/**
+ * Remove email/phone from board-member rows unless the current user has
+ * view_member_contacts. Works on a single row or a list of rows.
+ *
+ * @param array $rows
+ * @param array $fields Contact columns to strip
+ * @return array
+ */
+function redactMemberContacts(array $rows, array $fields = ['email', 'phone']): array {
+    if (hasPermission('view_member_contacts')) {
+        return $rows;
+    }
+    $strip = function (array $row) use ($fields) {
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $row)) {
+                $row[$field] = null;
+            }
+        }
+        return $row;
+    };
+    if ($rows && array_keys($rows) === range(0, count($rows) - 1) && is_array(reset($rows))) {
+        return array_map($strip, $rows);
+    }
+    return $strip($rows);
 }
 
 /**
@@ -293,6 +603,10 @@ function requireExportAccess(): void {
         header('Location: ../login.php?redirect=' . urlencode($_SERVER['REQUEST_URI'] ?? ''));
         exit;
     }
+    if (mustChangePassword()) {
+        header('Location: ../change_password.php');
+        exit;
+    }
     if (!hasPermission('view_meetings')) {
         http_response_code(403);
         header('Content-Type: text/plain; charset=utf-8');
@@ -312,6 +626,13 @@ function requireAuth(): void {
         http_response_code(401);
         header('Content-Type: application/json');
         echo json_encode(['error' => 'Authentication required', 'code' => 'AUTH_REQUIRED']);
+        exit;
+    }
+    requireSameOriginForWrites();
+    if (mustChangePassword()) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'You must change your password before continuing', 'code' => 'PASSWORD_CHANGE_REQUIRED']);
         exit;
     }
 }
@@ -359,19 +680,33 @@ function requirePermission(string $action): void {
  */
 function login(string $username, string $password): array {
     $db = getDBConnection();
-    
+    $failed = ['success' => false, 'message' => 'Invalid username or password', 'user' => null, 'requires_2fa' => false];
+
+    // Throttle guessing, per account and per client IP. The same generic
+    // message is returned so the limit doesn't reveal which usernames exist.
+    if (countAuthAttempts('login', $username, LOGIN_FAILURE_WINDOW) >= LOGIN_MAX_FAILURES_PER_ACCOUNT
+        || countAuthAttemptsFromIp('login', LOGIN_FAILURE_WINDOW) >= LOGIN_MAX_FAILURES_PER_IP) {
+        return ['success' => false, 'message' => 'Too many failed sign-in attempts. Please wait 15 minutes and try again.', 'user' => null, 'requires_2fa' => false];
+    }
+
     // Find user by username
     $stmt = $db->prepare("SELECT * FROM users WHERE username = ? AND is_active = TRUE");
     $stmt->execute([$username]);
     $user = $stmt->fetch();
-    
-    if (!$user) {
-        return ['success' => false, 'message' => 'Invalid username or password', 'user' => null, 'requires_2fa' => false];
+
+    // Always run password_verify (against a dummy hash for unknown users) so
+    // response time doesn't reveal whether the username exists
+    $hash = $user['password_hash'] ?? '$2y$10$nZaVOMtvODC0Fx3OTquuB.Db2XNePtX.XH.MyGfTcQnBYsXek2ZTG';
+    if (!password_verify($password, $hash) || !$user) {
+        recordAuthAttempt('login', $username);
+        return $failed;
     }
-    
-    // Verify password
-    if (!password_verify($password, $user['password_hash'])) {
-        return ['success' => false, 'message' => 'Invalid username or password', 'user' => null, 'requires_2fa' => false];
+    clearAuthAttempts('login', $username);
+
+    // Upgrade the hash if PHP's default cost/algorithm has moved on
+    if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
+        $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+           ->execute([password_hash($password, PASSWORD_DEFAULT), $user['id']]);
     }
     
     // Check if 2FA is enabled
@@ -385,7 +720,10 @@ function login(string $username, string $password): array {
         $_SESSION['pending_email'] = $user['email'];
         $_SESSION['pending_role'] = $user['role'];
         $_SESSION['pending_board_member_id'] = $user['board_member_id'];
+        $_SESSION['pending_session_version'] = (int)($user['session_version'] ?? 0);
+        $_SESSION['pending_must_change_password'] = !empty($user['must_change_password']);
         $_SESSION['pending_login_time'] = time();
+        $_SESSION['pending_2fa_failures'] = 0;
         
         // Regenerate session ID
         session_regenerate_id(true);
@@ -409,6 +747,8 @@ function login(string $username, string $password): array {
     $_SESSION['email'] = $user['email'];
     $_SESSION['role'] = $user['role'];
     $_SESSION['board_member_id'] = $user['board_member_id'];
+    $_SESSION['session_version'] = (int)($user['session_version'] ?? 0);
+    $_SESSION['must_change_password'] = !empty($user['must_change_password']);
     
     // Regenerate session ID to prevent session fixation
     session_regenerate_id(true);
@@ -428,6 +768,17 @@ function login(string $username, string $password): array {
 }
 
 /**
+ * Forget a half-finished (password OK, 2FA pending) login
+ */
+function clearPendingLogin(): void {
+    unset($_SESSION['pending_user_id'], $_SESSION['pending_username'],
+          $_SESSION['pending_email'], $_SESSION['pending_role'],
+          $_SESSION['pending_board_member_id'], $_SESSION['pending_login_time'],
+          $_SESSION['pending_session_version'], $_SESSION['pending_must_change_password'],
+          $_SESSION['pending_2fa_failures']);
+}
+
+/**
  * Complete login after 2FA verification
  * 
  * @return bool Success
@@ -439,10 +790,7 @@ function completeTwoFactorLogin(): bool {
     
     // Check if pending login is not too old (15 minutes max)
     if (!isset($_SESSION['pending_login_time']) || (time() - $_SESSION['pending_login_time']) > 900) {
-        // Clear pending session
-        unset($_SESSION['pending_user_id'], $_SESSION['pending_username'], 
-              $_SESSION['pending_email'], $_SESSION['pending_role'], 
-              $_SESSION['pending_board_member_id'], $_SESSION['pending_login_time']);
+        clearPendingLogin();
         return false;
     }
     
@@ -458,11 +806,11 @@ function completeTwoFactorLogin(): bool {
     $_SESSION['email'] = $_SESSION['pending_email'];
     $_SESSION['role'] = $_SESSION['pending_role'];
     $_SESSION['board_member_id'] = $_SESSION['pending_board_member_id'];
+    $_SESSION['session_version'] = (int)($_SESSION['pending_session_version'] ?? 0);
+    $_SESSION['must_change_password'] = !empty($_SESSION['pending_must_change_password']);
     
     // Clear pending session data
-    unset($_SESSION['pending_user_id'], $_SESSION['pending_username'], 
-          $_SESSION['pending_email'], $_SESSION['pending_role'], 
-          $_SESSION['pending_board_member_id'], $_SESSION['pending_login_time']);
+    clearPendingLogin();
     
     // Regenerate session ID to prevent session fixation
     session_regenerate_id(true);
@@ -524,12 +872,22 @@ function verifyCsrfToken(string $token): bool {
  * @param string $resetToken The password reset token
  * @return string
  */
+function passwordResetCsrfSecret(): ?string {
+    if (!defined('CSRF_SECRET') || CSRF_SECRET === '' || CSRF_SECRET === 'CHANGE_THIS_TO_A_RANDOM_64_CHARACTER_HEX_STRING') {
+        return null;
+    }
+    return CSRF_SECRET;
+}
+
 function generatePasswordResetCsrfToken(string $resetToken): string {
     // Use config secret instead of session - this makes it stateless
-    // The CSRF token is derived from the reset token itself, making it secure
-    $secret = defined('CSRF_SECRET') && CSRF_SECRET !== 'CHANGE_THIS_TO_A_RANDOM_64_CHARACTER_HEX_STRING' 
-        ? CSRF_SECRET 
-        : 'default_secret_change_in_config'; // Fallback if not configured
+    // The CSRF token is derived from the reset token itself, making it secure.
+    // No secret configured: fall back to the ordinary session token rather
+    // than a publicly known default secret.
+    $secret = passwordResetCsrfSecret();
+    if ($secret === null) {
+        return generateCsrfToken();
+    }
     
     // Generate token based on reset token + secret + timestamp (hourly window)
     // This ensures the token changes periodically but doesn't require sessions
@@ -546,9 +904,10 @@ function generatePasswordResetCsrfToken(string $resetToken): string {
  * @return bool
  */
 function verifyPasswordResetCsrfToken(string $token, string $resetToken): bool {
-    $secret = defined('CSRF_SECRET') && CSRF_SECRET !== 'CHANGE_THIS_TO_A_RANDOM_64_CHARACTER_HEX_STRING' 
-        ? CSRF_SECRET 
-        : 'default_secret_change_in_config'; // Fallback if not configured
+    $secret = passwordResetCsrfSecret();
+    if ($secret === null) {
+        return verifyCsrfToken($token);
+    }
     
     // Check current hour and previous hour (to handle edge cases)
     $timeWindow = floor(time() / 3600);
@@ -632,7 +991,33 @@ function updatePassword(int $userId, string $newPassword): bool {
     $db = getDBConnection();
     $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
     $stmt = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
-    return $stmt->execute([$passwordHash, $userId]);
+    $ok = $stmt->execute([$passwordHash, $userId]);
+    clearMustChangePassword($userId);
+    bumpSessionVersion($userId);
+    return $ok;
+}
+
+function setMustChangePassword(int $userId, bool $required): void {
+    if (!$required) {
+        clearMustChangePassword($userId);
+        return;
+    }
+    try {
+        getDBConnection()->prepare("UPDATE users SET must_change_password = TRUE WHERE id = ?")->execute([$userId]);
+    } catch (PDOException $e) {
+        error_log('must_change_password update failed (run database/migration_security_hardening.sql?): ' . $e->getMessage());
+    }
+}
+
+function clearMustChangePassword(int $userId): void {
+    try {
+        getDBConnection()->prepare("UPDATE users SET must_change_password = FALSE WHERE id = ?")->execute([$userId]);
+        if ((int)($_SESSION['user_id'] ?? 0) === $userId) {
+            $_SESSION['must_change_password'] = false;
+        }
+    } catch (PDOException $e) {
+        error_log('must_change_password update failed: ' . $e->getMessage());
+    }
 }
 
 /**
@@ -674,51 +1059,33 @@ function requestPasswordReset(string $email): array {
         ];
     }
     
-    // Check rate limiting - prevent abuse
-    // Allow max 3 reset requests per hour per email
-    $stmt = $db->prepare("
-        SELECT COUNT(*) as count 
-        FROM users 
-        WHERE email = ? 
-        AND password_reset_expires > NOW() 
-        AND password_reset_expires > DATE_SUB(NOW(), INTERVAL 1 HOUR)
-    ");
-    $stmt->execute([$email]);
-    $result = $stmt->fetch();
-    
-    if ($result && $result['count'] > 0) {
-        // Check how many recent requests
-        $stmt = $db->prepare("
-            SELECT COUNT(*) as count 
-            FROM users 
-            WHERE email = ? 
-            AND password_reset_expires > DATE_SUB(NOW(), INTERVAL 1 HOUR)
-        ");
-        $stmt->execute([$email]);
-        $recentCount = $stmt->fetch();
-        
-        if ($recentCount && $recentCount['count'] >= 3) {
-            return [
-                'success' => true,
-                'message' => 'If an account with that email exists, a password reset link has been sent.'
-            ];
-        }
+    // Rate limiting - at most RESET_MAX_REQUESTS_PER_EMAIL emails per hour per
+    // address, and RESET_MAX_REQUESTS_PER_IP requests per hour per client
+    if (countAuthAttempts('reset_request', $email, RESET_REQUEST_WINDOW) >= RESET_MAX_REQUESTS_PER_EMAIL
+        || countAuthAttemptsFromIp('reset_request', RESET_REQUEST_WINDOW) >= RESET_MAX_REQUESTS_PER_IP) {
+        error_log("Password reset rate limit hit for $email from " . clientIp());
+        return [
+            'success' => true,
+            'message' => 'If an account with that email exists, a password reset link has been sent.'
+        ];
     }
-    
+    recordAuthAttempt('reset_request', $email);
+
     // Generate secure random token (64 characters = 32 bytes hex encoded)
     $token = bin2hex(random_bytes(32));
     
     // Calculate expiration time
     $expires = date('Y-m-d H:i:s', time() + PASSWORD_RESET_TOKEN_EXPIRY);
     
-    // Store token in database
+    // Store only a hash of the token, so a database leak doesn't hand out
+    // working reset links (same approach as api_keys)
     $stmt = $db->prepare("
         UPDATE users 
         SET password_reset_token = ?, 
             password_reset_expires = ? 
         WHERE id = ?
     ");
-    $stmt->execute([$token, $expires, $user['id']]);
+    $stmt->execute([hash('sha256', $token), $expires, $user['id']]);
     
     // Send password reset email
     $emailResult = sendPasswordResetEmail($email, $token);
@@ -752,7 +1119,7 @@ function validatePasswordResetToken(string $token): ?array {
         AND password_reset_expires > NOW()
         AND is_active = TRUE
     ");
-    $stmt->execute([$token]);
+    $stmt->execute([hash('sha256', $token)]);
     $user = $stmt->fetch();
     
     return $user ?: null;
@@ -779,10 +1146,11 @@ function resetPassword(string $token, string $newPassword): array {
     }
     
     // Validate password strength
-    if (strlen($newPassword) < 8) {
+    $policyError = validatePasswordStrength($newPassword, $user['username']);
+    if ($policyError !== null) {
         return [
             'success' => false,
-            'message' => 'Password must be at least 8 characters long.'
+            'message' => $policyError
         ];
     }
     
@@ -798,6 +1166,12 @@ function resetPassword(string $token, string $newPassword): array {
         WHERE id = ?
     ");
     $stmt->execute([$passwordHash, $user['id']]);
+
+    // A reset is often done because the account was compromised: end every
+    // existing session, and the forced-change flag is satisfied
+    clearMustChangePassword((int)$user['id']);
+    bumpSessionVersion((int)$user['id']);
+    clearAuthAttempts('login', $user['username']);
     
     return [
         'success' => true,

@@ -35,7 +35,8 @@ outputHeader('User Management', 'users.php');
                 </div>
                 <div class="form-group" id="passwordGroup">
                     <label for="password">Password *</label>
-                    <input type="password" id="password">
+                    <input type="password" id="password" minlength="12" autocomplete="new-password">
+                    <small style="color: #666; display: block;">At least 12 characters. The user will be asked to choose their own password when they next sign in.</small>
                     <small id="passwordHint" style="color: #666; display: none;">Leave blank to keep existing password</small>
                 </div>
                 <div class="form-group">
@@ -114,15 +115,15 @@ outputHeader('User Management', 'users.php');
                                         <td style="padding: 12px; font-weight: 600;">${escapeHtml(user.username)}</td>
                                         <td style="padding: 12px;">${escapeHtml(user.email)}</td>
                                         <td style="padding: 12px;">
-                                            <span class="badge badge-${user.role.toLowerCase()}" style="padding: 4px 8px;">
-                                                ${user.role}
+                                            <span class="badge badge-${escapeHtml(user.role.toLowerCase())}" style="padding: 4px 8px;">
+                                                ${escapeHtml(user.role)}
                                             </span>
                                         </td>
                                         <td style="padding: 12px;">
-                                            ${user.board_member_name || '<span style="color: #999;">—</span>'}
+                                            ${user.board_member_name ? escapeHtml(user.board_member_name) : '<span style="color: #999;">—</span>'}
                                         </td>
                                         <td style="padding: 12px;">
-                                            <span class="badge badge-${user.is_active ? 'active' : 'inactive'}">
+                                            <span class="badge badge-${escapeHtml(user.is_active ? 'active' : 'inactive')}">
                                                 ${user.is_active ? 'Active' : 'Inactive'}
                                             </span>
                                         </td>
@@ -294,12 +295,7 @@ outputHeader('User Management', 'users.php');
             });
         }
 
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        // escapeHtml() and safeUrl() come from assets/js/app.js
 
         window.onclick = function(event) {
             const modal = document.getElementById('userModal');

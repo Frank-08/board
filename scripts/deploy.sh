@@ -100,6 +100,35 @@ check_live_syntax() {
     fi
 }
 
+# Things this script never syncs, but which matter for security: the live
+# .htaccess (it's excluded, so it must be copied by hand when the repo's
+# changes) and leftover scripts that were removed from the repo but would
+# still be web-reachable in the live docroot
+check_live_hazards() {
+    echo "Checking the live docroot for files this script doesn't manage ..."
+    local before=$WARNINGS path
+    if [ -f "$REPO_DIR/.htaccess" ]; then
+        if [ ! -f "$LIVE_DIR/.htaccess" ]; then
+            warn ".htaccess is missing on the live side - copy it from the repo (adjust RewriteBase if needed)."
+        elif ! diff -q <(grep -v '^\s*RewriteBase' "$REPO_DIR/.htaccess") <(grep -v '^\s*RewriteBase' "$LIVE_DIR/.htaccess") > /dev/null; then
+            warn ".htaccess differs from the repo's (ignoring RewriteBase). It is never synced - review and copy by hand:"
+            diff -u <(grep -v '^\s*RewriteBase' "$LIVE_DIR/.htaccess") <(grep -v '^\s*RewriteBase' "$REPO_DIR/.htaccess") | tail -n +3 | sed 's/^/        /' || true
+        fi
+    fi
+    for path in libs/index.php libs/tools api/qrcode.php; do
+        if [ -e "$LIVE_DIR/$path" ]; then
+            warn "$path exists in the live docroot but was removed from the repo (security fix) - delete it: rm -r '$LIVE_DIR/$path'"
+        fi
+    done
+    if [ -f "$LIVE_DIR/database/fix_role_enum.php" ] && ! grep -q "php_sapi_name() !== 'cli'" "$LIVE_DIR/database/fix_role_enum.php"; then
+        warn "database/fix_role_enum.php in the live docroot can be run by anyone over the web - delete it, or copy the repo's CLI-only version."
+    fi
+    if [ "$WARNINGS" -eq "$before" ]; then
+        echo "  OK"
+    fi
+    echo
+}
+
 check_config() {
     echo "Checking the files this script never syncs (${CONFIG_FILES[*]}) ..."
     local file since="${DEPLOY_SINCE:-}" since_label
@@ -202,6 +231,7 @@ if [ "$APPLY" = "--done" ]; then
 fi
 
 check_config
+check_live_hazards
 
 # First run with nothing to apply by hand: start tracking from here
 if [ ! -f "$STATE_FILE" ] && [ -z "${DEPLOY_SINCE:-}" ] && [ "$APPLY" = "--apply" ] && [ "$WARNINGS" -eq 0 ]; then

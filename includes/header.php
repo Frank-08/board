@@ -100,8 +100,12 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
                 <div class="user-info">
                     <span class="username"><?php echo htmlspecialchars($currentUser['username']); ?></span>
                     <span class="role"><?php echo htmlspecialchars($currentUser['role']); ?></span>
+                    <a href="change_password.php" class="logout-btn">Password</a>
                     <a href="setup_2fa.php" class="logout-btn">2FA</a>
-                    <a href="logout.php" class="logout-btn">Logout</a>
+                    <form method="POST" action="logout.php" style="margin: 0;">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken()); ?>">
+                        <button type="submit" class="logout-btn" style="border: none; cursor: pointer; font: inherit;">Logout</button>
+                    </form>
                 </div>
             </nav>
         </header>
@@ -124,6 +128,7 @@ function outputFooter() {
  */
 function getAuthJsVars() {
     global $currentUser;
+    // JSON_HEX_* so a value containing "</script>" can't end the script block
     return json_encode([
         'user' => $currentUser,
         'permissions' => [
@@ -145,8 +150,9 @@ function getAuthJsVars() {
             'canUpdateOwnActionItems' => hasPermission('update_own_action_items'),
             'canDraftMinutes' => hasPermission('draft_minutes'),
             'canUseClaude' => canUseClaude(),
+            'canViewMemberContacts' => hasPermission('view_member_contacts'),
             'isAdmin' => isAdmin()
         ]
-    ]);
+    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 }
 

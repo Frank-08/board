@@ -73,13 +73,14 @@ function claudeJson(string $system, string $prompt, array $schema, string $effor
     } catch (\Anthropic\Core\Exceptions\RateLimitException $e) {
         throw new RuntimeException('Claude is rate limited right now. Try again in a minute.');
     } catch (\Anthropic\Core\Exceptions\APIConnectionException $e) {
-        throw new RuntimeException('Could not reach the Anthropic API from this server (' . $e->getMessage() . ').');
+        error_log('Claude connection error: ' . $e->getMessage());
+        throw new RuntimeException('Could not reach the Anthropic API from this server. Check its outbound network access (details are in the server error log).');
     } catch (\Anthropic\Core\Exceptions\APIStatusException $e) {
         error_log('Claude API error: ' . $e->getMessage());
-        throw new RuntimeException('The Claude request failed: ' . $e->getMessage());
+        throw new RuntimeException('The Claude request failed (details are in the server error log).');
     } catch (\Anthropic\Core\Exceptions\AnthropicException $e) {
         error_log('Claude SDK error: ' . $e->getMessage());
-        throw new RuntimeException('The Claude request failed: ' . $e->getMessage());
+        throw new RuntimeException('The Claude request failed (details are in the server error log).');
     }
 
     if ($message->stopReason === 'refusal') {
