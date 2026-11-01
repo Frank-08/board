@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS meeting_types (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     shortcode VARCHAR(3),
+    display_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -393,4 +394,4 @@ INSERT INTO meeting_type_members (meeting_type_id, member_id, role, status) VALU
 -- Insert default admin user (password: changeme123)
 -- IMPORTANT: Change this password immediately after first login!
 INSERT INTO users (username, password_hash, email, role, is_active) VALUES
-('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin@example.com', 'Admin', TRUE);
+('admin', '$2y$10$HzhW7DsplQeYwgYmKjwzd.IFBCm.lu32Qwl4/fxL6zKO9Ok0W/BEe', 'admin@example.com', 'Admin', TRUE);
