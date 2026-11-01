@@ -42,6 +42,9 @@ define('PERMISSIONS', [
     'upload_documents' => ['Clerk', 'Admin'],
     'create_resolution' => ['Clerk', 'Admin'],
     'edit_resolution' => ['Clerk', 'Admin'],
+    // Filing a resolution under a register category is indexing, not a change
+    // to what was resolved, so it stays allowed after minutes are approved.
+    'categorise_resolutions' => ['Clerk', 'Admin'],
     'manage_procedural_proposals' => ['Clerk', 'Admin'],
     
     // Member-specific permissions

@@ -217,6 +217,7 @@ CREATE TABLE IF NOT EXISTS resolutions (
     agenda_item_id INT,
     resolution_number VARCHAR(50),
     title VARCHAR(255) NULL,
+    category VARCHAR(100) NULL,
     description TEXT NOT NULL,
     decision_method ENUM('Consensus', 'Formal Majority', 'Referral') DEFAULT 'Consensus',
     motion_moved_by INT NULL,
@@ -240,6 +241,7 @@ CREATE TABLE IF NOT EXISTS resolutions (
     FOREIGN KEY (motion_seconded_by) REFERENCES board_members(id) ON DELETE SET NULL,
     INDEX idx_meeting (meeting_id),
     INDEX idx_status (status),
+    INDEX idx_category (category),
     INDEX idx_agenda_item_position (agenda_item_id, position)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -36,8 +36,12 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
     $db = getDBConnection();
 
-    // Check permissions for write operations
-    if (in_array($method, ['POST', 'PUT'])) {
+    // Check permissions for write operations. Setting categories is its own
+    // permission (and isn't blocked by approved minutes - see set_category).
+    $requestBody = in_array($method, ['POST', 'PUT', 'DELETE']) ? json_decode(file_get_contents('php://input'), true) : null;
+    if ($method === 'POST' && is_array($requestBody) && ($requestBody['action'] ?? '') === 'set_category') {
+        requirePermission('categorise_resolutions');
+    } elseif (in_array($method, ['POST', 'PUT'])) {
         requirePermission('create_resolution');
     }
     if ($method === 'DELETE') {
@@ -53,7 +57,17 @@ try {
 
     switch ($method) {
     case 'GET':
-        if (isset($_GET['id'])) {
+        if (isset($_GET['categories'])) {
+            // Categories already in use, for suggestions and filters
+            ob_end_clean();
+            echo json_encode(fetchResolutionCategories($db));
+        } elseif (isset($_GET['register'])) {
+            // Every resolution across all meetings, filtered - the
+            // resolutions register (resolutions.php)
+            $filters = readResolutionRegisterFilters($_GET);
+            ob_end_clean();
+            echo json_encode(fetchResolutionRegister($db, $filters));
+        } elseif (isset($_GET['id'])) {
             $id = (int)$_GET['id'];
             $stmt = $db->prepare("
                 SELECT r.*
@@ -86,12 +100,32 @@ try {
         } else {
             ob_end_clean();
             http_response_code(400);
-            echo json_encode(['error' => 'id or meeting_id is required']);
+            echo json_encode(['error' => 'id, meeting_id, register or categories is required']);
         }
         break;
 
     case 'POST':
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = is_array($requestBody) ? $requestBody : [];
+
+        // Bulk-set (or clear) the register category on one or more
+        // resolutions. Allowed after minutes are approved: the category is
+        // an index for the register, not part of what was resolved.
+        if (isset($data['action']) && $data['action'] === 'set_category') {
+            $ids = array_values(array_unique(array_filter(array_map('intval', (array)($data['ids'] ?? [])))));
+            if (empty($ids)) {
+                ob_end_clean();
+                http_response_code(400);
+                echo json_encode(['error' => 'ids are required']);
+                exit;
+            }
+            $category = normaliseResolutionCategory($data['category'] ?? null);
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $db->prepare("UPDATE resolutions SET category = ? WHERE id IN ($placeholders)");
+            $stmt->execute(array_merge([$category], $ids));
+            ob_end_clean();
+            echo json_encode(['success' => true, 'updated' => $stmt->rowCount(), 'category' => $category]);
+            break;
+        }
 
         // Handle reorder action: reorders the lettered clauses (resolutions)
         // linked to one agenda item.
@@ -199,17 +233,18 @@ try {
         $position = (int)$posStmt->fetchColumn();
 
         $stmt = $db->prepare("INSERT INTO resolutions (
-            meeting_id, agenda_item_id, resolution_number, title, description, decision_method,
+            meeting_id, agenda_item_id, resolution_number, title, category, description, decision_method,
             motion_moved_by, motion_seconded_by, votes_for, votes_against, votes_abstain,
             casting_vote_used, referral_body, referral_scope, clerk_notes,
             vote_type, status, effective_date, position
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         try {
             $stmt->execute([
                 $meetingId,
                 $agendaItemId,
                 $data['resolution_number'] ?? null,
                 $title,
+                normaliseResolutionCategory($data['category'] ?? null),
                 $description,
                 $data['decision_method'] ?? 'Consensus',
                 !empty($data['motion_moved_by']) ? (int)$data['motion_moved_by'] : null,
@@ -262,7 +297,7 @@ try {
         break;
         
     case 'PUT':
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = is_array($requestBody) ? $requestBody : [];
         $id = (int)($data['id'] ?? 0);
         
         if (!$id) {
@@ -309,6 +344,11 @@ try {
                 $params[] = $data[$field];
             }
         }
+        if (array_key_exists('category', $data)) {
+            // array_key_exists so a blank/null category clears it
+            $updates[] = "category = ?";
+            $params[] = normaliseResolutionCategory($data['category']);
+        }
         if (array_key_exists('casting_vote_used', $data)) {
             $updates[] = "casting_vote_used = ?";
             $params[] = !empty($data['casting_vote_used']) ? 1 : 0;
@@ -341,7 +381,7 @@ try {
         break;
 
     case 'DELETE':
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = is_array($requestBody) ? $requestBody : [];
         $id = (int)($data['id'] ?? 0);
         
         if (!$id) {
