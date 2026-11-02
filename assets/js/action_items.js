@@ -8,10 +8,12 @@ const ActionItems = (() => {
     const STATUSES = ['Open', 'In Progress', 'Done', 'Cancelled'];
     let membersCache = null;
 
+    // Escapes for element content and quoted attributes (both quote marks)
     function esc(text) {
-        const div = document.createElement('div');
-        div.textContent = text == null ? '' : String(text);
-        return div.innerHTML;
+        if (text === null || text === undefined) return '';
+        return String(text).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
     }
 
     function formatDate(value) {

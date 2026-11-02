@@ -206,8 +206,8 @@ outputHeader('Documents', 'documents.php');
                                     <tr style="border-bottom: 1px solid #eee;">
                                         <td style="padding: 12px;">${escapeHtml(doc.title)}</td>
                                         <td style="padding: 12px;">
-                                            <span class="badge badge-${doc.document_type.toLowerCase()}" style="padding: 4px 8px; border-radius: 3px; font-size: 12px;">
-                                                ${doc.document_type}
+                                            <span class="badge badge-${escapeHtml(doc.document_type.toLowerCase())}" style="padding: 4px 8px; border-radius: 3px; font-size: 12px;">
+                                                ${escapeHtml(doc.document_type)}
                                             </span>
                                         </td>
                                         <td style="padding: 12px; color: #666;">${escapeHtml(doc.file_name || extractFileNameFromUrl(doc.sharepoint_url) || 'N/A')}</td>
@@ -222,7 +222,7 @@ outputHeader('Documents', 'documents.php');
                                         </td>
                                         <td style="padding: 12px; color: #666;">${formatDate(doc.created_at)}</td>
                                         <td style="padding: 12px;">
-                                            <a href="${escapeHtml(doc.sharepoint_url || ('api/download.php?id=' + doc.id))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="margin-right: 5px;">Open</a>
+                                            <a href="api/download.php?id=${encodeURIComponent(doc.id)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="margin-right: 5px;">Open</a>
                                             <button onclick="showEditModal(${doc.id})" class="btn btn-sm">Edit</button>
                                             <button onclick="deleteDocument(${doc.id})" class="btn btn-sm btn-danger">Delete</button>
                                         </td>
@@ -387,11 +387,14 @@ outputHeader('Documents', 'documents.php');
             return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
         }
 
+        // Quick client-side check; the server (includes/document_helpers.php)
+        // is authoritative and may also restrict which tenants are allowed
         function isValidSharePointUrl(url) {
-            if (!url) return false;
+            if (!url || /[\\@\s"'<>`]/.test(url.trim())) return false;
             try {
-                const parsed = new URL(url);
-                return parsed.protocol === 'https:' && parsed.hostname.includes('sharepoint.com');
+                const parsed = new URL(url.trim());
+                return parsed.protocol === 'https:' && /\.sharepoint(-df)?\.com$/.test(parsed.hostname)
+                    && (parsed.port === '' || parsed.port === '443');
             } catch (error) {
                 return false;
             }
@@ -421,12 +424,7 @@ outputHeader('Documents', 'documents.php');
             });
         }
 
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        // escapeHtml() and safeUrl() come from assets/js/app.js
 
         // Close modals when clicking outside
         window.onclick = function(event) {

@@ -3,9 +3,6 @@
  * Board Members API Endpoint
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -40,7 +37,7 @@ switch ($method) {
                 exit;
             }
             
-            echo json_encode($member);
+            echo json_encode(redactMemberContacts($member));
         } elseif (isset($_GET['meeting_type_id'])) {
             // Get members for a specific meeting type
             $meetingTypeId = (int)$_GET['meeting_type_id'];
@@ -68,11 +65,11 @@ switch ($method) {
             
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
-            echo json_encode($stmt->fetchAll());
+            echo json_encode(redactMemberContacts($stmt->fetchAll()));
         } else {
             // Get all members
             $stmt = $db->query("SELECT * FROM board_members ORDER BY last_name ASC, first_name ASC");
-            echo json_encode($stmt->fetchAll());
+            echo json_encode(redactMemberContacts($stmt->fetchAll()));
         }
         break;
         
@@ -126,7 +123,7 @@ switch ($method) {
         } catch (PDOException $e) {
             error_log("Error creating member: " . $e->getMessage());
             http_response_code(400);
-            echo json_encode(['error' => 'Error creating member: ' . $e->getMessage()]);
+            echo json_encode(['error' => publicErrorMessage($e, 'Error creating member')]);
         }
         break;
         
@@ -164,7 +161,7 @@ switch ($method) {
         } catch (PDOException $e) {
             error_log("Error updating member: " . $e->getMessage());
             http_response_code(400);
-            echo json_encode(['error' => 'Error updating member: ' . $e->getMessage()]);
+            echo json_encode(['error' => publicErrorMessage($e, 'Error updating member')]);
         }
         break;
         

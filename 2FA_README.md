@@ -65,8 +65,9 @@ Or manually execute the SQL in `database/migration_add_2fa.sql`.
 
 3. **Disable 2FA:**
    - Go to the 2FA setup page
-   - Click "Disable 2FA"
-   - Confirm the action
+   - Enter your password and a current authenticator code (or a backup code)
+   - Click "Disable 2FA" and confirm
+   - Your other signed-in sessions are signed out
 
 ### For Administrators
 
@@ -83,15 +84,19 @@ The following fields are added to the `users` table:
 - `two_factor_enabled` (BOOLEAN) - Whether 2FA is enabled for the user
 - `two_factor_backup_codes` (TEXT) - JSON array of hashed backup codes
 - `two_factor_verified_at` (TIMESTAMP) - When 2FA was last verified during setup
+- `two_factor_last_step` (BIGINT) - Last accepted TOTP time step (replay protection; `migration_security_hardening.sql`)
 
 ### Security Features
 
-1. **Secret Storage**: TOTP secrets are stored in the database (encrypted at rest if database encryption is enabled)
-2. **Backup Code Hashing**: Backup codes are hashed using SHA-256 before storage
+1. **Secret Storage**: TOTP secrets are encrypted at rest (libsodium secretbox, `enc1:` prefix) when `TWOFACTOR_ENCRYPTION_KEY` is set in `config/config.php`; secrets saved before that are re-encrypted at the user's next sign-in. Without the key they are stored as plain Base32.
+2. **Backup Code Hashing**: Backup codes are stored with `password_hash()` (salted bcrypt). Older unsalted SHA-256 hashes still verify.
 3. **Session Expiration**: Pending 2FA verification sessions expire after 15 minutes
 4. **Clock Skew Tolerance**: TOTP verification allows ±1 time window (30 seconds) to account for clock differences
 5. **CSRF Protection**: All forms include CSRF token verification
 6. **One-Time Backup Codes**: Each backup code can only be used once
+7. **Brute-force limit**: 5 wrong codes per user in 15 minutes locks 2FA sign-in for that user for the rest of the window (kept in the database, so starting a new login doesn't reset it); 5 wrong codes in one sign-in sends the user back to the login page
+8. **No replay**: an authenticator code is accepted once - the time step it matched is recorded
+9. **Re-authentication**: disabling 2FA needs the password and a current code; re-enrolling needs 2FA to be disabled first
 
 ### TOTP Configuration
 
@@ -128,9 +133,8 @@ The following fields are added to the `users` table:
 
 ### QR code not displaying
 
-- The setup page uses a CDN for QR code generation (qrcode.js)
-- If the CDN is blocked, the manual secret entry option is available
-- Alternatively, you can host qrcode.js locally
+- The QR code is generated on the server as an inline SVG from `libs/phpqrcode.php` (no CDN, no image URL containing the secret)
+- If it can't be generated, the manual secret entry option is shown instead
 
 ### Codes not working
 

@@ -9,9 +9,6 @@
 ob_start();
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     ob_end_clean();
@@ -29,7 +26,9 @@ requireAuth();
 set_error_handler(function($severity, $message, $file, $line) {
     if (error_reporting() & $severity) {
         http_response_code(500);
-        echo json_encode(['error' => 'PHP Error: ' . $message . ' in ' . $file . ' on line ' . $line]);
+        $ref = bin2hex(random_bytes(4));
+        error_log("[$ref] PHP error: $message in $file on line $line");
+        echo json_encode(['error' => "Server error (error reference $ref)"]);
         exit;
     }
 });
@@ -190,7 +189,7 @@ try {
         } catch (Exception $e) {
             ob_end_clean();
             http_response_code(500);
-            echo json_encode(['error' => 'Database error creating procedural proposal: ' . $e->getMessage()]);
+            echo json_encode(['error' => publicErrorMessage($e, 'Database error creating procedural proposal')]);
             exit;
         }
 
@@ -321,9 +320,9 @@ try {
 } catch (Exception $e) {
     ob_end_clean();
     http_response_code(500);
-    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+    echo json_encode(['error' => publicErrorMessage($e, 'Server error')]);
 } catch (Error $e) {
     ob_end_clean();
     http_response_code(500);
-    echo json_encode(['error' => 'Fatal error: ' . $e->getMessage()]);
+    echo json_encode(['error' => publicErrorMessage($e, 'Fatal error')]);
 }

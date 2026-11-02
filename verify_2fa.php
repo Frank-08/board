@@ -136,9 +136,7 @@
             
             // Check if pending login is not too old (15 minutes max)
             if (!isset($_SESSION['pending_login_time']) || (time() - $_SESSION['pending_login_time']) > 900) {
-                unset($_SESSION['pending_user_id'], $_SESSION['pending_username'], 
-                      $_SESSION['pending_email'], $_SESSION['pending_role'], 
-                      $_SESSION['pending_board_member_id'], $_SESSION['pending_login_time']);
+                clearPendingLogin();
                 header('Location: login.php?redirect=' . urlencode($redirect) . '&error=session_expired');
                 exit;
             }
@@ -166,6 +164,14 @@
                         }
                     } else {
                         $error = $result['message'];
+                        // Too many wrong codes in this sign-in, or the
+                        // account is locked: make them start again
+                        $_SESSION['pending_2fa_failures'] = ($_SESSION['pending_2fa_failures'] ?? 0) + 1;
+                        if (!empty($result['locked']) || $_SESSION['pending_2fa_failures'] >= TWOFACTOR_MAX_FAILURES_PER_USER) {
+                            clearPendingLogin();
+                            header('Location: login.php?redirect=' . urlencode($redirect) . '&error=2fa_locked');
+                            exit;
+                        }
                     }
                 }
             }
@@ -187,7 +193,7 @@
                 <div class="form-group">
                     <label for="code">Verification Code</label>
                     <input type="text" id="code" name="code" required autofocus 
-                           maxlength="6" pattern="[0-9]{6}" 
+                           maxlength="12" 
                            placeholder="000000"
                            autocomplete="one-time-code">
                 </div>
@@ -202,12 +208,13 @@
     </div>
     
     <script>
-        // Auto-submit when 6 digits are entered
+        // Auto-submit when a 6-digit authenticator code is entered (backup
+        // codes are 8 letters/digits and are submitted with the button)
         document.getElementById('code').addEventListener('input', function(e) {
-            const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+            const value = e.target.value.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
             e.target.value = value;
             
-            if (value.length === 6) {
+            if (/^[0-9]{6}$/.test(value)) {
                 // Small delay to let user see the code
                 setTimeout(function() {
                     document.getElementById('verifyForm').submit();

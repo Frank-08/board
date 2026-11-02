@@ -17,9 +17,6 @@
  * PUT    {id, action: accept|decline, review_notes}   manage_agenda
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -54,6 +51,26 @@ function sendError(int $status, string $message): void {
     exit;
 }
 
+/**
+ * Fingerprint of a submission's content. Reviewers send back the version
+ * they looked at when accepting, so a submitter can't swap the content
+ * between the clerk reading it and clicking "Add to Agenda".
+ */
+function submissionVersion(array $s): string {
+    return hash('sha256', json_encode([
+        $s['title'] ?? null, $s['summary'] ?? null, $s['proposal'] ?? null, $s['item_type'] ?? null,
+        $s['decision_method'] ?? null, $s['report_type'] ?? null, (string)($s['duration_minutes'] ?? ''),
+        $s['sharepoint_url'] ?? null,
+    ]));
+}
+
+function withSubmissionVersion($row) {
+    if (is_array($row)) {
+        $row['version'] = submissionVersion($row);
+    }
+    return $row;
+}
+
 function fetchSubmission(PDO $db, int $id) {
     $stmt = $db->prepare("
         SELECT s.*,
@@ -73,7 +90,7 @@ function fetchSubmission(PDO $db, int $id) {
         WHERE s.id = ?
     ");
     $stmt->execute([$id]);
-    return $stmt->fetch();
+    return withSubmissionVersion($stmt->fetch());
 }
 
 /**
@@ -124,9 +141,11 @@ function validateSubmissionFields(array $data): array {
     }
     // A written report must be linked; a verbal report may optionally link supporting papers
     if ($fields['sharepoint_url'] !== '' || $fields['report_type'] === 'Written') {
-        if (!isValidSharePointUrl($fields['sharepoint_url'])) {
-            sendError(400, 'A valid HTTPS SharePoint URL is required for a written report');
+        $normalised = normaliseSharePointUrl($fields['sharepoint_url']);
+        if ($normalised === null) {
+            sendError(400, sharePointUrlRequirement() . ($fields['report_type'] === 'Written' ? ' for a written report' : ''));
         }
+        $fields['sharepoint_url'] = $normalised;
     }
     if ($fields['sharepoint_url'] === '') {
         $fields['sharepoint_url'] = null;
@@ -260,7 +279,7 @@ switch ($method) {
                 ORDER BY FIELD(s.status, 'Pending', 'Accepted', 'Declined', 'Withdrawn'), m.scheduled_date ASC, s.created_at ASC
             ");
             $stmt->execute($params);
-            echo json_encode($stmt->fetchAll());
+            echo json_encode(array_map('withSubmissionVersion', $stmt->fetchAll()));
         }
         break;
 
@@ -360,6 +379,11 @@ switch ($method) {
                         $db->rollBack();
                         sendError(400, 'Only pending submissions can be changed');
                     }
+                    $expected = (string)($data['version'] ?? '');
+                    if ($expected === '' || !hash_equals(submissionVersion($locked), $expected)) {
+                        $db->rollBack();
+                        sendError(409, 'This submission was changed after you loaded it. Reload the page and review it again before adding it to the agenda.');
+                    }
 
                     $agendaItemId = acceptSubmission($db, $locked);
 
@@ -375,7 +399,7 @@ switch ($method) {
                     if ($db->inTransaction()) {
                         $db->rollBack();
                     }
-                    sendError(500, 'Failed to accept submission: ' . $e->getMessage());
+                    sendError(500, publicErrorMessage($e, 'Failed to accept submission'));
                 }
                 break;
 

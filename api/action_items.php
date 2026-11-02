@@ -19,9 +19,6 @@
  * the meeting is the point.
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -168,6 +165,5 @@ try {
     if ($db->inTransaction()) {
         $db->rollBack();
     }
-    error_log('action_items API error: ' . $e->getMessage());
-    sendError(500, 'Server error: ' . $e->getMessage());
+    sendError(500, publicErrorMessage($e, 'Server error'));
 }

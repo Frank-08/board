@@ -6,6 +6,11 @@
  * Usage: php database/fix_role_enum.php
  */
 
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit("This script is CLI-only.\n");
+}
+
 require_once __DIR__ . '/../config/database.php';
 
 try {

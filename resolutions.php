@@ -139,11 +139,7 @@ outputHeader('Resolutions', 'resolutions.php');
             loadCategories().then(loadRegister);
         });
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text == null ? '' : String(text);
-            return div.innerHTML;
-        }
+        // escapeHtml() and safeUrl() come from assets/js/app.js
 
         // Mirrors formatResolutionOutcomeText() in includes/resolution_helpers.php
         function formatOutcome(res) {

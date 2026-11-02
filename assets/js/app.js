@@ -5,6 +5,42 @@
 // API Base URL
 const API_BASE = 'api';
 
+/**
+ * Escape a value for interpolation into HTML built with template literals -
+ * element content AND quoted attribute values (it escapes both quote
+ * characters, which the old textContent/innerHTML trick did not). Every
+ * value that came from the API must go through this (or textContent).
+ * Not enough on its own inside inline event handlers (onclick="f('${x}')"):
+ * pass ids/numbers there, never free text.
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    return String(text).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+/**
+ * Return url if it is an http(s) link (absolute, or relative to this site),
+ * otherwise '#'. Blocks javascript:/data: URLs and backslash tricks in links
+ * built from data. Escape the result with escapeHtml() when putting it in
+ * an attribute.
+ */
+function safeUrl(url) {
+    if (!url) return '#';
+    const value = String(url).trim();
+    if (/[\\\u0000-\u001F\u007F]/.test(value)) return '#';
+    try {
+        const parsed = new URL(value, window.location.href);
+        if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+            return value;
+        }
+    } catch (e) {
+        // fall through
+    }
+    return '#';
+}
+
 // Utility function for API calls
 async function apiCall(endpoint, method = 'GET', data = null) {
     const options = {
@@ -19,6 +55,15 @@ async function apiCall(endpoint, method = 'GET', data = null) {
     }
     
     const response = await fetch(`${API_BASE}/${endpoint}`, options);
+
+    // Forced password change (admin-set or default password)
+    if (response.status === 403 && response.headers.get('Content-Type')?.includes('json')) {
+        const body = await response.clone().json().catch(() => ({}));
+        if (body.code === 'PASSWORD_CHANGE_REQUIRED') {
+            window.location.href = 'change_password.php';
+            throw new Error(body.error);
+        }
+    }
     
     // Handle authentication errors - redirect to login
     if (response.status === 401) {

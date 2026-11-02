@@ -4,6 +4,7 @@
  */
 define('APP_NAME', 'Together in Council');
 define('APP_VERSION', '1.0.0');
+// Must be https:// in production - password reset links are built from it
 define('BASE_URL', 'http://localhost/board');
 
 // Organisation name shown on the agenda/minutes letterhead, e.g.
@@ -11,6 +12,10 @@ define('BASE_URL', 'http://localhost/board');
 define('ORGANIZATION_NAME', 'Presbytery of Yarra Yarra');
 
 // Document links are stored as SharePoint URLs (no local file upload settings required).
+// SharePoint tenants document links may point at: tenant names ('contoso' allows
+// contoso.sharepoint.com and contoso-my.sharepoint.com) or full host names.
+// Empty = any *.sharepoint.com host (anyone can create a tenant - set this).
+define('SHAREPOINT_TENANTS', []);
 
 // Claude (in-app "Suggest categories" / "Suggest action items").
 // Only these usernames may use it - each call is billed to the API key.
@@ -40,6 +45,22 @@ define('DATE_FORMAT', 'Y-m-d');
 define('DATETIME_FORMAT', 'Y-m-d H:i:s');
 define('DISPLAY_DATE_FORMAT', 'M d, Y');
 define('DISPLAY_DATETIME_FORMAT', 'M d, Y h:i A');
+
+// Encrypts TOTP (2FA) secrets at rest. 64 hex chars:
+//   php -r "echo bin2hex(random_bytes(32));"
+// Keep it out of database backups. If it is lost, everyone with 2FA must re-enrol.
+// Empty = secrets stored unencrypted (as before).
+define('TWOFACTOR_ENCRYPTION_KEY', '');
+
+// Server variable holding the real client IP, used for login/reset throttling.
+// Behind Cloudflare set 'HTTP_CF_CONNECTING_IP' - but ONLY if the origin
+// can't be reached except through Cloudflare, or the header can be forged.
+// Empty = REMOTE_ADDR.
+define('TRUSTED_CLIENT_IP_HEADER', '');
+
+// Reject new passwords found in the Have I Been Pwned breach corpus (only the
+// first 5 chars of the SHA-1 are sent; skipped if the API can't be reached).
+define('PASSWORD_BREACH_CHECK', true);
 
 // Authentication settings
 define('AUTH_SESSION_LIFETIME', 3600 * 8); // 8 hours

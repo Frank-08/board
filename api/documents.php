@@ -3,9 +3,6 @@
  * Documents API Endpoint
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -24,7 +21,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $db = getDBConnection();
 
 // Check permissions for write operations
-if ($method === 'POST') {
+if ($method === 'POST' || $method === 'PUT') {
     requirePermission('upload_documents');
 }
 if ($method === 'DELETE') {
@@ -123,9 +120,10 @@ switch ($method) {
             exit;
         }
 
-        if (!isValidSharePointUrl($sharePointUrl)) {
+        $sharePointUrl = normaliseSharePointUrl($sharePointUrl);
+        if ($sharePointUrl === null) {
             http_response_code(400);
-            echo json_encode(['error' => 'A valid HTTPS SharePoint URL is required']);
+            echo json_encode(['error' => sharePointUrlRequirement()]);
             exit;
         }
 
@@ -179,7 +177,7 @@ switch ($method) {
             echo json_encode($stmt->fetch());
         } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['error' => 'Error saving document: ' . $e->getMessage()]);
+            echo json_encode(['error' => publicErrorMessage($e, 'Error saving document')]);
             exit;
         }
         break;
@@ -200,16 +198,22 @@ switch ($method) {
         $fields = ['title', 'description', 'document_type', 'agenda_item_id'];
         foreach ($fields as $field) {
             if (isset($data[$field])) {
+                if (!is_scalar($data[$field])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => "$field must be a string"]);
+                    exit;
+                }
                 $updates[] = "$field = ?";
-                $params[] = $data[$field];
+                $params[] = $field === 'agenda_item_id' ? ((int)$data[$field] ?: null) : trim((string)$data[$field]);
             }
         }
 
         if (isset($data['sharepoint_url'])) {
             $sharePointUrl = trim((string)$data['sharepoint_url']);
-            if (!isValidSharePointUrl($sharePointUrl)) {
+            $sharePointUrl = normaliseSharePointUrl($sharePointUrl);
+            if ($sharePointUrl === null) {
                 http_response_code(400);
-                echo json_encode(['error' => 'A valid HTTPS SharePoint URL is required']);
+                echo json_encode(['error' => sharePointUrlRequirement()]);
                 exit;
             }
 

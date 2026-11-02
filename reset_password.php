@@ -170,7 +170,7 @@
             const confirmPassword = document.getElementById('confirm_password').value;
             const submitBtn = document.getElementById('submit-btn');
             
-            if (password.length < 8) {
+            if (password.length < 12) {
                 submitBtn.disabled = true;
                 return false;
             }
@@ -247,8 +247,8 @@
                     $error = 'Please enter and confirm your new password.';
                     // Token is valid, show form again
                     $validToken = true;
-                } elseif (strlen($password) < 8) {
-                    $error = 'Password must be at least 8 characters long.';
+                } elseif (strlen($password) < PASSWORD_MIN_LENGTH) {
+                    $error = 'Password must be at least 12 characters long.';
                     // Token is valid, show form again
                     $validToken = true;
                 } elseif ($password !== $confirmPassword) {
@@ -313,22 +313,22 @@
                     <div class="form-group">
                         <label for="password">New Password</label>
                         <input type="password" id="password" name="password" required autofocus
-                               minlength="8"
+                               minlength="12"
                                oninput="checkPasswordStrength(); validatePasswords();"
-                               placeholder="Enter new password (min. 8 characters)">
+                               placeholder="Enter new password (min. 12 characters)">
                         <div class="password-strength">
                             <div id="password-strength-bar" class="password-strength-bar"></div>
                         </div>
                         <div class="password-requirements">
                             <span id="password-strength-text"></span>
-                            <div>Password must be at least 8 characters long.</div>
+                            <div>Password must be at least 12 characters long and must not be a commonly breached password.</div>
                         </div>
                     </div>
                     
                     <div class="form-group">
                         <label for="confirm_password">Confirm Password</label>
                         <input type="password" id="confirm_password" name="confirm_password" required
-                               minlength="8"
+                               minlength="12"
                                oninput="validatePasswords();"
                                placeholder="Confirm new password">
                     </div>

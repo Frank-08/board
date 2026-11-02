@@ -123,18 +123,18 @@ outputHeader('Members', 'members.php');
                                     const statusClass = mt.status === 'Active' ? 'badge-active' : 
                                                        mt.status === 'Inactive' ? 'badge-inactive' : 
                                                        'badge-resigned';
-                                    return `<span class="badge ${statusClass}" style="margin: 2px; display: inline-block;">${mt.meeting_type_name} - ${mt.role}</span>`;
+                                    return `<span class="badge ${statusClass}" style="margin: 2px; display: inline-block;">${escapeHtml(mt.meeting_type_name)} - ${escapeHtml(mt.role)}</span>`;
                                 }).join('')
                                 : '<span style="color: #999;">No meeting type assignments</span>';
                             
                             return `
                                 <div class="member-card">
                                     <div class="member-header">
-                                        <h3>${member.first_name} ${member.last_name}</h3>
+                                        <h3>${escapeHtml(member.first_name)} ${escapeHtml(member.last_name)}</h3>
                                     </div>
-                                    ${member.title ? `<p class="member-title">${member.title}</p>` : ''}
-                                    ${member.email ? `<p class="member-email">${member.email}</p>` : ''}
-                                    ${member.phone ? `<p class="member-phone">${member.phone}</p>` : ''}
+                                    ${member.title ? `<p class="member-title">${escapeHtml(member.title)}</p>` : ''}
+                                    ${member.email ? `<p class="member-email">${escapeHtml(member.email)}</p>` : ''}
+                                    ${member.phone ? `<p class="member-phone">${escapeHtml(member.phone)}</p>` : ''}
                                     <div style="margin-top: 10px;">
                                         <strong>Meeting Types:</strong><br>
                                         <div style="margin-top: 5px;">${meetingTypesList}</div>
@@ -211,7 +211,7 @@ outputHeader('Members', 'members.php');
             row.innerHTML = `
                 <select class="meeting-type-select" style="flex: 2;" required>
                     <option value="">Select Meeting Type...</option>
-                    ${allMeetingTypes.map(mt => `<option value="${mt.id}" ${mt.id == meetingTypeId ? 'selected' : ''}>${mt.name}</option>`).join('')}
+                    ${allMeetingTypes.map(mt => `<option value="${escapeHtml(mt.id)}" ${mt.id == meetingTypeId ? 'selected' : ''}>${escapeHtml(mt.name)}</option>`).join('')}
                 </select>
                 <select class="meeting-type-role" style="flex: 1;">
                     <option value="Member" ${role === 'Member' ? 'selected' : ''}>Member</option>
@@ -227,8 +227,8 @@ outputHeader('Members', 'members.php');
                     <option value="Resigned" ${status === 'Resigned' ? 'selected' : ''}>Resigned</option>
                     <option value="Terminated" ${status === 'Terminated' ? 'selected' : ''}>Terminated</option>
                 </select>
-                <input type="date" class="meeting-type-start-date" placeholder="Start Date" value="${startDate || ''}" style="flex: 1;">
-                <input type="hidden" class="membership-id" value="${membershipId}">
+                <input type="date" class="meeting-type-start-date" placeholder="Start Date" value="${escapeHtml(startDate || '')}" style="flex: 1;">
+                <input type="hidden" class="membership-id" value="${escapeHtml(membershipId)}">
                 <button type="button" onclick="removeMeetingTypeRow('${rowId}')" class="btn btn-sm btn-danger">×</button>
             `;
             

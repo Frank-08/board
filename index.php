@@ -142,9 +142,9 @@ outputHeader('Dashboard', 'index.php');
                     if (data.upcoming_meetings_list && data.upcoming_meetings_list.length > 0) {
                         upcomingList.innerHTML = data.upcoming_meetings_list.map(meeting => 
                             `<div class="meeting-item">
-                                <h4><a href="meetings.php?id=${meeting.id}">${meeting.title}</a></h4>
-                                <p><strong>${meeting.meeting_type_name}</strong> - ${formatDateTime(meeting.scheduled_date)}</p>
-                                <span class="badge badge-${meeting.status.toLowerCase()}">${meeting.status}</span>
+                                <h4><a href="meetings.php?id=${encodeURIComponent(meeting.id)}">${escapeHtml(meeting.title)}</a></h4>
+                                <p><strong>${escapeHtml(meeting.meeting_type_name)}</strong> - ${escapeHtml(formatDateTime(meeting.scheduled_date))}</p>
+                                <span class="badge badge-${escapeHtml(meeting.status.toLowerCase())}">${escapeHtml(meeting.status)}</span>
                             </div>`
                         ).join('');
                     } else {
@@ -156,9 +156,9 @@ outputHeader('Dashboard', 'index.php');
                     if (data.recent_meetings_list && data.recent_meetings_list.length > 0) {
                         recentList.innerHTML = data.recent_meetings_list.map(meeting => 
                             `<div class="meeting-item">
-                                <h4><a href="meetings.php?id=${meeting.id}">${meeting.title}</a></h4>
-                                <p><strong>${meeting.meeting_type_name}</strong> - ${formatDateTime(meeting.scheduled_date)}</p>
-                                <span class="badge badge-${meeting.status.toLowerCase()}">${meeting.status}</span>
+                                <h4><a href="meetings.php?id=${encodeURIComponent(meeting.id)}">${escapeHtml(meeting.title)}</a></h4>
+                                <p><strong>${escapeHtml(meeting.meeting_type_name)}</strong> - ${escapeHtml(formatDateTime(meeting.scheduled_date))}</p>
+                                <span class="badge badge-${escapeHtml(meeting.status.toLowerCase())}">${escapeHtml(meeting.status)}</span>
                             </div>`
                         ).join('');
                     } else {

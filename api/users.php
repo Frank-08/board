@@ -5,9 +5,6 @@
  * Admin-only endpoint for managing user accounts.
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -66,7 +63,7 @@ switch ($method) {
             }
         } catch (PDOException $e) {
             http_response_code(500);
-            echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+            echo json_encode(['error' => publicErrorMessage($e, 'Database error')]);
             exit;
         }
         break;
@@ -91,9 +88,16 @@ switch ($method) {
             
             // Validate role
             $validRoles = ['Admin', 'Clerk', 'Member', 'Viewer', 'Assistant'];
-            if (!in_array($role, $validRoles)) {
+            if (!in_array($role, $validRoles, true)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid role']);
+                exit;
+            }
+
+            $policyError = validatePasswordStrength((string)$password, $username);
+            if ($policyError !== null) {
+                http_response_code(400);
+                echo json_encode(['error' => $policyError]);
                 exit;
             }
             
@@ -123,6 +127,8 @@ switch ($method) {
             $stmt->execute([$username, $passwordHash, $email, $role, $boardMemberId, $isActive]);
             
             $userId = $db->lastInsertId();
+            // The admin knows this password, so the user must replace it
+            setMustChangePassword((int)$userId, true);
             
             // Return created user
             $stmt = $db->prepare("
@@ -136,7 +142,7 @@ switch ($method) {
             echo json_encode($stmt->fetch());
         } catch (PDOException $e) {
             http_response_code(500);
-            echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+            echo json_encode(['error' => publicErrorMessage($e, 'Database error')]);
             exit;
         }
         break;
@@ -204,16 +210,26 @@ switch ($method) {
         }
         
         // Update password
+        $passwordChanged = false;
         if (!empty($data['password'])) {
-            $passwordHash = password_hash($data['password'], PASSWORD_DEFAULT);
+            $stmt = $db->prepare("SELECT username FROM users WHERE id = ?");
+            $stmt->execute([$id]);
+            $policyError = validatePasswordStrength((string)$data['password'], (string)($data['username'] ?? $stmt->fetchColumn()));
+            if ($policyError !== null) {
+                http_response_code(400);
+                echo json_encode(['error' => $policyError]);
+                exit;
+            }
+            $passwordHash = password_hash((string)$data['password'], PASSWORD_DEFAULT);
             $updates[] = "password_hash = ?";
             $params[] = $passwordHash;
+            $passwordChanged = true;
         }
         
         // Update role
         if (isset($data['role'])) {
             $validRoles = ['Admin', 'Clerk', 'Member', 'Viewer', 'Assistant'];
-            if (!in_array($data['role'], $validRoles)) {
+            if (!in_array($data['role'], $validRoles, true)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid role']);
                 exit;
@@ -229,9 +245,11 @@ switch ($method) {
         }
         
         // Update is_active
+        $deactivated = false;
         if (isset($data['is_active'])) {
             $updates[] = "is_active = ?";
             $params[] = (bool)$data['is_active'] ? 1 : 0;
+            $deactivated = !(bool)$data['is_active'];
         }
         
         if (empty($updates)) {
@@ -244,6 +262,18 @@ switch ($method) {
         $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
+
+        // Sign the user out everywhere when their password is reset or the
+        // account is switched off (role changes apply on the next request
+        // anyway - see revalidateSession())
+        $isSelf = (int)getCurrentUser()['id'] === $id;
+        if ($passwordChanged) {
+            // An admin-set password must be replaced by its owner
+            setMustChangePassword($id, !$isSelf);
+        }
+        if ($passwordChanged || $deactivated) {
+            bumpSessionVersion($id);
+        }
         
         // Return updated user
         $stmt = $db->prepare("

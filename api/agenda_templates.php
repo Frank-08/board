@@ -4,9 +4,6 @@
  * Manages default agenda item templates for meeting types
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -100,7 +97,7 @@ switch ($method) {
             } catch (Exception $e) {
                 $db->rollBack();
                 http_response_code(500);
-                echo json_encode(['error' => 'Failed to reorder template items: ' . $e->getMessage()]);
+                echo json_encode(['error' => publicErrorMessage($e, 'Failed to reorder template items')]);
             }
             break;
         }
@@ -141,7 +138,7 @@ switch ($method) {
             } catch (Exception $e) {
                 $db->rollBack();
                 http_response_code(500);
-                echo json_encode(['error' => 'Failed to reorder template child items: ' . $e->getMessage()]);
+                echo json_encode(['error' => publicErrorMessage($e, 'Failed to reorder template child items')]);
             }
             break;
         }

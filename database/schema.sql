@@ -33,10 +33,19 @@ CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    password_reset_token VARCHAR(64) NULL COMMENT 'SHA-256 of the emailed token',
+    password_reset_expires TIMESTAMP NULL,
     email VARCHAR(255) NOT NULL,
     role ENUM('Admin', 'Clerk', 'Member', 'Viewer', 'Assistant') DEFAULT 'Viewer',
     board_member_id INT NULL,
     is_active BOOLEAN DEFAULT TRUE,
+    session_version INT NOT NULL DEFAULT 0,
+    must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
+    two_factor_secret VARCHAR(255) NULL DEFAULT NULL,
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
+    two_factor_backup_codes TEXT NULL DEFAULT NULL COMMENT 'JSON array of hashed backup codes',
+    two_factor_verified_at TIMESTAMP NULL DEFAULT NULL,
+    two_factor_last_step BIGINT NULL DEFAULT NULL,
     last_login TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -44,7 +53,20 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_username (username),
     INDEX idx_email (email),
     INDEX idx_role (role),
-    INDEX idx_board_member (board_member_id)
+    INDEX idx_board_member (board_member_id),
+    INDEX idx_password_reset_token (password_reset_token),
+    INDEX idx_two_factor_enabled (two_factor_enabled)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Throttling log for failed logins / 2FA codes and password reset requests
+CREATE TABLE IF NOT EXISTS auth_attempts (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    action VARCHAR(30) NOT NULL COMMENT 'login, 2fa, reset_request',
+    identifier VARCHAR(255) NOT NULL COMMENT 'lower-cased username / email / user:<id>',
+    ip_address VARCHAR(45) NOT NULL DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_action_identifier (action, identifier, created_at),
+    INDEX idx_action_ip (action, ip_address, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Junction table for many-to-many relationship between meeting types and members
@@ -423,5 +445,6 @@ INSERT INTO meeting_type_members (meeting_type_id, member_id, role, status) VALU
 
 -- Insert default admin user (password: changeme123)
 -- IMPORTANT: Change this password immediately after first login!
-INSERT INTO users (username, password_hash, email, role, is_active) VALUES
-('admin', '$2y$10$HzhW7DsplQeYwgYmKjwzd.IFBCm.lu32Qwl4/fxL6zKO9Ok0W/BEe', 'admin@example.com', 'Admin', TRUE);
+-- (must_change_password: a new password is required at first sign-in)
+INSERT INTO users (username, password_hash, email, role, is_active, must_change_password) VALUES
+('admin', '$2y$10$HzhW7DsplQeYwgYmKjwzd.IFBCm.lu32Qwl4/fxL6zKO9Ok0W/BEe', 'admin@example.com', 'Admin', TRUE, TRUE);

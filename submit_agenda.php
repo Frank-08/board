@@ -312,7 +312,11 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
             list.innerHTML = renderSubmissionsTable(submissions, true);
         }
 
+        // Content version of each listed submission, sent back on accept
+        const submissionVersions = {};
+
         function renderSubmissionsTable(submissions, reviewMode) {
+            submissions.forEach(s => { submissionVersions[s.id] = s.version; });
             return `
                 <table class="submissions-table">
                     <thead>
@@ -351,7 +355,7 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
                                     ${s.review_notes ? `<div class="muted">${escapeHtml(s.review_notes)}</div>` : ''}
                                 </td>
                                 <td>
-                                    ${s.sharepoint_url ? `<a href="${escapeHtml(s.sharepoint_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">Open Report</a>` : ''}
+                                    ${s.sharepoint_url ? `<a href="${escapeHtml(safeUrl(s.sharepoint_url))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">Open Report</a>` : ''}
                                     ${s.status === 'Pending' && !reviewMode ? `
                                         <button onclick="editSubmission(${s.id})" class="btn btn-sm">Edit</button>
                                         <button onclick="withdrawSubmission(${s.id})" class="btn btn-sm btn-danger">Withdraw</button>
@@ -382,7 +386,7 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
         async function acceptSubmission(id) {
             const notes = prompt('Add this item to the end of the meeting agenda? You can reorder it from the Meetings page.\n\nOptional note to the submitter:', '');
             if (notes === null) return;
-            await updateSubmissionStatus({ id, action: 'accept', review_notes: notes });
+            await updateSubmissionStatus({ id, action: 'accept', review_notes: notes, version: submissionVersions[id] });
         }
 
         async function declineSubmission(id) {
@@ -405,12 +409,7 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
             }
         }
 
-        // Escapes text for safe interpolation into HTML built via template literals.
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text == null ? '' : String(text);
-            return div.innerHTML;
-        }
+        // escapeHtml() and safeUrl() come from assets/js/app.js
     </script>
 </body>
 </html>

@@ -3,9 +3,6 @@
  * Meeting Type Members API Endpoint - Manages many-to-many relationship
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -39,7 +36,7 @@ switch ($method) {
                 ORDER BY mt.name ASC
             ");
             $stmt->execute([$memberId]);
-            echo json_encode($stmt->fetchAll());
+            echo json_encode(redactMemberContacts($stmt->fetchAll()));
         } elseif (isset($_GET['meeting_type_id'])) {
             // Get all members for a meeting type
             $meetingTypeId = (int)$_GET['meeting_type_id'];
@@ -65,7 +62,7 @@ switch ($method) {
             
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
-            echo json_encode($stmt->fetchAll());
+            echo json_encode(redactMemberContacts($stmt->fetchAll()));
         } elseif (isset($_GET['id'])) {
             // Get single meeting type membership
             $id = (int)$_GET['id'];
@@ -87,7 +84,7 @@ switch ($method) {
                 exit;
             }
             
-            echo json_encode($membership);
+            echo json_encode(redactMemberContacts($membership));
         } else {
             http_response_code(400);
             echo json_encode(['error' => 'member_id, meeting_type_id, or id is required']);

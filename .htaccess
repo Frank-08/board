@@ -9,11 +9,19 @@ RewriteBase /board/
 # Prevent directory listing
 Options -Indexes
 
-# Deny access to sensitive files
+# Deny access to sensitive files (Apache 2.4 syntax - "Order/Deny" needs
+# mod_access_compat)
 <FilesMatch "^(\.htaccess|\.env|config\.php|database\.php)$">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </FilesMatch>
+<FilesMatch "\.(md|sql|sql\.gz|sql\.zip|dump|bak|orig|bas|sh|log|kts|gradle)$">
+    Require all denied
+</FilesMatch>
+
+# Directories that are only ever include()d or run from the command line -
+# never served. PHP's require_once still reads them from disk. Libraries in
+# libs/ (phpqrcode, TCPDF) are included by the pages that need them.
+RewriteRule ^(config|includes|database|scripts|libs|uploads|vendor|android|word\ macro|\.git|\.github)(/|$) - [F,L]
 
 # Allow access to API files
 #<DirectoryMatch "^.*/api/">
@@ -40,7 +48,7 @@ Options -Indexes
 <IfModule mod_headers.c>
     Header set X-Content-Type-Options "nosniff"
     Header set X-Frame-Options "SAMEORIGIN"
-    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
 # Gzip compression
