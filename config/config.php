@@ -85,8 +85,11 @@ define('SMTP_FROM_NAME', APP_NAME); // From name for emails
 define('SMTP_ENCRYPTION', 'tls'); // 'tls' or 'ssl'
 
 // Session settings (auth.php handles session_start)
-// Cloudflare-compatible session settings
-if (session_status() === PHP_SESSION_NONE) {
+// Cloudflare-compatible session settings.
+// API-key requests (X-API-Key) are stateless and never use the session, so
+// don't start one for them - it only mints throwaway PHPSESSID files.
+$usingApiKey = !empty($_SERVER['HTTP_X_API_KEY']);
+if (!$usingApiKey && session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_strict_mode', 1);
     ini_set('session.cookie_samesite', 'Lax');

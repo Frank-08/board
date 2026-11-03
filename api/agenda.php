@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/agenda_helpers.php';
+require_once __DIR__ . '/../includes/minutes_lock.php';
 
 // Require authentication for all requests
 requireAuth();
@@ -92,7 +93,10 @@ switch ($method) {
                 echo json_encode(['error' => 'Meeting not found']);
                 exit;
             }
-            
+
+            // Once the minutes are approved the agenda is part of the record
+            rejectIfMinutesApproved($db, $meetingId, 'The agenda');
+
             // Verify all items belong to this meeting
             $placeholders = implode(',', array_fill(0, count($order), '?'));
             $stmt = $db->prepare("
@@ -287,7 +291,10 @@ switch ($method) {
             echo json_encode(['error' => 'Meeting not found']);
             exit;
         }
-        
+
+        // Once the minutes are approved the agenda is part of the record
+        rejectIfMinutesApproved($db, $meetingId, 'The agenda');
+
         // Support optional hierarchical parent_id for sub-items
         $parentId = !empty($data['parent_id']) ? (int)$data['parent_id'] : null;
 
@@ -401,7 +408,18 @@ switch ($method) {
             echo json_encode(['error' => 'ID is required']);
             exit;
         }
-        
+
+        // Block edits once the meeting's minutes are approved
+        $lockStmt = $db->prepare("SELECT meeting_id FROM agenda_items WHERE id = ?");
+        $lockStmt->execute([$id]);
+        $lockMeetingId = $lockStmt->fetchColumn();
+        if ($lockMeetingId === false) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Agenda item not found']);
+            exit;
+        }
+        rejectIfMinutesApproved($db, (int)$lockMeetingId, 'The agenda');
+
         if (array_key_exists('report_type', $data) && !in_array($data['report_type'], ['Written', 'Verbal', null], true)) {
             http_response_code(400);
             echo json_encode(['error' => 'report_type must be Written, Verbal, or null']);
@@ -543,6 +561,9 @@ switch ($method) {
             exit;
         }
         
+        // Once the minutes are approved the agenda is part of the record
+        rejectIfMinutesApproved($db, (int)$item['meeting_id'], 'The agenda');
+
         $db->beginTransaction();
         try {
             // Delete the item (sub-items cascade), then renumber the whole agenda

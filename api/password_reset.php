@@ -77,7 +77,17 @@ try {
             echo json_encode(['error' => 'Password must be at least 12 characters long']);
             exit;
         }
-        
+
+        // Throttle token guessing per IP. Tokens are 256-bit random so brute
+        // force is already infeasible; this is defence in depth and bounds
+        // abuse. The identifier is a fixed label so no token material is logged.
+        if (countAuthAttemptsFromIp('reset_token', RESET_TOKEN_WINDOW) >= RESET_TOKEN_MAX_ATTEMPTS_PER_IP) {
+            http_response_code(429);
+            echo json_encode(['error' => 'Too many attempts. Please wait and try again.']);
+            exit;
+        }
+        recordAuthAttempt('reset_token', 'token');
+
         // Reset password
         $result = resetPassword($token, $password);
         
