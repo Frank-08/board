@@ -164,6 +164,36 @@ switch ($method) {
             }
         }
 
+        // Re-opening approved minutes unlocks the meeting's resolutions,
+        // agenda and attendance for editing, so restrict that transition to
+        // Admins and record it for audit. (approve=true never un-approves.)
+        if (!$draftOnly) {
+            $stmt = $db->prepare("SELECT status FROM minutes WHERE id = ?");
+            $stmt->execute([$id]);
+            $currentStatus = $stmt->fetchColumn();
+            if ($currentStatus === false) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Minutes not found']);
+                exit;
+            }
+            if ($currentStatus === 'Approved'
+                && empty($data['approve'])
+                && isset($data['status'])
+                && $data['status'] !== 'Approved') {
+                if (!hasRole('Admin')) {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Only an administrator can re-open approved minutes', 'code' => 'FORBIDDEN']);
+                    exit;
+                }
+                error_log(sprintf(
+                    'AUDIT: minutes %d re-opened from Approved to %s by user %s',
+                    $id,
+                    (string)$data['status'],
+                    getCurrentUser()['username'] ?? '?'
+                ));
+            }
+        }
+
         $updates = [];
         $params = [];
         

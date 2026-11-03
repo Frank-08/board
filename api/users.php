@@ -77,7 +77,9 @@ switch ($method) {
             $email = trim($data['email'] ?? '');
             $role = $data['role'] ?? 'Viewer';
             $boardMemberId = !empty($data['board_member_id']) ? (int)$data['board_member_id'] : null;
-            $isActive = isset($data['is_active']) ? (bool)$data['is_active'] : true;
+            // Bind as 0/1: a PHP bool false becomes '' under non-emulated
+            // prepares and the INSERT into an integer column then errors.
+            $isActive = (isset($data['is_active']) && !(bool)$data['is_active']) ? 0 : 1;
             
             // Validation
             if (empty($username) || empty($password) || empty($email)) {
@@ -118,7 +120,19 @@ switch ($method) {
                 echo json_encode(['error' => 'Email already exists']);
                 exit;
             }
-            
+
+            // A board member links to at most one user account, so the "own"
+            // permission checks (which key on board_member_id) stay unambiguous
+            if ($boardMemberId !== null) {
+                $stmt = $db->prepare("SELECT id FROM users WHERE board_member_id = ?");
+                $stmt->execute([$boardMemberId]);
+                if ($stmt->fetch()) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'That board member is already linked to a user account']);
+                    exit;
+                }
+            }
+
             // Hash password
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
             
