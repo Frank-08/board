@@ -2940,7 +2940,7 @@ outputHeader('Meetings', 'meetings.php');
             .then(response => {
                 if (!response.ok) {
                     return response.json().then(data => {
-                        throw new Error(data.error || 'Upload failed');
+                        throw new Error(data.error || 'Saving document link failed');
                     });
                 }
                 return response.json();

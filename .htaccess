@@ -34,7 +34,6 @@ RewriteRule ^(config|includes|database|scripts|libs|uploads|vendor|android|word\
     php_flag display_errors Off
     php_flag log_errors On
     php_value error_log /var/log/php_errors.log
-    php_value upload_max_filesize 20M
     php_value post_max_size 30M
     php_value max_execution_time 300
 </IfModule>

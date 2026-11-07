@@ -182,6 +182,8 @@ RSYNC_ARGS=(
     --exclude='.gitignore'
     --exclude='config/database.php'
     --exclude='config/config.php'
+    # Legacy local document uploads (pre-SharePoint) may still exist on the
+    # live server; leave them alone - .htaccess keeps them unreachable.
     --exclude='uploads/'
     --exclude='libs/'
     --exclude='scripts/'

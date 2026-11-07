@@ -211,8 +211,8 @@ function acceptSubmission(PDO $db, array $submission): int {
 
     if (!empty($submission['sharepoint_url'])) {
         $stmt = $db->prepare("
-            INSERT INTO documents (meeting_type_id, meeting_id, agenda_item_id, document_type, title, description, sharepoint_url, file_path, file_name, file_size, mime_type, uploaded_by)
-            VALUES (?, ?, ?, 'Report', ?, ?, ?, NULL, ?, NULL, NULL, ?)
+            INSERT INTO documents (meeting_type_id, meeting_id, agenda_item_id, document_type, title, description, sharepoint_url, file_name, uploaded_by)
+            VALUES (?, ?, ?, 'Report', ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $meeting['meeting_type_id'],

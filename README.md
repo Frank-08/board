@@ -12,15 +12,14 @@ A comprehensive LAMP (Linux, Apache, MySQL, PHP) stack application for managing 
   - **Agenda Templates**: Define default agenda items per meeting type that auto-populate new meetings
   - **Drag-and-drop reordering**: Reorder agenda items by dragging or using up/down arrow buttons
   - **Automatic item numbering**: Items are automatically numbered in YY.MM.SEQ format
-  - **PDF document attachments**: Attach PDF documents to agenda items (PDF-only for agenda items)
+  - **Document links**: Link SharePoint documents to agenda items
 - **Attendees**: Track meeting attendance and participation
 - **Minutes**: Create, review, and approve meeting minutes
   - **Minutes Comments**: Add detailed comments to individual agenda items within meeting minutes
 - **Resolutions**: Manage board resolutions with voting records and status
-- **Document Management**: Upload and manage documents, with PDF support for agenda attachments
+- **Document Management**: Documents are stored in SharePoint and linked to meetings / agenda items (no local file storage)
 - **PDF Exports**: 
-  - Export agendas as HTML or combined PDF
-  - **Combined PDF exports**: Merge agenda with attached PDF documents into a single PDF file
+  - Export agendas as HTML or PDF
   - **Logo support**: Add your organization logo to PDF exports
   - **Meeting Notices**: Generate meeting notices as HTML or PDF for participant distribution
 - **Two-Factor Authentication**: TOTP-based 2FA with authenticator app support and backup codes
@@ -34,7 +33,6 @@ A comprehensive LAMP (Linux, Apache, MySQL, PHP) stack application for managing 
 - MySQL/MariaDB (5.7+ or 10.2+)
 - PHP (7.4+ or 8.0+)
 - PHP extensions: PDO, PDO_MySQL, JSON
-- **Optional for PDF merging**: pdftk, ghostscript (gs), or pdfunite (for combined PDF exports)
 
 ## Installation
 
@@ -52,8 +50,6 @@ cd board
 ```bash
 chmod 755 .
 chmod -R 755 api config assets
-mkdir -p uploads
-chmod 777 uploads
 ```
 
 ### 3. Database Setup
@@ -196,34 +192,6 @@ sudo apt-get install php-mysql php-pdo
 sudo yum install php-mysql php-pdo
 ```
 
-### 6.5. PDF Library Setup (Optional, for Combined PDF Exports)
-
-For combined PDF exports (merging agenda with attached PDFs), you can use one of:
-
-**Option 1: System Tools (Recommended)**
-- Install `pdftk` or `ghostscript` (gs) or `pdfunite`
-```bash
-# Ubuntu/Debian
-sudo apt-get install pdftk
-# or
-sudo apt-get install ghostscript
-# or
-sudo apt-get install poppler-utils  # includes pdfunite
-
-# CentOS/RHEL
-sudo yum install pdftk
-# or
-sudo yum install ghostscript
-```
-
-**Option 2: PHP Library**
-- Install FPDI library via Composer (if system tools unavailable)
-```bash
-composer require setasign/fpdi
-```
-
-The system will automatically use available tools. If none are available, the export will still work but won't merge attached PDFs.
-
 ### 7. Optional Features Setup
 
 The following features require additional database migrations:
@@ -299,7 +267,7 @@ board/
 │   ├── committee_members.php    # Committee member associations
 │   ├── committees.php           # Committee management
 │   ├── dashboard.php            # Dashboard statistics
-│   ├── documents.php            # Document upload/management
+│   ├── documents.php            # Document links (SharePoint)
 │   ├── download.php             # Document download endpoint
 │   ├── meeting_type_members.php # Meeting type membership management
 │   ├── meeting_types.php        # Meeting type CRUD
@@ -338,7 +306,6 @@ board/
 ├── libs/                        # Third-party libraries
 │   ├── phpqrcode/               # QR code generation library for 2FA
 │   └── other/                   # Additional utility libraries
-├── uploads/                     # File uploads directory (writable by webserver)
 ├── documents.php                # Documents management page
 ├── forgot_password.php          # Password reset request page
 ├── index.php                    # Dashboard page
@@ -368,7 +335,7 @@ board/
 5. **Create Agenda**: 
    - Add agenda items to your meetings
    - Reorder items by dragging them or using the up/down arrow buttons
-   - Attach PDF documents to agenda items (PDF-only for agenda attachments)
+   - Link SharePoint documents to agenda items
 6. **Track Attendance**: Add attendees and mark their attendance status
 7. **Record Minutes**: Create meeting minutes after the meeting
 8. **Manage Resolutions**: Record resolutions and voting outcomes
@@ -384,15 +351,14 @@ board/
   - **Agenda Templates**: Define default agenda items per meeting type for quick meeting setup
   - Drag-and-drop or button-based reordering of agenda items
   - Automatic item numbering (YY.MM.SEQ format)
-  - PDF document attachments (PDF-only for agenda items)
+  - SharePoint document links on agenda items
 - **Minutes Management**: 
   - Create, review, approve, and publish meeting minutes
   - **Item-Specific Comments**: Add detailed comments to individual agenda items within minutes
   - Export minutes with all comments and decisions
 - **Meeting Notices**: Generate HTML or PDF meeting notices for participant distribution with meeting details, date/time, location, virtual links, and status
 - **PDF Exports**: 
-  - Export agendas as HTML (print-friendly) or combined PDF
-  - Attached PDF documents are merged into the agenda export
+  - Export agendas as HTML (print-friendly) or PDF
   - Custom logo support in all PDF exports
 - **Resolutions**: Track board resolutions with voting records and status
 
@@ -570,7 +536,6 @@ You will be asked to choose a new password straight away - every page redirects 
 ### Permission Errors
 
 - Ensure Apache user (www-data) has read access to files
-- Check uploads directory permissions: `chmod 777 uploads`
 
 ### PHP Errors
 
@@ -614,23 +579,12 @@ If password reset emails or other notifications aren't being sent:
 - Check that your server's network allows outbound SMTP connections
 - Review email provider's firewall/security rules to ensure connections from your server are allowed
 
-### PDF Merge Failures
+### Document Link Issues
 
-If PDF exports fail to merge attached documents:
-- Install one of the required tools: `pdftk`, `ghostscript` (gs), or `pdfunite` using your package manager
-- Alternatively, install the PHP FPDI library via Composer: `composer require setasign/fpdi`
-- Verify installed tool is in the system PATH
-- Check PHP error logs for specific merge tool errors
-- Note: Exports will still work without merge tools, but attached PDFs won't be combined
-
-### Document Upload Issues
-
-If you cannot upload documents:
-- Verify the `uploads/` directory exists and is writable by the web server user (www-data)
-- Check that file size is under the MAX_FILE_SIZE limit configured in `config/config.php`
-- For agenda item attachments, ensure the file is in PDF format only
-- Verify your PHP installation's `upload_max_filesize` and `post_max_size` settings allow the file size
-- Check browser console and server error logs for specific error messages
+If a document link is rejected or won't open:
+- Documents are SharePoint links, not uploads - paste an `https://<tenant>.sharepoint.com/...` URL
+- If `SHAREPOINT_TENANTS` is set in `config/config.php`, the link's tenant must be on that list
+- Check the user opening it has access to the file in SharePoint itself (the app only redirects)
 
 ### 2FA QR Code Not Displaying
 
@@ -674,6 +628,7 @@ mysql -u board_user -p governance_board < database/migration_name.sql
 - `migration_add_item_number.sql` - Adds automatic item numbering (YY.MM.SEQ format)
 - `migration_add_parent_to_agenda.sql` - Adds hierarchical agenda items (sub-items)
 - `migration_add_agenda_item_to_documents.sql` - Links documents to agenda items
+- `migration_remove_local_document_storage.sql` - Drops the legacy local-upload columns and makes `sharepoint_url` required (review the rows it lists first)
 
 *Meeting Management:*
 - `migration_committees_to_meeting_types.sql` - Migrates from committees to meeting types

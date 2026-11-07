@@ -6,7 +6,7 @@ outputHeader('Documents', 'documents.php');
         <main>
             <div class="page-header">
                 <h2>Documents</h2>
-                <button onclick="showUploadModal()" class="btn btn-primary">+ Upload Document</button>
+                <button onclick="showUploadModal()" class="btn btn-primary">+ Add Document Link</button>
             </div>
 
             <div id="documents-list">
@@ -183,7 +183,7 @@ outputHeader('Documents', 'documents.php');
                 .then(data => {
                     const list = document.getElementById('documents-list');
                     if (data.length === 0) {
-                        list.innerHTML = '<p>No documents found. Upload your first document.</p>';
+                        list.innerHTML = '<p>No documents found. Add a SharePoint link to get started.</p>';
                         return;
                     }
                     
@@ -194,9 +194,8 @@ outputHeader('Documents', 'documents.php');
                                     <th style="padding: 12px; text-align: left;">Title</th>
                                     <th style="padding: 12px; text-align: left;">Type</th>
                                     <th style="padding: 12px; text-align: left;">File Name</th>
-                                    <th style="padding: 12px; text-align: left;">Size</th>
                                     <th style="padding: 12px; text-align: left;">Linked To</th>
-                                    <th style="padding: 12px; text-align: left;">Uploaded By</th>
+                                    <th style="padding: 12px; text-align: left;">Added By</th>
                                     <th style="padding: 12px; text-align: left;">Date</th>
                                     <th style="padding: 12px; text-align: left;">Actions</th>
                                 </tr>
@@ -211,7 +210,6 @@ outputHeader('Documents', 'documents.php');
                                             </span>
                                         </td>
                                         <td style="padding: 12px; color: #666;">${escapeHtml(doc.file_name || extractFileNameFromUrl(doc.sharepoint_url) || 'N/A')}</td>
-                                        <td style="padding: 12px; color: #666;">${doc.file_size ? formatFileSize(doc.file_size) : 'N/A'}</td>
                                         <td style="padding: 12px; color: #666;">
                                             ${doc.meeting_title ? `<div><strong>Meeting:</strong> ${escapeHtml(doc.meeting_title)}</div>` : ''}
                                             ${doc.agenda_item_title ? `<div><strong>Agenda Item:</strong> ${escapeHtml(doc.agenda_item_title)}</div>` : ''}
@@ -302,7 +300,7 @@ outputHeader('Documents', 'documents.php');
             .then(response => {
                 if (!response.ok) {
                     return response.json().then(data => {
-                        throw new Error(data.error || 'Upload failed');
+                        throw new Error(data.error || 'Saving document link failed');
                     });
                 }
                 return response.json();
@@ -316,8 +314,8 @@ outputHeader('Documents', 'documents.php');
                 }
             })
             .catch(error => {
-                console.error('Error uploading document:', error);
-                alert('Error uploading document: ' + error.message);
+                console.error('Error saving document link:', error);
+                alert('Error saving document link: ' + error.message);
             });
         });
 
@@ -378,13 +376,6 @@ outputHeader('Documents', 'documents.php');
                 console.error('Error deleting document:', error);
                 alert('Error deleting document');
             });
-        }
-
-        function formatFileSize(bytes) {
-            if (!bytes) return '0 B';
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
         }
 
         // Quick client-side check; the server (includes/document_helpers.php)
