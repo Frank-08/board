@@ -66,6 +66,17 @@ switch ($method) {
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             echo json_encode(redactMemberContacts($stmt->fetchAll()));
+        } elseif (!empty($_GET['active'])) {
+            // Members with at least one Active meeting type membership
+            $stmt = $db->query("
+                SELECT bm.* FROM board_members bm
+                WHERE EXISTS (
+                    SELECT 1 FROM meeting_type_members mtm
+                    WHERE mtm.member_id = bm.id AND mtm.status = 'Active'
+                )
+                ORDER BY bm.last_name ASC, bm.first_name ASC
+            ");
+            echo json_encode(redactMemberContacts($stmt->fetchAll()));
         } else {
             // Get all members
             $stmt = $db->query("SELECT * FROM board_members ORDER BY last_name ASC, first_name ASC");

@@ -1560,7 +1560,7 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         function showAgendaItemModal(item = null) {
-            loadBoardMembers().then(members => {
+            loadBoardMembers(item && item.presenters ? item.presenters.map(p => p.id) : []).then(members => {
                 const modal = document.getElementById('agendaItemModal');
                 const form = document.getElementById('agendaItemForm');
                 
@@ -2091,7 +2091,7 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         function showAttendeeModal(attendee = null) {
-            loadBoardMembers().then(members => {
+            loadBoardMembers(attendee ? [attendee.member_id] : []).then(members => {
                 const modal = document.getElementById('attendeeModal');
                 const form = document.getElementById('attendeeForm');
                 
@@ -2265,7 +2265,7 @@ outputHeader('Meetings', 'meetings.php');
             }
 
             // Populate mover/seconder dropdowns
-            loadBoardMembers().then(members => {
+            loadBoardMembers(resolution ? [resolution.motion_moved_by, resolution.motion_seconded_by] : []).then(members => {
                 ['resolutionMovedBy', 'resolutionSecondedBy'].forEach(id => {
                     const select = document.getElementById(id);
                     select.innerHTML = '<option value="">Select member...</option>';
@@ -2681,7 +2681,7 @@ outputHeader('Meetings', 'meetings.php');
             const modal = document.getElementById('departureModal');
             const form = document.getElementById('departureForm');
 
-            loadBoardMembers().then(members => {
+            loadBoardMembers(departure ? [departure.member_id] : []).then(members => {
                 const memberSelect = document.getElementById('departureMember');
                 memberSelect.innerHTML = '<option value="">Select member...</option>';
                 members.forEach(member => {
@@ -2788,7 +2788,7 @@ outputHeader('Meetings', 'meetings.php');
         }
 
         function showMinutesModal(minutes = null) {
-            loadBoardMembers().then(members => {
+            loadBoardMembers(minutes ? [minutes.prepared_by] : []).then(members => {
                 const modal = document.getElementById('minutesModal');
                 const form = document.getElementById('minutesForm');
                 
@@ -3006,15 +3006,22 @@ outputHeader('Meetings', 'meetings.php');
             });
         }
 
-        // Utility function to load board members for current meeting type with their roles
-        function loadBoardMembers() {
+        // Utility function to load board members for current meeting type with their roles.
+        // Only members whose membership of this meeting type is Active are listed;
+        // keepIds are member ids already recorded on the record being edited, kept
+        // in the list even if since made inactive so the existing value isn't lost.
+        function loadBoardMembers(keepIds = []) {
             if (!currentMeetingTypeId) return Promise.resolve([]);
+            const keep = new Set(keepIds.filter(id => id !== null && id !== undefined && id !== '').map(String));
             // Get meeting type members which includes role for this meeting type
             return fetch(`api/meeting_type_members.php?meeting_type_id=${currentMeetingTypeId}`)
                 .then(response => response.json())
                 .then(meetingTypeMembers => {
+                    if (!Array.isArray(meetingTypeMembers)) return [];
                     // Transform to format expected by other functions
-                    return meetingTypeMembers.map(mtm => ({
+                    return meetingTypeMembers
+                        .filter(mtm => mtm.status === 'Active' || keep.has(String(mtm.member_id)))
+                        .map(mtm => ({
                         id: mtm.member_id,
                         first_name: mtm.first_name,
                         last_name: mtm.last_name,

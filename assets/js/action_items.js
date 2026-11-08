@@ -24,7 +24,7 @@ const ActionItems = (() => {
 
     async function members() {
         if (!membersCache) {
-            membersCache = apiCall('members.php').catch(err => {
+            membersCache = apiCall('members.php?active=1').catch(err => {
                 membersCache = null;
                 throw err;
             });
@@ -32,7 +32,16 @@ const ActionItems = (() => {
         return membersCache;
     }
 
-    function memberOptions(list, selectedId) {
+    // Lists active members only; an item's current owner (item.assigned_*) stays
+    // selectable if they have since become inactive.
+    function memberOptions(list, selectedId, item) {
+        if (selectedId && !list.some(m => String(m.id) === String(selectedId))) {
+            list = list.concat([{
+                id: selectedId,
+                first_name: (item && item.assigned_first_name) || 'Member',
+                last_name: (item && item.assigned_last_name) || ('#' + selectedId)
+            }]);
+        }
         return '<option value="">Unassigned / other</option>' + list.map(m =>
             `<option value="${m.id}" ${String(m.id) === String(selectedId) ? 'selected' : ''}>${esc(m.first_name + ' ' + m.last_name)}</option>`
         ).join('');
@@ -166,7 +175,7 @@ const ActionItems = (() => {
                 <div class="form-row">
                     <div class="form-group">
                         <label for="aiMember">Owner (member)</label>
-                        <select id="aiMember">${memberOptions(memberList, v.assigned_member_id)}</select>
+                        <select id="aiMember">${memberOptions(memberList, v.assigned_member_id, v)}</select>
                     </div>
                     <div class="form-group">
                         <label for="aiOwnerName">…or other owner</label>
