@@ -112,6 +112,11 @@ try {
         break;
 
     case 'PUT':
+        // Authorise before looking the row up, so a caller with no write
+        // permission can't use the 404/200 difference as an existence oracle.
+        if (!hasPermission('manage_action_items') && !hasPermission('update_own_action_items')) {
+            sendError(403, 'You do not have permission to update action items');
+        }
         $id = (int)($data['id'] ?? 0);
         $stmt = $db->prepare('SELECT * FROM action_items WHERE id = ?');
         $stmt->execute([$id]);

@@ -129,6 +129,8 @@ const TWOFACTOR_FAILURE_WINDOW = 900;
 const RESET_MAX_REQUESTS_PER_EMAIL = 3;
 const RESET_MAX_REQUESTS_PER_IP = 10;
 const RESET_REQUEST_WINDOW = 3600;
+const RESET_TOKEN_MAX_ATTEMPTS_PER_IP = 20;   // token-submission attempts per IP
+const RESET_TOKEN_WINDOW = 900;               // 15 minutes
 const PASSWORD_MIN_LENGTH = 12;
 
 /**
@@ -1042,34 +1044,36 @@ function getUserByEmail(string $email): ?array {
  */
 function requestPasswordReset(string $email): array {
     require_once __DIR__ . '/email.php';
-    
+
     $db = getDBConnection();
-    
-    // Find user by email (don't reveal if email exists for security)
-    $user = getUserByEmail($email);
-    
-    // Always return success message to prevent email enumeration
-    // But only send email if user exists
-    if (!$user) {
-        // Log the attempt but don't reveal to user
-        error_log("Password reset requested for non-existent email: $email");
-        return [
-            'success' => true,
-            'message' => 'If an account with that email exists, a password reset link has been sent.'
-        ];
-    }
-    
-    // Rate limiting - at most RESET_MAX_REQUESTS_PER_EMAIL emails per hour per
-    // address, and RESET_MAX_REQUESTS_PER_IP requests per hour per client
-    if (countAuthAttempts('reset_request', $email, RESET_REQUEST_WINDOW) >= RESET_MAX_REQUESTS_PER_EMAIL
-        || countAuthAttemptsFromIp('reset_request', RESET_REQUEST_WINDOW) >= RESET_MAX_REQUESTS_PER_IP) {
-        error_log("Password reset rate limit hit for $email from " . clientIp());
-        return [
-            'success' => true,
-            'message' => 'If an account with that email exists, a password reset link has been sent.'
-        ];
+    $genericMessage = 'If an account with that email exists, a password reset link has been sent.';
+
+    // Per-IP rate limit applies to EVERY request, including ones for
+    // non-existent emails, so the cap can't be bypassed by cycling through
+    // made-up addresses. Record the attempt before the user lookup so fake
+    // requests still count toward the IP limit.
+    if (countAuthAttemptsFromIp('reset_request', RESET_REQUEST_WINDOW) >= RESET_MAX_REQUESTS_PER_IP) {
+        error_log("Password reset IP rate limit hit from " . clientIp());
+        return ['success' => true, 'message' => $genericMessage];
     }
     recordAuthAttempt('reset_request', $email);
+
+    // Find user by email (don't reveal if email exists for security)
+    $user = getUserByEmail($email);
+
+    // Always return the same message to prevent email enumeration;
+    // only send an email if the user exists.
+    if (!$user) {
+        error_log("Password reset requested for non-existent email: $email");
+        return ['success' => true, 'message' => $genericMessage];
+    }
+
+    // Per-address cap so one real account can't be email-bombed. The current
+    // request is already recorded above, hence '>' rather than '>='.
+    if (countAuthAttempts('reset_request', $email, RESET_REQUEST_WINDOW) > RESET_MAX_REQUESTS_PER_EMAIL) {
+        error_log("Password reset rate limit hit for $email from " . clientIp());
+        return ['success' => true, 'message' => $genericMessage];
+    }
 
     // Generate secure random token (64 characters = 32 bytes hex encoded)
     $token = bin2hex(random_bytes(32));
