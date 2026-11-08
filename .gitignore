@@ -2,9 +2,8 @@
 config/database.php.local
 config/config.php.local
 
-# Uploads directory (but keep .gitkeep)
-uploads/*
-!uploads/.gitkeep
+# Legacy local uploads directory (documents are SharePoint links now)
+uploads/
 
 # PHP specific
 *.log

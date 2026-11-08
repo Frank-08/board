@@ -148,8 +148,8 @@ switch ($method) {
 
         try {
             $stmt = $db->prepare("
-                INSERT INTO documents (meeting_type_id, meeting_id, agenda_item_id, document_type, title, description, sharepoint_url, file_path, file_name, file_size, mime_type, uploaded_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL, NULL, ?)
+                INSERT INTO documents (meeting_type_id, meeting_id, agenda_item_id, document_type, title, description, sharepoint_url, file_name, uploaded_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $meetingTypeId,

@@ -372,11 +372,10 @@ CREATE TABLE IF NOT EXISTS documents (
     document_type ENUM('Agenda', 'Minutes', 'Resolution', 'Report', 'Policy', 'Other') DEFAULT 'Other',
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    sharepoint_url VARCHAR(2048),
-    file_path VARCHAR(500),
+    -- Documents live in SharePoint; this is the only place the file is referenced
+    sharepoint_url VARCHAR(2048) NOT NULL,
+    -- Display name derived from the SharePoint URL
     file_name VARCHAR(255),
-    file_size INT,
-    mime_type VARCHAR(100),
     uploaded_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
