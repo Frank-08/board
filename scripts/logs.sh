@@ -18,7 +18,9 @@
 #   1. -l /path/to/file, or $BOARD_ERROR_LOG
 #   2. APP_ERROR_LOG in config/config.php of the live dir given with -d
 #      (default: this checkout) - see README "Error log"
-#   3. the vhost log from the README, then the usual Apache / PHP-FPM logs
+#   3. /var/log/board/php_errors.log (the dedicated file from the README),
+#      PHP's error_log setting, the vhost log from the README, then the
+#      usual Apache / PHP-FPM logs
 #
 # -r and -s also search the rotated copies (error.log.1, error.log.2.gz, ...).
 # Web server logs are often only readable by root/adm: if the file is found
@@ -73,6 +75,8 @@ candidates() {
     [ -n "$LOG_FILE" ] && echo "$LOG_FILE"
     configured_log
     # PHP's own error_log setting (CLI ini - usually the same file as the web SAPI's)
+    # the dedicated file suggested in the README
+    echo /var/log/board/php_errors.log
     php -r 'echo ini_get("error_log");' 2>/dev/null && echo
     echo /var/log/apache2/board_error.log
     echo /var/log/httpd/board_error.log
@@ -113,6 +117,12 @@ if [ -z "$FILE" ]; then
 fi
 
 echo "== $FILE ==" >&2
+
+if [ ! -s "$FILE" ] && [ "$FOLLOW" = 0 ]; then
+    echo "(empty) If you expected errors here: is APP_ERROR_LOG set in the LIVE config/config.php," >&2
+    echo "        and can the web server write the file (sudo -u www-data test -w $FILE && echo ok)?" >&2
+    echo "        Errors from before it was set are in /var/log/apache2/error.log (-l to read it)." >&2
+fi
 
 # The log plus its rotated copies, oldest first
 all_rotations() {

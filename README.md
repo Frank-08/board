@@ -551,7 +551,7 @@ scripts/logs.sh -L                 # which log files it found
 scripts/logs.sh -l /path/to/log    # read a specific file
 ```
 
-It looks for the log in this order: `-l` / `$BOARD_ERROR_LOG`; `APP_ERROR_LOG` from `config/config.php` (point it at the live install with `-d /path/to/live`); PHP's `error_log` setting; the vhost log above (`/var/log/apache2/board_error.log`); then the default Apache/PHP-FPM logs.
+It looks for the log in this order: `-l` / `$BOARD_ERROR_LOG`; `APP_ERROR_LOG` from `config/config.php` (point it at the live install with `-d /path/to/live`); `/var/log/board/php_errors.log`; PHP's `error_log` setting; the vhost log above (`/var/log/apache2/board_error.log`); then the default Apache/PHP-FPM logs.
 
 **Dedicated log file (optional, recommended):** to keep this app's errors separate from everything else on the server, set `APP_ERROR_LOG` in the live `config/config.php` to a file **outside the docroot** that the web server can write:
 
