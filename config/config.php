@@ -62,6 +62,13 @@ define('TRUSTED_CLIENT_IP_HEADER', '');
 // first 5 chars of the SHA-1 are sent; skipped if the API can't be reached).
 define('PASSWORD_BREACH_CHECK', true);
 
+// Optional: write this app's PHP errors to their own file instead of the
+// shared web server log, so `scripts/logs.sh` shows only this app. Must be
+// OUTSIDE the docroot and writable by the web server user, e.g.
+//   sudo touch /var/log/board/php_errors.log && sudo chown www-data:adm /var/log/board/php_errors.log
+// Leave empty to use the server's default error log.
+define('APP_ERROR_LOG', '');
+
 // Authentication settings
 define('AUTH_SESSION_LIFETIME', 3600 * 8); // 8 hours
 define('AUTH_COOKIE_NAME', 'board_session');
