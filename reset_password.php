@@ -135,13 +135,17 @@
             let strength = 0;
             let text = '';
             
-            if (password.length >= 8) strength++;
             if (password.length >= 12) strength++;
+            if (password.length >= 16) strength++;
             if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
             if (/\d/.test(password)) strength++;
             if (/[^a-zA-Z\d]/.test(password)) strength++;
             
-            if (strength <= 2) {
+            if (password.length < 12) {
+                strengthBar.className = 'password-strength-bar password-strength-weak';
+                strengthBar.style.width = '15%';
+                text = 'Too short - ' + (12 - password.length) + ' more character' + (12 - password.length === 1 ? '' : 's') + ' needed';
+            } else if (strength <= 2) {
                 strengthBar.className = 'password-strength-bar password-strength-weak';
                 strengthBar.style.width = '33%';
                 text = 'Weak';
@@ -165,23 +169,31 @@
             }
         }
         
-        function validatePasswords() {
+        // Shows why the form can't be submitted yet. The button is never
+        // disabled - a greyed-out button with no reason given looked broken.
+        function validatePasswords(submitting) {
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirm_password').value;
-            const submitBtn = document.getElementById('submit-btn');
-            
+            const hint = document.getElementById('form-hint');
+            let problem = '';
+
             if (password.length < 12) {
-                submitBtn.disabled = true;
-                return false;
+                problem = 'Your new password must be at least 12 characters (it is ' + password.length + ').';
+            } else if (confirmPassword.length === 0) {
+                problem = 'Please type the password again in Confirm Password.';
+            } else if (password !== confirmPassword) {
+                problem = 'The two passwords don\'t match.';
             }
-            
-            if (password !== confirmPassword) {
-                submitBtn.disabled = true;
-                return false;
+
+            // While typing, only nag about a mismatch once both boxes have
+            // something in them; on submit, always say what's wrong.
+            if (submitting || (problem && confirmPassword.length > 0)) {
+                hint.textContent = problem;
+                hint.style.display = problem ? 'block' : 'none';
+            } else {
+                hint.style.display = 'none';
             }
-            
-            submitBtn.disabled = false;
-            return true;
+            return problem === '';
         }
     </script>
 </head>
@@ -233,7 +245,8 @@
                 }
                 
                 if (!$csrfValid) {
-                    $error = 'Invalid request. Please try again.';
+                    error_log('Password reset form rejected: CSRF check failed (form older than ~2 hours, or CSRF_SECRET changed) from ' . clientIp());
+                    $error = 'This form has expired. Please enter your new password again.';
                     // Still validate the reset token so form can be shown again
                     if (!empty($token)) {
                         $user = validatePasswordResetToken($token);
@@ -259,15 +272,19 @@
                     // Validate token before resetting password
                     $user = validatePasswordResetToken($token);
                     if (!$user) {
+                        error_log('Password reset form rejected: reset link invalid, already used or expired, from ' . clientIp());
                         $error = 'Invalid or expired password reset token. Please request a new password reset.';
                     } else {
                         $result = resetPassword($token, $password);
                         
                         if ($result['success']) {
-                            $success = $result['message'];
+                            error_log("Password reset completed for username '{$user['username']}' from " . clientIp());
+                            $success = $result['message'] . " Your username is: {$user['username']}";
                             $validToken = false; // Hide form after success
                         } else {
+                            error_log("Password reset rejected for username '{$user['username']}': {$result['message']}");
                             $error = $result['message'];
+                            $validToken = true; // let them try another password
                         }
                     }
                 }
@@ -284,6 +301,9 @@
                     if ($user) {
                         $validToken = true;
                     } else {
+                        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                            error_log('Password reset link opened but invalid, already used or expired, from ' . clientIp());
+                        }
                         if (empty($error)) {
                             $error = 'Invalid or expired password reset token. Please request a new password reset.';
                         }
@@ -306,7 +326,7 @@
                 // Generate CSRF token for password reset (tied to reset token)
                 $csrfToken = generatePasswordResetCsrfToken($token);
                 ?>
-                <form class="login-form" method="POST" action="" onsubmit="return validatePasswords();">
+                <form class="login-form" method="POST" action="" onsubmit="return validatePasswords(true);">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                     <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
                     
@@ -314,7 +334,7 @@
                         <label for="password">New Password</label>
                         <input type="password" id="password" name="password" required autofocus
                                minlength="12"
-                               oninput="checkPasswordStrength(); validatePasswords();"
+                               oninput="checkPasswordStrength(); validatePasswords(false);"
                                placeholder="Enter new password (min. 12 characters)">
                         <div class="password-strength">
                             <div id="password-strength-bar" class="password-strength-bar"></div>
@@ -329,11 +349,13 @@
                         <label for="confirm_password">Confirm Password</label>
                         <input type="password" id="confirm_password" name="confirm_password" required
                                minlength="12"
-                               oninput="validatePasswords();"
+                               oninput="validatePasswords(false);"
                                placeholder="Confirm new password">
                     </div>
                     
-                    <button type="submit" id="submit-btn" class="btn btn-primary" disabled>Reset Password</button>
+                    <div id="form-hint" class="alert alert-error" role="alert" style="display: none;"></div>
+
+                    <button type="submit" id="submit-btn" class="btn btn-primary">Reset Password</button>
                 </form>
                 
                 <div style="text-align: center; margin-top: 15px;">

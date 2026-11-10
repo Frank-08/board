@@ -11,6 +11,13 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/twofactor.php';
 
+// Send this app's errors to a dedicated file when configured (view it with
+// scripts/logs.sh). Not set on live installs whose config.php predates it.
+if (defined('APP_ERROR_LOG') && APP_ERROR_LOG !== '') {
+    ini_set('log_errors', '1');
+    ini_set('error_log', APP_ERROR_LOG);
+}
+
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();

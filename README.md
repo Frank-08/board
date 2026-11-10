@@ -537,10 +537,35 @@ You will be asked to choose a new password straight away - every page redirects 
 
 - Ensure Apache user (www-data) has read access to files
 
-### PHP Errors
+### PHP Errors / Viewing the Error Log
 
-- Enable error logging in `.htaccess` or `php.ini`
-- Check Apache error logs: `/var/log/apache2/error.log`
+When something fails, users see a message like *"Failed to save (error reference 3fa9c01b)"*. The detail behind that reference is in the PHP error log. View it on the server with `scripts/logs.sh` (read-only; prefix with `sudo` if the log belongs to root/adm):
+
+```bash
+scripts/logs.sh                    # last 50 lines
+scripts/logs.sh -r 3fa9c01b        # look up a reference a user reported (also searches rotated logs)
+scripts/logs.sh -f                 # watch new errors live while reproducing a problem
+scripts/logs.sh -g 'agenda|minutes' -n 200   # filter by pattern
+scripts/logs.sh -s                 # most frequent messages, grouped
+scripts/logs.sh -L                 # which log files it found
+scripts/logs.sh -l /path/to/log    # read a specific file
+```
+
+It looks for the log in this order: `-l` / `$BOARD_ERROR_LOG`; `APP_ERROR_LOG` from `config/config.php` (point it at the live install with `-d /path/to/live`); PHP's `error_log` setting; the vhost log above (`/var/log/apache2/board_error.log`); then the default Apache/PHP-FPM logs.
+
+**Dedicated log file (optional, recommended):** to keep this app's errors separate from everything else on the server, set `APP_ERROR_LOG` in the live `config/config.php` to a file **outside the docroot** that the web server can write:
+
+```bash
+sudo mkdir -p /var/log/board
+sudo touch /var/log/board/php_errors.log
+sudo chown www-data:adm /var/log/board/php_errors.log && sudo chmod 640 /var/log/board/php_errors.log
+```
+
+```php
+define('APP_ERROR_LOG', '/var/log/board/php_errors.log');
+```
+
+Then `scripts/logs.sh -d /path/to/live` reads it directly. Add it to logrotate if the site is busy.
 
 ### Cannot Set Role as "Deputy Chair"
 
