@@ -551,7 +551,7 @@ scripts/logs.sh -L                 # which log files it found
 scripts/logs.sh -l /path/to/log    # read a specific file
 ```
 
-It looks for the log in this order: `-l` / `$BOARD_ERROR_LOG`; `APP_ERROR_LOG` from `config/config.php` (point it at the live install with `-d /path/to/live`); PHP's `error_log` setting; the vhost log above (`/var/log/apache2/board_error.log`); then the default Apache/PHP-FPM logs.
+It looks for the log in this order: `-l` / `$BOARD_ERROR_LOG`; `APP_ERROR_LOG` from `config/config.php` (point it at the live install with `-d /path/to/live`); `/var/log/board/php_errors.log`; PHP's `error_log` setting; the vhost log above (`/var/log/apache2/board_error.log`); then the default Apache/PHP-FPM logs.
 
 **Dedicated log file (optional, recommended):** to keep this app's errors separate from everything else on the server, set `APP_ERROR_LOG` in the live `config/config.php` to a file **outside the docroot** that the web server can write:
 
@@ -565,7 +565,16 @@ sudo chown www-data:adm /var/log/board/php_errors.log && sudo chmod 640 /var/log
 define('APP_ERROR_LOG', '/var/log/board/php_errors.log');
 ```
 
-Then `scripts/logs.sh -d /path/to/live` reads it directly. Add it to logrotate if the site is busy.
+Then `scripts/logs.sh -d /path/to/live` reads it directly.
+
+Rotate it weekly (12 weeks kept, compressed) with the bundled logrotate config:
+
+```bash
+sudo install -m 644 -o root -g root scripts/logrotate/board /etc/logrotate.d/board
+sudo logrotate -d /etc/logrotate.d/board   # dry run
+```
+
+Keep `/var/log/board` itself owned by root (as created above) - logrotate refuses to rotate in a directory a non-root user can write.
 
 ### Cannot Set Role as "Deputy Chair"
 
