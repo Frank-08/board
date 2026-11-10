@@ -178,6 +178,13 @@ check_config() {
 
 RSYNC_ARGS=(
     -av
+    # Give the live copies normal web permissions whatever the checkout has:
+    # with a restrictive umask (e.g. 077) git writes changed files as 0600,
+    # -a copied that across, and Apache (www-data) got "Permission denied"
+    # on config/auth.php - a 500 on every page. Nothing deployed needs the
+    # executable bit (scripts/ is excluded). config.php/database.php are
+    # excluded, so their tighter permissions are left alone.
+    --chmod=D755,F644
     --exclude='.git'
     --exclude='.gitignore'
     --exclude='config/database.php'
