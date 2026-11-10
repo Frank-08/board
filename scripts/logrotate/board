@@ -1,0 +1,25 @@
+# logrotate config for the app's dedicated PHP error log (APP_ERROR_LOG).
+# Install on the server:
+#   sudo install -m 644 -o root -g root scripts/logrotate/board /etc/logrotate.d/board
+#   sudo logrotate -d /etc/logrotate.d/board    # dry run: shows what it would do
+#
+# Keep /var/log/board owned by root (e.g. root:adm, mode 755) - logrotate
+# refuses to rotate in a directory writable by a non-root user. Only the
+# file itself needs to be writable by www-data, and `create` below recreates
+# it that way after each rotation.
+#
+# No Apache reload is needed: PHP opens the error log on each write, so it
+# picks up the new file straight away.
+#
+# scripts/logs.sh -r searches the rotated copies too (php_errors.log.1, .2.gz, ...).
+
+/var/log/board/php_errors.log {
+    weekly
+    rotate 12
+    maxsize 20M
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 www-data adm
+}

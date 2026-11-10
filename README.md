@@ -565,7 +565,16 @@ sudo chown www-data:adm /var/log/board/php_errors.log && sudo chmod 640 /var/log
 define('APP_ERROR_LOG', '/var/log/board/php_errors.log');
 ```
 
-Then `scripts/logs.sh -d /path/to/live` reads it directly. Add it to logrotate if the site is busy.
+Then `scripts/logs.sh -d /path/to/live` reads it directly.
+
+Rotate it weekly (12 weeks kept, compressed) with the bundled logrotate config:
+
+```bash
+sudo install -m 644 -o root -g root scripts/logrotate/board /etc/logrotate.d/board
+sudo logrotate -d /etc/logrotate.d/board   # dry run
+```
+
+Keep `/var/log/board` itself owned by root (as created above) - logrotate refuses to rotate in a directory a non-root user can write.
 
 ### Cannot Set Role as "Deputy Chair"
 

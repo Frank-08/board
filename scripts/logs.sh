@@ -118,7 +118,7 @@ fi
 
 echo "== $FILE ==" >&2
 
-if [ ! -s "$FILE" ] && [ "$FOLLOW" = 0 ]; then
+if [ ! -s "$FILE" ] && [ "$FOLLOW" = 0 ] && ! ls "$FILE".* >/dev/null 2>&1; then
     echo "(empty) If you expected errors here: is APP_ERROR_LOG set in the LIVE config/config.php," >&2
     echo "        and can the web server write the file (sudo -u www-data test -w $FILE && echo ok)?" >&2
     echo "        Errors from before it was set are in /var/log/apache2/error.log (-l to read it)." >&2
