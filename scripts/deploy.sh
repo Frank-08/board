@@ -178,6 +178,12 @@ check_config() {
 
 RSYNC_ARGS=(
     -av
+    # -a copies the checkout's permissions as-is; a file git wrote under a
+    # 007 umask (rw-rw----) left Apache unable to read config/auth.php and
+    # took the whole site down. Make sure deployed code is always readable.
+    # (config.php / database.php are excluded below, so this never widens
+    # the files that hold secrets.)
+    --chmod=Fo+r,Do+rx
     --exclude='.git'
     --exclude='.gitignore'
     --exclude='config/database.php'
