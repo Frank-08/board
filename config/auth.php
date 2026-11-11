@@ -18,6 +18,36 @@ if (defined('APP_ERROR_LOG') && APP_ERROR_LOG !== '') {
     ini_set('error_log', APP_ERROR_LOG);
 }
 
+/**
+ * JSON safety net for api/*.php. Without it an uncaught exception (e.g. a
+ * query against a table/column a pending migration hasn't created yet) or a
+ * fatal error ends the request with an empty 500 body, and the browser only
+ * reports "Unexpected end of JSON input". Instead, log the detail and send
+ * a JSON error with a reference id that scripts/logs.sh can look up.
+ */
+function sendApiFatalError(string $detail): void {
+    $ref = bin2hex(random_bytes(4));
+    error_log("[$ref] Unhandled API error in " . ($_SERVER['SCRIPT_NAME'] ?? '?') . ": $detail");
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+    }
+    $message = "Server error (error reference $ref)";
+    echo json_encode(['error' => $message, 'message' => $message]);
+}
+
+if (basename(dirname($_SERVER['SCRIPT_FILENAME'] ?? '')) === 'api') {
+    set_exception_handler(function (Throwable $e) {
+        sendApiFatalError(get_class($e) . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+    });
+    register_shutdown_function(function () {
+        $err = error_get_last();
+        if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
+            sendApiFatalError("{$err['message']} at {$err['file']}:{$err['line']}");
+        }
+    });
+}
+
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();

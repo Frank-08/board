@@ -71,18 +71,37 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         throw new Error('Authentication required');
     }
     
+    // Read the body as text first: a PHP fatal error or proxy error page
+    // gives an empty or HTML body, and response.json() would only say
+    // "Unexpected end of JSON input".
+    const text = await response.text();
+    let body = null;
+    if (text.trim() !== '') {
+        try {
+            body = JSON.parse(text);
+        } catch (e) {
+            body = undefined; // not JSON
+        }
+    }
+    const errorMessage = (fallback) => {
+        if (body && typeof body.error === 'string') return body.error;
+        if (body && typeof body.message === 'string') return body.message;
+        return `${fallback} (HTTP ${response.status}${body === null ? ', empty response' : ', unexpected response'})`;
+    };
+
     // Handle permission errors
     if (response.status === 403) {
-        const error = await response.json();
-        throw new Error(error.error || 'You do not have permission to perform this action');
+        throw new Error(errorMessage('You do not have permission to perform this action'));
     }
-    
+
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'API request failed');
+        throw new Error(errorMessage('API request failed'));
     }
-    
-    return response.json();
+
+    if (body === undefined) {
+        throw new Error(`The server sent an unexpected response (HTTP ${response.status}). Check the server error log.`);
+    }
+    return body;
 }
 
 // Check if user has permission (uses authData from page)
