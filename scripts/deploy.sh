@@ -200,6 +200,7 @@ RSYNC_ARGS=(
     --exclude='word macro/'
     # Android app source - built separately, not part of the website
     --exclude='android/'
+    --exclude='skills/'
     # Composer packages (Anthropic SDK, TCPDF, FPDI...) are installed with
     # `composer require` in the live folder itself; never overwrite them
     # from whatever happens to be in this checkout.
