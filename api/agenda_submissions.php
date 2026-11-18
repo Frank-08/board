@@ -21,7 +21,13 @@
  *          {mode: "start"}                     new item at the top
  *          {mode: "after", agenda_item_id: X}  new item straight after item X
  *          {mode: "under", agenda_item_id: X}  last sub-item of item X
- *        X must be a top-level item on the same meeting.
+ *          {mode: "link", agenda_item_id: X}   no new item: attach the report
+ *                                              to existing item X (e.g. a late
+ *                                              report for an item already on
+ *                                              the agenda) and add the submitter
+ *                                              as a presenter. X's title,
+ *                                              description and number are kept.
+ *        X must be on the same meeting; for after/under it must be top-level.
  * PUT    {action: notifications, enabled: bool}    manage_agenda: email me
  *                                                  when an item is submitted
  */
@@ -176,11 +182,11 @@ function validatePlacement($placement): array {
         sendError(400, 'placement must be an object');
     }
     $mode = $placement['mode'] ?? 'end';
-    if (!in_array($mode, ['end', 'start', 'after', 'under'], true)) {
-        sendError(400, 'placement.mode must be end, start, after or under');
+    if (!in_array($mode, ['end', 'start', 'after', 'under', 'link'], true)) {
+        sendError(400, 'placement.mode must be end, start, after, under or link');
     }
     $targetId = null;
-    if ($mode === 'after' || $mode === 'under') {
+    if (in_array($mode, ['after', 'under', 'link'], true)) {
         $targetId = (int)($placement['agenda_item_id'] ?? 0);
         if ($targetId <= 0) {
             sendError(400, 'placement.agenda_item_id is required for "' . $mode . '"');
@@ -190,9 +196,10 @@ function validatePlacement($placement): array {
 }
 
 /**
- * Add an accepted submission to its meeting's agenda at the chosen place,
- * renumber the agenda (same scheme as api/agenda.php), and link its report
- * as a document. Must run inside a transaction.
+ * Add an accepted submission to its meeting's agenda at the chosen place and
+ * renumber the agenda (same scheme as api/agenda.php) - or, for "link",
+ * attach it to an existing item - then link its report as a document.
+ * Returns the agenda item id. Must run inside a transaction.
  */
 function acceptSubmission(PDO $db, array $submission, array $placement): int {
     $meetingId = (int)$submission['meeting_id'];
@@ -205,17 +212,26 @@ function acceptSubmission(PDO $db, array $submission, array $placement): int {
     $parentId = null;
     $subPosition = 0;
 
-    if ($placement['mode'] === 'after' || $placement['mode'] === 'under') {
+    if ($placement['agenda_item_id'] !== null) {
         $stmt = $db->prepare("SELECT id, meeting_id, parent_id, position FROM agenda_items WHERE id = ? FOR UPDATE");
         $stmt->execute([$placement['agenda_item_id']]);
         $target = $stmt->fetch();
         if (!$target || (int)$target['meeting_id'] !== $meetingId) {
             throw new InvalidArgumentException('The chosen agenda item is not on this meeting\'s agenda. Reload the page and try again.');
         }
-        if (!empty($target['parent_id'])) {
+        if ($placement['mode'] !== 'link' && !empty($target['parent_id'])) {
             // Agenda items only nest one level deep
             throw new InvalidArgumentException('Choose a main agenda item, not a sub-item.');
         }
+    }
+
+    if ($placement['mode'] === 'link') {
+        $agendaItemId = (int)$target['id'];
+        if (!empty($submission['submitter_member_id'])) {
+            addAgendaItemPresenter($db, $agendaItemId, (int)$submission['submitter_member_id']);
+        }
+        linkSubmissionReport($db, $submission, (int)$meeting['meeting_type_id'], $agendaItemId);
+        return $agendaItemId;
     }
 
     switch ($placement['mode']) {
@@ -272,14 +288,39 @@ function acceptSubmission(PDO $db, array $submission, array $placement): int {
         syncAgendaItemPresenters($db, $agendaItemId, [(int)$submission['submitter_member_id']]);
     }
 
+    linkSubmissionReport($db, $submission, (int)$meeting['meeting_type_id'], $agendaItemId);
+
+    return $agendaItemId;
+}
+
+/**
+ * Append a presenter to an existing item, keeping whoever is already listed.
+ */
+function addAgendaItemPresenter(PDO $db, int $agendaItemId, int $memberId): void {
+    $stmt = $db->prepare("SELECT 1 FROM agenda_item_presenters WHERE agenda_item_id = ? AND member_id = ?");
+    $stmt->execute([$agendaItemId, $memberId]);
+    if ($stmt->fetchColumn()) {
+        return;
+    }
+    $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 FROM agenda_item_presenters WHERE agenda_item_id = ?");
+    $stmt->execute([$agendaItemId]);
+    $position = (int)$stmt->fetchColumn();
+    $db->prepare("INSERT INTO agenda_item_presenters (agenda_item_id, member_id, position) VALUES (?, ?, ?)")
+       ->execute([$agendaItemId, $memberId, $position]);
+}
+
+/**
+ * Link a submission's SharePoint report to an agenda item as a Report document.
+ */
+function linkSubmissionReport(PDO $db, array $submission, int $meetingTypeId, int $agendaItemId): void {
     if (!empty($submission['sharepoint_url'])) {
         $stmt = $db->prepare("
             INSERT INTO documents (meeting_type_id, meeting_id, agenda_item_id, document_type, title, description, sharepoint_url, file_name, uploaded_by)
             VALUES (?, ?, ?, 'Report', ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
-            $meeting['meeting_type_id'],
-            $meetingId,
+            $meetingTypeId,
+            (int)$submission['meeting_id'],
             $agendaItemId,
             $submission['title'],
             'Submitted with agenda item request #' . $submission['id'],
@@ -288,8 +329,6 @@ function acceptSubmission(PDO $db, array $submission, array $placement): int {
             $submission['submitter_member_id']
         ]);
     }
-
-    return $agendaItemId;
 }
 
 switch ($method) {

@@ -135,8 +135,8 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
                 <input type="hidden" id="acceptSubmissionId">
                 <div class="form-group">
                     <label for="acceptPlacement">Where should it go?</label>
-                    <select id="acceptPlacement"></select>
-                    <small style="color: #666;">Later items are renumbered automatically. You can still reorder from the Meetings page.</small>
+                    <select id="acceptPlacement" onchange="updatePlacementHint()"></select>
+                    <small style="color: #666;" id="acceptPlacementHint"></small>
                 </div>
                 <div class="form-group">
                     <label for="acceptNotes">Note to the submitter (optional)</label>
@@ -474,6 +474,9 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
             let options = '<option value="end">At the end of the agenda (new item)</option>';
             if (topLevel.length > 0) {
                 options += '<option value="start">At the start of the agenda (new item)</option>';
+                options += '<optgroup label="Attach to an existing item (e.g. a late report)">' + items.map(i =>
+                    `<option value="link:${parseInt(i.id)}">${i.parent_id ? '\u00a0\u00a0\u00a0' : ''}Attach to ${escapeHtml(label(i))}</option>`
+                ).join('') + '</optgroup>';
                 options += '<optgroup label="New item after…">' + topLevel.map(i =>
                     `<option value="after:${parseInt(i.id)}">After ${escapeHtml(label(i))}</option>`
                 ).join('') + '</optgroup>';
@@ -484,11 +487,19 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
 
             document.getElementById('acceptPlacement').innerHTML = options;
             document.getElementById('acceptPlacement').value = 'end';
+            updatePlacementHint();
             document.getElementById('acceptSubmissionId').value = id;
             document.getElementById('acceptSubmissionTitle').textContent =
                 submission.title + ' → ' + submission.meeting_title + ' (' + formatDate(submission.meeting_date) + ')';
             document.getElementById('acceptNotes').value = '';
             document.getElementById('acceptModal').style.display = 'block';
+        }
+
+        function updatePlacementHint() {
+            const linking = document.getElementById('acceptPlacement').value.startsWith('link:');
+            document.getElementById('acceptPlacementHint').textContent = linking
+                ? 'The report is linked to that item and the submitter is added as a presenter. Its title, description and number stay as you set them.'
+                : 'Later items are renumbered automatically. You can still reorder from the Meetings page.';
         }
 
         function closeAcceptModal() {
@@ -513,7 +524,7 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
                     version: submissionVersions[id]
                 });
                 closeAcceptModal();
-                showNotification('Added to the agenda' + (result && result.agenda_item_number ? ' as item ' + result.agenda_item_number : '') + '.');
+                showNotification((mode === 'link' ? 'Report attached to item' : 'Added to the agenda as item') + (result && result.agenda_item_number ? ' ' + result.agenda_item_number : '') + '.');
                 if (canSubmit) loadMySubmissions();
                 if (canReview) loadReviewQueue();
             } catch (error) {
