@@ -81,6 +81,15 @@ define('PASSWORD_RESET_TOKEN_EXPIRY', 3600); // 1 hour in seconds
 // Keep this secret secure and don't change it once set
 define('CSRF_SECRET', 'CHANGE_THIS_TO_A_RANDOM_64_CHARACTER_HEX_STRING');
 
+// ntfy push notifications (https://ntfy.sh, or a self-hosted server).
+// When set, every new agenda item submission is pushed to this topic as well
+// as emailed to opted-in clerks. Subscribe to the topic in the ntfy phone app.
+// On the public ntfy.sh server anyone who knows the topic name can read it, so
+// use a long random name (e.g. https://ntfy.sh/tic-submissions-7f3k9q2x8w) or
+// a protected topic plus an access token. Leave empty to disable.
+define('NTFY_TOPIC_URL', '');
+define('NTFY_ACCESS_TOKEN', ''); // optional "tk_..." token for protected topics
+
 // Zoho SMTP Configuration
 // Configure these with your Zoho SMTP credentials
 define('SMTP_HOST', 'smtp.zoho.com');

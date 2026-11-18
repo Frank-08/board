@@ -9,12 +9,21 @@
  * declining it records a note back to the submitter.
  *
  * GET    ?open_meetings=1       meetings still accepting submissions
+ * GET    ?notification_settings=1   reviewer's own email preference (manage_agenda)
  * GET    ?id=X                  one submission (own, or any with manage_agenda)
  * GET    [?meeting_id=X][&status=Pending]
  *                                own submissions, or all with manage_agenda
  * POST   {meeting_id, title, ...}           submit
  * PUT    {id, action: update|withdraw}      submitter, while Pending
  * PUT    {id, action: accept|decline, review_notes}   manage_agenda
+ *        accept also takes optional placement:
+ *          {mode: "end"}                       new item at the end (default)
+ *          {mode: "start"}                     new item at the top
+ *          {mode: "after", agenda_item_id: X}  new item straight after item X
+ *          {mode: "under", agenda_item_id: X}  last sub-item of item X
+ *        X must be a top-level item on the same meeting.
+ * PUT    {action: notifications, enabled: bool}    manage_agenda: email me
+ *                                                  when an item is submitted
  */
 header('Content-Type: application/json');
 
@@ -27,6 +36,7 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/agenda_helpers.php';
 require_once __DIR__ . '/../includes/document_helpers.php';
+require_once __DIR__ . '/../includes/submission_notifications.php';
 
 // Require authentication for all requests
 requireAuth();
@@ -155,35 +165,84 @@ function validateSubmissionFields(array $data): array {
 }
 
 /**
- * Append an accepted submission to the end of its meeting's agenda, numbered
- * the same way as api/agenda.php, and link its report as a document.
+ * Validate where a reviewer wants an accepted submission to go. Returns
+ * ['mode' => ..., 'agenda_item_id' => int|null], or exits with a 400.
  */
-function acceptSubmission(PDO $db, array $submission): int {
+function validatePlacement($placement): array {
+    if ($placement === null || $placement === '' || $placement === []) {
+        return ['mode' => 'end', 'agenda_item_id' => null];
+    }
+    if (!is_array($placement)) {
+        sendError(400, 'placement must be an object');
+    }
+    $mode = $placement['mode'] ?? 'end';
+    if (!in_array($mode, ['end', 'start', 'after', 'under'], true)) {
+        sendError(400, 'placement.mode must be end, start, after or under');
+    }
+    $targetId = null;
+    if ($mode === 'after' || $mode === 'under') {
+        $targetId = (int)($placement['agenda_item_id'] ?? 0);
+        if ($targetId <= 0) {
+            sendError(400, 'placement.agenda_item_id is required for "' . $mode . '"');
+        }
+    }
+    return ['mode' => $mode, 'agenda_item_id' => $targetId];
+}
+
+/**
+ * Add an accepted submission to its meeting's agenda at the chosen place,
+ * renumber the agenda (same scheme as api/agenda.php), and link its report
+ * as a document. Must run inside a transaction.
+ */
+function acceptSubmission(PDO $db, array $submission, array $placement): int {
     $meetingId = (int)$submission['meeting_id'];
 
-    $stmt = $db->prepare("
-        SELECT m.scheduled_date, m.meeting_type_id, mt.shortcode
-        FROM meetings m
-        JOIN meeting_types mt ON m.meeting_type_id = mt.id
-        WHERE m.id = ?
-        FOR UPDATE
-    ");
+    // Lock the meeting row so concurrent agenda edits/accepts serialise
+    $stmt = $db->prepare("SELECT meeting_type_id FROM meetings WHERE id = ? FOR UPDATE");
     $stmt->execute([$meetingId]);
     $meeting = $stmt->fetch();
 
-    $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as new_position FROM agenda_items WHERE meeting_id = ? AND parent_id IS NULL");
-    $stmt->execute([$meetingId]);
-    $position = (int)$stmt->fetch()['new_position'];
+    $parentId = null;
+    $subPosition = 0;
 
-    $meetingDate = new DateTime($meeting['scheduled_date']);
-    $year = $meetingDate->format('y');
-    $month = $meetingDate->format('m');
-    $sequence = $position + 1;
-    $shortcode = $meeting['shortcode'] ?? '';
-    if (!empty($shortcode)) {
-        $itemNumber = sprintf('%s.%s.%s.%02d', $shortcode, $year, $month, $sequence);
-    } else {
-        $itemNumber = sprintf('%s.%s.%02d', $year, $month, $sequence);
+    if ($placement['mode'] === 'after' || $placement['mode'] === 'under') {
+        $stmt = $db->prepare("SELECT id, meeting_id, parent_id, position FROM agenda_items WHERE id = ? FOR UPDATE");
+        $stmt->execute([$placement['agenda_item_id']]);
+        $target = $stmt->fetch();
+        if (!$target || (int)$target['meeting_id'] !== $meetingId) {
+            throw new InvalidArgumentException('The chosen agenda item is not on this meeting\'s agenda. Reload the page and try again.');
+        }
+        if (!empty($target['parent_id'])) {
+            // Agenda items only nest one level deep
+            throw new InvalidArgumentException('Choose a main agenda item, not a sub-item.');
+        }
+    }
+
+    switch ($placement['mode']) {
+        case 'start':
+            $db->prepare("UPDATE agenda_items SET position = position + 1 WHERE meeting_id = ?")->execute([$meetingId]);
+            $position = 0;
+            break;
+
+        case 'after':
+            // Sub-items share their parent's position, so this shifts them too
+            $position = (int)$target['position'] + 1;
+            $db->prepare("UPDATE agenda_items SET position = position + 1 WHERE meeting_id = ? AND position >= ?")
+               ->execute([$meetingId, $position]);
+            break;
+
+        case 'under':
+            $parentId = (int)$target['id'];
+            $position = (int)$target['position'];
+            $stmt = $db->prepare("SELECT COALESCE(MAX(sub_position), -1) + 1 FROM agenda_items WHERE parent_id = ?");
+            $stmt->execute([$parentId]);
+            $subPosition = (int)$stmt->fetchColumn();
+            break;
+
+        default: // end
+            $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 FROM agenda_items WHERE meeting_id = ?");
+            $stmt->execute([$meetingId]);
+            $position = (int)$stmt->fetchColumn();
     }
 
     $description = $submission['summary'] ?? '';
@@ -191,7 +250,8 @@ function acceptSubmission(PDO $db, array $submission): int {
         $description = trim($description . "\n\nProposal: " . $submission['proposal']);
     }
 
-    $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, report_type, duration_minutes, position, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    // item_number is filled in by renumberAgenda() below
+    $stmt = $db->prepare("INSERT INTO agenda_items (meeting_id, title, description, item_type, decision_method, report_type, duration_minutes, position, sub_position, parent_id, item_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)");
     $stmt->execute([
         $meetingId,
         $submission['title'],
@@ -201,9 +261,12 @@ function acceptSubmission(PDO $db, array $submission): int {
         $submission['report_type'],
         $submission['duration_minutes'],
         $position,
-        $itemNumber
+        $subPosition,
+        $parentId,
     ]);
     $agendaItemId = (int)$db->lastInsertId();
+
+    renumberAgenda($db, $meetingId);
 
     if (!empty($submission['submitter_member_id'])) {
         syncAgendaItemPresenters($db, $agendaItemId, [(int)$submission['submitter_member_id']]);
@@ -241,6 +304,16 @@ switch ($method) {
             ");
             $stmt->execute();
             echo json_encode($stmt->fetchAll());
+        } elseif (isset($_GET['notification_settings'])) {
+            requirePermission('manage_agenda');
+            $stmt = $db->prepare("SELECT notify_agenda_submissions, email FROM users WHERE id = ?");
+            $stmt->execute([$currentUserId]);
+            $row = $stmt->fetch() ?: [];
+            echo json_encode([
+                'notify_agenda_submissions' => !empty($row['notify_agenda_submissions']),
+                'email' => $row['email'] ?? null,
+                'email_configured' => smtpIsConfigured(),
+            ]);
         } elseif (isset($_GET['id'])) {
             $submission = fetchSubmission($db, (int)$_GET['id']);
             if (!$submission || (!$canReview && (int)$submission['submitted_by'] !== $currentUserId)) {
@@ -314,14 +387,33 @@ switch ($method) {
             $fields['sharepoint_url']
         ]);
 
+        $created = fetchSubmission($db, (int)$db->lastInsertId());
         http_response_code(201);
-        echo json_encode(fetchSubmission($db, (int)$db->lastInsertId()));
+        echo json_encode($created);
+
+        // Send the response before talking to the SMTP server, so the
+        // submitter isn't kept waiting on email delivery.
+        if (function_exists('fastcgi_finish_request')) {
+            session_write_close();
+            fastcgi_finish_request();
+        }
+        notifyReviewersOfSubmission($db, $created);
         break;
 
     case 'PUT':
         $data = json_decode(file_get_contents('php://input'), true);
         $id = (int)($data['id'] ?? 0);
         $action = $data['action'] ?? '';
+
+        if ($action === 'notifications') {
+            requirePermission('manage_agenda');
+            $enabled = !empty($data['enabled']);
+            $stmt = $db->prepare("UPDATE users SET notify_agenda_submissions = ? WHERE id = ?");
+            $stmt->execute([$enabled ? 1 : 0, $currentUserId]);
+            echo json_encode(['notify_agenda_submissions' => $enabled]);
+            break;
+        }
+
         if (!$id) {
             sendError(400, 'ID is required');
         }
@@ -369,6 +461,7 @@ switch ($method) {
 
             case 'accept':
                 requirePermission('manage_agenda');
+                $placement = validatePlacement($data['placement'] ?? null);
                 $db->beginTransaction();
                 try {
                     // Re-check under lock so a double-click can't add the item twice
@@ -385,7 +478,7 @@ switch ($method) {
                         sendError(409, 'This submission was changed after you loaded it. Reload the page and review it again before adding it to the agenda.');
                     }
 
-                    $agendaItemId = acceptSubmission($db, $locked);
+                    $agendaItemId = acceptSubmission($db, $locked, $placement);
 
                     $stmt = $db->prepare("
                         UPDATE agenda_submissions
@@ -395,6 +488,11 @@ switch ($method) {
                     $notes = trim((string)($data['review_notes'] ?? ''));
                     $stmt->execute([$agendaItemId, $notes !== '' ? $notes : null, $currentUserId, $id]);
                     $db->commit();
+                } catch (InvalidArgumentException $e) {
+                    if ($db->inTransaction()) {
+                        $db->rollBack();
+                    }
+                    sendError(400, $e->getMessage());
                 } catch (Exception $e) {
                     if ($db->inTransaction()) {
                         $db->rollBack();

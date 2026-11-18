@@ -106,6 +106,13 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
                         </select>
                     </div>
                 </div>
+                <div class="notify-toggle">
+                    <label>
+                        <input type="checkbox" id="notifySubmissions" onchange="toggleSubmissionEmails(this.checked)">
+                        Email me when a new agenda item is submitted
+                    </label>
+                    <span id="notifySubmissionsHint" class="muted"></span>
+                </div>
                 <div id="review-list"><p>Loading...</p></div>
             </section>
 
@@ -117,6 +124,28 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
                 <div id="my-submissions-list"><p>Loading...</p></div>
             </section>
         </main>
+    </div>
+
+    <div id="acceptModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAcceptModal()">&times;</span>
+            <h2>Add to Agenda</h2>
+            <p id="acceptSubmissionTitle" style="font-weight: bold;"></p>
+            <form id="acceptForm" onsubmit="confirmAccept(event)">
+                <input type="hidden" id="acceptSubmissionId">
+                <div class="form-group">
+                    <label for="acceptPlacement">Where should it go?</label>
+                    <select id="acceptPlacement"></select>
+                    <small style="color: #666;">Later items are renumbered automatically. You can still reorder from the Meetings page.</small>
+                </div>
+                <div class="form-group">
+                    <label for="acceptNotes">Note to the submitter (optional)</label>
+                    <textarea id="acceptNotes" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" id="acceptConfirmBtn">Add to Agenda</button>
+                <button type="button" class="btn btn-secondary" onclick="closeAcceptModal()">Cancel</button>
+            </form>
+        </div>
     </div>
 
     <style>
@@ -140,6 +169,9 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
         .submissions-table td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; }
         .submissions-table .muted { color: #666; font-size: 13px; }
         .submissions-table .proposal { white-space: pre-wrap; margin-top: 4px; }
+        .notify-toggle { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+        .notify-toggle label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; font-weight: normal; }
+        .notify-toggle .muted { color: #666; font-size: 13px; }
     </style>
 
     <script src="assets/js/app.js"></script>
@@ -174,8 +206,44 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
                     document.getElementById('reviewMeetingFilter').value = params.get('meeting_id');
                 }
                 loadReviewQueue();
+                loadNotificationSettings();
             }
         });
+
+        async function loadNotificationSettings() {
+            try {
+                const settings = await apiCall('agenda_submissions.php?notification_settings=1');
+                document.getElementById('notifySubmissions').checked = !!settings.notify_agenda_submissions;
+                renderNotifyHint(settings);
+            } catch (error) {
+                document.querySelector('.notify-toggle').style.display = 'none';
+            }
+        }
+
+        function renderNotifyHint(settings) {
+            const hint = document.getElementById('notifySubmissionsHint');
+            if (!settings.email_configured) {
+                hint.textContent = 'Email sending isn\'t set up on this site yet (SMTP settings), so nothing will be sent until it is.';
+            } else if (settings.email) {
+                hint.textContent = 'Sent to ' + settings.email;
+            } else {
+                hint.textContent = '';
+            }
+        }
+
+        async function toggleSubmissionEmails(enabled) {
+            const box = document.getElementById('notifySubmissions');
+            box.disabled = true;
+            try {
+                await apiCall('agenda_submissions.php', 'PUT', { action: 'notifications', enabled });
+                showNotification(enabled ? 'You will be emailed when an agenda item is submitted.' : 'Submission emails turned off.');
+            } catch (error) {
+                box.checked = !enabled;
+                showNotification('Error: ' + error.message, 'error');
+            } finally {
+                box.disabled = false;
+            }
+        }
 
         async function loadOpenMeetings() {
             try {
@@ -316,7 +384,10 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
         const submissionVersions = {};
 
         function renderSubmissionsTable(submissions, reviewMode) {
-            submissions.forEach(s => { submissionVersions[s.id] = s.version; });
+            submissions.forEach(s => {
+                submissionVersions[s.id] = s.version;
+                if (reviewMode) reviewSubmissions[s.id] = s;
+            });
             return `
                 <table class="submissions-table">
                     <thead>
@@ -383,11 +454,78 @@ outputHeader('Submit Agenda Item', 'submit_agenda.php');
             await updateSubmissionStatus({ id, action: 'withdraw' });
         }
 
+        // Submissions shown in the review queue, by id (for the accept dialog)
+        const reviewSubmissions = {};
+
         async function acceptSubmission(id) {
-            const notes = prompt('Add this item to the end of the meeting agenda? You can reorder it from the Meetings page.\n\nOptional note to the submitter:', '');
-            if (notes === null) return;
-            await updateSubmissionStatus({ id, action: 'accept', review_notes: notes, version: submissionVersions[id] });
+            const submission = reviewSubmissions[id];
+            if (!submission) return;
+
+            let items = [];
+            try {
+                items = await apiCall('agenda.php?meeting_id=' + parseInt(submission.meeting_id));
+            } catch (error) {
+                showNotification('Error loading the agenda: ' + error.message, 'error');
+                return;
+            }
+
+            const topLevel = items.filter(i => !i.parent_id);
+            const label = i => (i.item_number ? i.item_number + ' — ' : '') + i.title;
+            let options = '<option value="end">At the end of the agenda (new item)</option>';
+            if (topLevel.length > 0) {
+                options += '<option value="start">At the start of the agenda (new item)</option>';
+                options += '<optgroup label="New item after…">' + topLevel.map(i =>
+                    `<option value="after:${parseInt(i.id)}">After ${escapeHtml(label(i))}</option>`
+                ).join('') + '</optgroup>';
+                options += '<optgroup label="Sub-item under…">' + topLevel.map(i =>
+                    `<option value="under:${parseInt(i.id)}">Sub-item of ${escapeHtml(label(i))}</option>`
+                ).join('') + '</optgroup>';
+            }
+
+            document.getElementById('acceptPlacement').innerHTML = options;
+            document.getElementById('acceptPlacement').value = 'end';
+            document.getElementById('acceptSubmissionId').value = id;
+            document.getElementById('acceptSubmissionTitle').textContent =
+                submission.title + ' → ' + submission.meeting_title + ' (' + formatDate(submission.meeting_date) + ')';
+            document.getElementById('acceptNotes').value = '';
+            document.getElementById('acceptModal').style.display = 'block';
         }
+
+        function closeAcceptModal() {
+            document.getElementById('acceptModal').style.display = 'none';
+        }
+
+        async function confirmAccept(event) {
+            event.preventDefault();
+            const id = parseInt(document.getElementById('acceptSubmissionId').value);
+            const [mode, itemId] = document.getElementById('acceptPlacement').value.split(':');
+            const placement = { mode };
+            if (itemId) placement.agenda_item_id = parseInt(itemId);
+
+            const btn = document.getElementById('acceptConfirmBtn');
+            btn.disabled = true;
+            try {
+                const result = await apiCall('agenda_submissions.php', 'PUT', {
+                    id,
+                    action: 'accept',
+                    placement,
+                    review_notes: document.getElementById('acceptNotes').value,
+                    version: submissionVersions[id]
+                });
+                closeAcceptModal();
+                showNotification('Added to the agenda' + (result && result.agenda_item_number ? ' as item ' + result.agenda_item_number : '') + '.');
+                if (canSubmit) loadMySubmissions();
+                if (canReview) loadReviewQueue();
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        window.addEventListener('click', function(event) {
+            if (event.target === document.getElementById('acceptModal')) closeAcceptModal();
+        });
 
         async function declineSubmission(id) {
             const notes = prompt('Reason for declining (shown to the submitter):', '');

@@ -118,6 +118,18 @@ function sendPasswordResetEmail(string $email, string $token): array {
 }
 
 /**
+ * Make a header value safe to write into a raw message: drop CR/LF and
+ * encode non-ASCII as an RFC 2047 encoded-word.
+ */
+function encodeEmailHeaderValue(string $value): string {
+    $value = trim(preg_replace('/[\r\n]+/', ' ', $value));
+    if (preg_match('/[^\x20-\x7E]/', $value)) {
+        return '=?UTF-8?B?' . base64_encode($value) . '?=';
+    }
+    return $value;
+}
+
+/**
  * Send email via SMTP using Zoho
  * 
  * @param string $to Recipient email
@@ -293,10 +305,12 @@ function sendEmailWithSocket(string $to, string $subject, string $htmlBody, stri
             return ['success' => false, 'message' => 'DATA command failed: ' . trim($response)];
         }
         
-        // Build email headers and body
-        $emailData = "From: $fromName <$fromEmail>\r\n";
+        // Build email headers and body. Header values may contain user text
+        // (e.g. a submitted agenda item title), so strip line breaks and
+        // RFC 2047-encode them rather than writing them raw.
+        $emailData = "From: " . encodeEmailHeaderValue($fromName) . " <$fromEmail>\r\n";
         $emailData .= "To: <$to>\r\n";
-        $emailData .= "Subject: $subject\r\n";
+        $emailData .= "Subject: " . encodeEmailHeaderValue($subject) . "\r\n";
         $emailData .= "MIME-Version: 1.0\r\n";
         $emailData .= "Content-Type: multipart/alternative; boundary=\"boundary123\"\r\n";
         $emailData .= "\r\n";
@@ -311,6 +325,9 @@ function sendEmailWithSocket(string $to, string $subject, string $htmlBody, stri
         $emailData .= "\r\n";
         $emailData .= quoted_printable_encode($htmlBody) . "\r\n";
         $emailData .= "--boundary123--\r\n";
+        // Dot-stuffing (RFC 5321 4.5.2): a body line that is just "." would
+        // otherwise end the message early and let the rest be read as commands.
+        $emailData = preg_replace('/^\./m', '..', $emailData);
         $emailData .= ".\r\n";
         
         fputs($socket, $emailData);

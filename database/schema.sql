@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_active BOOLEAN DEFAULT TRUE,
     session_version INT NOT NULL DEFAULT 0,
     must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
+    notify_agenda_submissions BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Email me when an agenda item is submitted (manage_agenda users)',
     two_factor_secret VARCHAR(255) NULL DEFAULT NULL,
     two_factor_enabled BOOLEAN DEFAULT FALSE,
     two_factor_backup_codes TEXT NULL DEFAULT NULL COMMENT 'JSON array of hashed backup codes',

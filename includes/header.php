@@ -29,6 +29,19 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
     $canManageMembers = hasPermission('manage_members');
     $canManageUsers = hasPermission('manage_users');
     $canSubmitAgendaItems = hasPermission('submit_agenda_item') || hasPermission('manage_agenda');
+
+    // Reviewers see how many submissions are waiting, next to "Submit Item"
+    $pendingSubmissions = 0;
+    if (hasPermission('manage_agenda')) {
+        try {
+            $pendingSubmissions = (int)getDBConnection()->query(
+                "SELECT COUNT(*) FROM agenda_submissions s JOIN meetings m ON s.meeting_id = m.id
+                 WHERE s.status = 'Pending' AND m.status = 'Scheduled' AND m.scheduled_date > NOW()"
+            )->fetchColumn();
+        } catch (Throwable $e) {
+            $pendingSubmissions = 0; // never break page chrome over a badge
+        }
+    }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -38,6 +51,7 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
     <title><?php echo htmlspecialchars($pageTitle); ?> - Together in Council</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
+        .nav-count { display: inline-block; min-width: 18px; padding: 0 6px; margin-left: 4px; border-radius: 9px; background: #e53e3e; color: #fff; font-size: 11px; font-weight: bold; line-height: 18px; text-align: center; }
         .user-info {
             display: flex;
             align-items: center;
@@ -91,7 +105,7 @@ function outputHeader($pageTitle = 'Together in Council', $activePage = '') {
                     <li><a href="action_items.php" <?php echo $activePage === 'action_items.php' ? 'class="active"' : ''; ?>>Action Items</a></li>
                     <li><a href="documents.php" <?php echo $activePage === 'documents.php' ? 'class="active"' : ''; ?>>Documents</a></li>
                     <?php if ($canSubmitAgendaItems): ?>
-                    <li><a href="submit_agenda.php" <?php echo $activePage === 'submit_agenda.php' ? 'class="active"' : ''; ?>>Submit Item</a></li>
+                    <li><a href="submit_agenda.php" <?php echo $activePage === 'submit_agenda.php' ? 'class="active"' : ''; ?>>Submit Item<?php if ($pendingSubmissions > 0): ?> <span class="nav-count" title="<?php echo $pendingSubmissions; ?> submission(s) awaiting review"><?php echo $pendingSubmissions; ?></span><?php endif; ?></a></li>
                     <?php endif; ?>
                     <?php if ($canManageUsers): ?>
                     <li><a href="users.php" <?php echo $activePage === 'users.php' ? 'class="active"' : ''; ?>>Users</a></li>
